@@ -1,0 +1,31 @@
+#canvas {
+    width: 720px;
+    height: 720px;
+    background-color: transparent;
+    border: 1px solid black;
+    position: relative;  /* Needed for absolutely positioned children */
+    user-select: none;   /* Prevent text selection during drag */
+}
+
+
+
+/* Point styling */
+.point {
+    width: 10px;
+    height: 10px;
+    background-color: rgb(21, 0, 255);
+    border-radius: 50%;
+    position: absolute;
+    cursor: pointer;
+    transform: translate(-50%, -50%); /* Center the point on its coordinates */
+}
+
+.ctrlpoint {
+    width: 10px;
+    height: 10px;
+    background-color: red;
+    border-radius: 50%;
+    position: absolute;
+    cursor: pointer;
+    transform: translate(-50%, -50%); /* Center the point on its coordinates */
+}
