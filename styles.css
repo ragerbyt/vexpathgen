@@ -1,31 +1,54 @@
+body {
+    background-color: #111456; /* Change to your preferred color */
+}
+
+
+#path {
+    position: relative;
+    top: 50px;  /* Moves the canvas 100px from the top */
+    left: 50px; /* Moves the canvas 200px from the left */
+
+}
+
+/* Canvas styling */
 #canvas {
-    width: 720px;
-    height: 720px;
+    position: relative;
+    top: 37.5px;  /* Moves the canvas 100px from the top */
+    left: 37.5px; /* Moves the canvas 200px from the left */
+    width: 600px; /* Set a width */
+    height: 600px; /* Set a height */
+    
+
     background-color: transparent;
-    border: 1px solid black;
-    position: relative;  /* Needed for absolutely positioned children */
-    user-select: none;   /* Prevent text selection during drag */
+    border: 5px solid rgb(255, 255, 255);
+    user-select: none;
+    border-radius: 10px; /* Adjust the radius to your liking */ 
+
 }
 
 
 
-/* Point styling */
-.point {
-    width: 10px;
-    height: 10px;
-    background-color: rgb(21, 0, 255);
+/* Styling for draggable points */
+.point{
+    width: 8px;
+    height: 8px;
     border-radius: 50%;
     position: absolute;
-    cursor: pointer;
-    transform: translate(-50%, -50%); /* Center the point on its coordinates */
+    cursor: grab;
+    transform: translate(-50%, -50%);
+    border: 2px solid white; /* Enhances visibility */
+    transition: transform 0.1s ease-in-out;
 }
 
-.ctrlpoint {
-    width: 10px;
-    height: 10px;
-    background-color: red;
-    border-radius: 50%;
-    position: absolute;
-    cursor: pointer;
-    transform: translate(-50%, -50%); /* Center the point on its coordinates */
+/* Primary draggable points *
+
+/* Hover effect */
+.point:hover{
+    transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* When dragging a point */
+.point{
+    cursor: grabbing;
+    transform: translate(-50%, -50%) scale(1.3);
 }
