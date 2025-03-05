@@ -36,7 +36,7 @@ body {
     position: absolute;
     cursor: grab;
     transform: translate(-50%, -50%);
-    border: 2px solid white; /* Enhances visibility */
+    border: 1px solid white; /* Enhances visibility */
     transition: transform 0.1s ease-in-out;
 }
 

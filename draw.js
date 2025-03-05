@@ -62,7 +62,7 @@ function drawPath(ctx, waypoints) {
  * @param {Object} end - The ending point { x, y }.
  */
 function drawLine(ctx, start, end) {
-    ctx.strokeStyle = "lightgreen";
+    ctx.strokeStyle = "rgb(57, 255, 20)";
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(start.x, start.y);

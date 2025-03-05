@@ -40,10 +40,10 @@ function createPointSet(centerX, centerY, rect) {
     function createCtrl(pointElem,x,y,offset,color){
         pointElem.classList.add('point');
 
-        pointElem.dataset.dist = offset * 50;
-        pointElem.dataset.x = x + offset * 50;
+        pointElem.dataset.dist = offset * 20;
+        pointElem.dataset.x = x + offset * 20;
         pointElem.dataset.y = y;
-        pointElem.style.left = `${x + offset * 50}px`;
+        pointElem.style.left = `${x + offset * 20}px`;
         pointElem.style.top = `${y}px`;
         pointElem.style.backgroundColor = color;
         pointElem.dataset.index = points.length;
