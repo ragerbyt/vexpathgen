@@ -1,9 +1,13 @@
 // Listen for the "generatepath" event to compute the Bezier path waypoints.
-document.addEventListener('generatepath', (event) => {
-    const points = event.detail.points;
-    const waypoints = computeBezierWaypoints(points);
-    dispatchDrawPathEvent(waypoints);
+
+
+
+document.addEventListener('generatepath', () => {
+    waypoints = computeBezierWaypoints();
+    dispatchDrawPathEvent();
 });
+
+
 
 /**
  * Computes waypoints along Bezier curves for each group of 6 points.
@@ -12,8 +16,9 @@ document.addEventListener('generatepath', (event) => {
  * @param {Array} points - Array of point elements containing dataset.x and dataset.y.
  * @returns {Array} Array of waypoint objects { x, y }.
  */
-function computeBezierWaypoints(points) {
-    const waypoints = [];
+function computeBezierWaypoints() {
+
+    waypoints = [];
 
     // Process points in groups of 6 (starting every 5 points)
     for (let i = 0; i < points.length; i += 5) {
@@ -21,7 +26,7 @@ function computeBezierWaypoints(points) {
         if (i + 6 > points.length) break;
 
         // t parameter runs from 0 to 1 in increments.
-        for (let t = 0; t <= 1.01; t += 0.01) {
+        for (let t = 0; t <= 1; t += 0.001) {
             let x = 0;
             let y = 0;
 
@@ -46,10 +51,8 @@ function computeBezierWaypoints(points) {
  *
  * @param {Array} waypoints - Array of waypoint objects { x, y }.
  */
-function dispatchDrawPathEvent(waypoints) {
-    const drawPathEvent = new CustomEvent("drawpath", {
-        detail: { waypoints },
-    });
+function dispatchDrawPathEvent() {
+    const drawPathEvent = new CustomEvent("drawpath", {});
     document.dispatchEvent(drawPathEvent);
 }
 

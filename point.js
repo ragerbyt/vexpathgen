@@ -1,4 +1,5 @@
-const points = [];
+let points = [], waypoints = [];
+
 let isDraggingGlobal = false;
 
 document.addEventListener("DOMContentLoaded", initCanvas);
@@ -21,6 +22,7 @@ function handleCanvasClick(e, canvas) {
 
     createPointSet(clickX, clickY, rect);
     dispatchPathGeneration();
+
 }
 
 function createPointSet(centerX, centerY, rect) {
@@ -70,7 +72,11 @@ function createPointSet(centerX, centerY, rect) {
 
         const pointElem = document.createElement('div');
         createCtrl(pointElem,prevx,prevy,offset,color);
+
+        updateControlPosition(points[idx],pointElem);
     }
+
+    line(idx,idx+2);
     
     //next 2
     for (let offset = -1; offset >= -2; offset--) {
@@ -91,6 +97,11 @@ function createPointSet(centerX, centerY, rect) {
 
     pointElem.dataset.anglex = 1;
     pointElem.dataset.angley = 0;
+
+    line(idx+3,idx+5);
+    refreshPointPositions();
+
+    console.log(waypoints.length);
 
 }
 
@@ -114,10 +125,12 @@ function startDrag(pointElem, rect) {
         const newY = e.clientY - rect.top;
         updateDrag(pointElem, newX, newY);
         dispatchPathGeneration();
+        line();
     }
 
     function onMouseUp() {
         removeDragListeners();
+        isDraggingGlobal = false;
     }
 
     function removeDragListeners() {
@@ -145,6 +158,8 @@ function updateDrag(pointElem, newX, newY) {
                 groupPoint.dataset.y = Number(groupPoint.dataset.y) - deltaY;
             }
         }
+
+        
     } else {
         // Control point: update only its own position.
         pointElem.dataset.x = newX;
@@ -164,7 +179,6 @@ function updateDrag(pointElem, newX, newY) {
             }
         }
     }
-
     refreshPointPositions();
 }
 
@@ -197,5 +211,12 @@ function updateControlPosition(mainPoint, controlPoint) {
 
 function dispatchPathGeneration() {
     // Dispatch a custom event so that other parts of your app can generate/update the path.
-    document.dispatchEvent(new CustomEvent("generatepath", { detail: { points } }));
+    document.dispatchEvent(new CustomEvent("generatepath", {}));
+}
+
+
+//start, end
+function line() {
+    // Dispatch a custom event so that other parts of your app can generate/update the path.
+    document.dispatchEvent(new CustomEvent("line", {}));
 }
