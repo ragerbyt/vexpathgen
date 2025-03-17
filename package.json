@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "chart.js": "^4.4.8",
-    "vite": "^6.2.1"
+    "vite": "^6.2.2"
   },
   "scripts": {
     "dev": "vite",

@@ -1,0 +1,50 @@
+body {
+  background-color: #111456; /* Change to your preferred color */
+}
+
+#path {
+  position: absolute;
+  top: 50px; /* Moves the canvas 100px from the top */
+  left: 50px; /* Moves the canvas 200px from the left */
+}
+
+#velocitygraph {
+  position: absolute;
+  top: 0px; /* Moves the canvas 100px from the top */
+  left: 700px; /* Moves the canvas 200px from the left */
+
+  border: 5px solid rgb(255, 255, 255);
+}
+
+#accelgraph {
+  position: absolute;
+  top: 0px; /* Moves the canvas 100px from the top */
+  left: 700px; /* Moves the canvas 200px from the left */
+
+  border: 5px solid rgb(255, 255, 255);
+}
+
+/* Styling for draggable points */
+.point {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  position: absolute;
+  cursor: grab;
+  transform: translate(-50%, -50%);
+  border: 1px solid white; /* Enhances visibility */
+  transition: transform 0.1s ease-in-out;
+}
+
+/* Primary draggable points *
+
+/* Hover effect */
+.point:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* When dragging a point */
+.point {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.3);
+}

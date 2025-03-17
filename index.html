@@ -4,21 +4,14 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Vex Path Gen</title>
-  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <!-- Canvas for drawing the path -->
   <canvas id="path"></canvas>
   <canvas id="velocitygraph" width="400" height="200"></canvas>
   <canvas id="accelgraph" width="400" height="200"></canvas>
-
-  <!-- Additional container (if needed) -->
-  <div id="canvas"></div>
     
-  <!-- Load scripts after the HTML content -->
-  <script src="point.js" type="module"></script>
-  <script src="draw.js" type="module"></script>
-  <script src="curve.js" type="module"></script>
-  <script src="chart.js" type="module"></script>
+  <!-- Entrypoint -->
+	<script src="src/index.ts" type="module"></script>
 </body>
 </html>
