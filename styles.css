@@ -4,9 +4,28 @@ body {
 
 
 #path {
-    position: relative;
+    position: absolute;
     top: 50px;  /* Moves the canvas 100px from the top */
     left: 50px; /* Moves the canvas 200px from the left */
+
+}
+
+#velocitygraph {
+    position: absolute;
+    top: 0px;  /* Moves the canvas 100px from the top */
+    left: 700px; /* Moves the canvas 200px from the left */
+
+    border: 5px solid rgb(255, 255, 255);
+
+}
+
+
+#accelgraph {
+    position: absolute;
+    top: 0px;  /* Moves the canvas 100px from the top */
+    left: 700px; /* Moves the canvas 200px from the left */
+
+    border: 5px solid rgb(255, 255, 255);
 
 }
 

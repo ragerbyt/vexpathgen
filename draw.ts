@@ -1,10 +1,13 @@
+
+
+
 /**
  * Initializes the canvas, loads the background image,
  * and sets up the event listener to redraw the path.
  */
 function setupCanvas() {
     const canvas = document.getElementById('path') as HTMLCanvasElement;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d')!;
 
     // Set canvas dimensions.
     canvas.width = 600;
@@ -14,16 +17,19 @@ function setupCanvas() {
     const background = new Image(); 
     background.src = "vexfield.png"; // Ensure the image exists in your directory.
     background.onload = () => {
-        redrawCanvas(ctx, background); // Draw background immediately.
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
     };
 
+    let controlpoints: HTMLDivElement[];
     // Listen for the custom "drawpath" event to update the path.
-    document.addEventListener('drawpath', () => {
-        redrawCanvas(ctx, background);
-    });
+    document.addEventListener('drawpath', (e : CustomEventInit) => {
+        controlpoints =  e.detail.controlpoints;
+        redrawCanvas(ctx, background, e.detail.controlpoints);
 
-    document.addEventListener('line', () => {
-        redrawCanvas(ctx, background);
+    });
+    document.addEventListener('line', (e) => {
+        redrawCanvas(ctx, background,controlpoints);
 
     });
 }
@@ -35,7 +41,12 @@ function setupCanvas() {
  * @param {HTMLImageElement} background - The background image.
  * @param {Array} waypoints - Array of waypoints to draw the path.
  */
-function redrawCanvas(ctx, background) {
+
+import {waypoints} from './curve';  // Adjust the path based on your file structure
+
+
+
+function redrawCanvas(ctx, background, controlpoints: HTMLDivElement[]) {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
     
@@ -43,10 +54,14 @@ function redrawCanvas(ctx, background) {
         drawPath(ctx);
     }
 
-    
-    for(let i = 0; i < points.length; i+= 5){
+    if (controlpoints === undefined){
+        return;
+    }
 
-        if (points[1] === undefined) {
+    
+    for(let i = 0; i < controlpoints.length; i+= 5){
+
+        if (controlpoints[1] === undefined) {
             break;
         }
 
@@ -55,47 +70,46 @@ function redrawCanvas(ctx, background) {
 
         if(i == 0){
             for(let j = 0; j < 3; j++){
-                let x = Number(points[i+j].dataset.x);
+                let x = Number(controlpoints[i+j].dataset.x);
 
                 if(x < sx){
-                    point1 = points[i+j];
+                    point1 = controlpoints[i+j];
                     sx = x;
                 }
                 if(x > lx){
-                    point2 = points[i+j];
+                    point2 = controlpoints[i+j];
                     lx = x;
                 }
             }
 
             
-        }else if(i == points.length - 1){
+        }else if(i == controlpoints.length - 1){
             for(let j = -2; j <= 0; j++){
-                let x = Number(points[i+j].dataset.x);
+                let x = Number(controlpoints[i+j].dataset.x);
 
                 if(x < sx){
-                    point1 = points[i+j];
+                    point1 = controlpoints[i+j];
                     sx = x;
                 }
                 if(x > lx){
-                    point2 = points[i+j];
+                    point2 = controlpoints[i+j];
                     lx = x;
                 }
             }
         }else{
             for(let j = -2; j <= 2; j++){
-                let x = Number(points[i+j].dataset.x);
+                let x = Number(controlpoints[i+j].dataset.x);
 
                 if(x < sx){
-                    point1 = points[i+j];
+                    point1 = controlpoints[i+j];
                     sx = x;
                 }
                 if(x > lx){
-                    point2 = points[i+j];
+                    point2 = controlpoints[i+j];
                     lx = x;
                 }
             }
         }
-
         drawLine(ctx, point1!.dataset, point2!.dataset, "white");
 
     }
@@ -109,13 +123,8 @@ function redrawCanvas(ctx, background) {
  * @param {Array} waypoints - Array of { x, y } points.
  */
 function drawPath(ctx) {
-    for (let i = 0; i < waypoints.length; i++) {
-
-        let section = waypoints[i];
-        
-        for(let j = 1; j < 1000; j++){
-            drawLine(ctx, section[i - 1], section[i], "rgb(57, 255, 20)");
-        }
+    for (let i = 1; i < waypoints.length; i++) {
+        drawLine(ctx, waypoints[i - 1], waypoints[i], "rgb(57, 255, 20)");
     }
 }
 
@@ -126,13 +135,13 @@ function drawPath(ctx) {
  * @param {Object} start - The starting point { x, y }.
  * @param {Object} end - The ending point { x, y }.
  */
-function drawLine(ctx, start, end, color) {
+function drawLine(ctx: CanvasRenderingContext2D, start: any, end: any, color: string) {
     ctx.strokeStyle = color;
     ctx.lineWidth = 2;
     ctx.beginPath();
-    ctx.moveTo(Number(start.x), Number(start.y));
+    ctx.moveTo(Number(start.x), Number(start.y)); // conversion may be missing in one context
     ctx.lineTo(Number(end.x), Number(end.y));
-
     ctx.stroke();
 }
+
 document.addEventListener("DOMContentLoaded", setupCanvas);
