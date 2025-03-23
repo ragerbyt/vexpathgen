@@ -10,8 +10,8 @@ import { controlpoints, Point } from "./point";
 function setupCanvas() {
   const ctx = canvas.getContext("2d")!;
   // Set canvas dimensions.
-  canvas.width = 600;
-  canvas.height = 600;
+  canvas.width = Math.min(window.innerWidth, window.innerHeight) * 0.8;
+  canvas.height = Math.min(window.innerWidth, window.innerHeight) * 0.8;
   // Load background image.
   const background = new Image();
   background.src = fieldImageURL;
@@ -22,10 +22,6 @@ function setupCanvas() {
 
   // Listen for the custom "drawpath" event to update the path.
   document.addEventListener("drawpath", () => {
-    redrawCanvas(ctx, background);
-  });
-
-  document.addEventListener("line", () => {
     redrawCanvas(ctx, background);
   });
 
@@ -43,73 +39,12 @@ function setupCanvas() {
 function redrawCanvas(ctx: CanvasRenderingContext2D, background: HTMLImageElement) {
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
-
   if (waypoints.length > 1) {
     drawPath(ctx);
   }
 
   if (controlpoints.length === 0) {
     return;
-  }
-
-  // Draw lines between control points
-  for (let i = 0; i < controlpoints.length; i += 5) {
-    if (i + 1 >= controlpoints.length) {
-      break;
-    }
-
-    let sx = Infinity,
-      lx = -Infinity;
-    let point1: Point | null = null,
-      point2: Point | null = null;
-
-    if (i === 0) {
-      for (let j = 0; j < 3; j++) {
-        if (i + j >= controlpoints.length) break;
-
-        let x = controlpoints[i + j].x;
-        if (x < sx) {
-          point1 = controlpoints[i + j];
-          sx = x;
-        }
-        if (x > lx) {
-          point2 = controlpoints[i + j];
-          lx = x;
-        }
-      }
-    } else if (i === controlpoints.length - 1) {
-      for (let j = -2; j <= 0; j++) {
-        if (i + j < 0 || i + j >= controlpoints.length) continue;
-
-        let x = controlpoints[i + j].x;
-        if (x < sx) {
-          point1 = controlpoints[i + j];
-          sx = x;
-        }
-        if (x > lx) {
-          point2 = controlpoints[i + j];
-          lx = x;
-        }
-      }
-    } else {
-      for (let j = -2; j <= 2; j++) {
-        if (i + j < 0 || i + j >= controlpoints.length) continue;
-
-        let x = controlpoints[i + j].x;
-        if (x < sx) {
-          point1 = controlpoints[i + j];
-          sx = x;
-        }
-        if (x > lx) {
-          point2 = controlpoints[i + j];
-          lx = x;
-        }
-      }
-    }
-
-    if (point1 && point2) {
-      drawLine(ctx, point1, point2, "white");
-    }
   }
 }
 
@@ -118,11 +53,32 @@ function redrawCanvas(ctx: CanvasRenderingContext2D, background: HTMLImageElemen
  *
  * @param {CanvasRenderingContext2D} ctx - The canvas drawing context.
  */
+/**
+ * Maps a velocity value (assumed range 0 to 20) to a color.
+ * Lower velocities are red; higher velocities are green.
+ */
+function velocityToColor(velocity: number): string {
+  const minVel = -5;
+  const maxVel = 55;
+  // Normalize velocity to [0, 1]
+  let norm = (velocity - minVel) / (maxVel - minVel);
+  norm = Math.max(0, Math.min(1, norm));
+  // Interpolate between red (255, 0, 0) and green (0, 255, 0)
+  const r = Math.round(255 * (1 - norm));
+  const g = Math.round(255 * norm);
+  const b = 0;
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
 function drawPath(ctx: CanvasRenderingContext2D) {
   for (let i = 1; i < waypoints.length; i++) {
-    drawLine(ctx, waypoints[i - 1], waypoints[i], "rgb(57, 255, 20)");
+    // Compute the average velocity between two waypoints.
+    const avgVelocity = (waypoints[i - 1].velocity + waypoints[i].velocity) / 2;
+    const color = velocityToColor(avgVelocity);
+    drawLine(ctx, waypoints[i - 1], waypoints[i], color);
   }
 }
+
 
 /**
  * Draws a line between two points with specified color.
@@ -142,3 +98,5 @@ function drawLine(ctx: CanvasRenderingContext2D, start: any, end: any, color: st
 }
 
 setupCanvas();
+
+

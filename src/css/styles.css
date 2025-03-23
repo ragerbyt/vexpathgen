@@ -10,18 +10,21 @@ body {
 
 #velocitygraph {
   position: absolute;
-  top: 0px; /* Moves the canvas 100px from the top */
-  left: 700px; /* Moves the canvas 200px from the left */
+  top: 1000px; /* Moves the canvas 100px from the top */
+  left: 1500px; /* Moves the canvas 200px from the left */
 
-  border: 5px solid rgb(255, 255, 255);
+  border: 2px solid rgb(255, 255, 255);
+  border-radius: 10px;
+
 }
 
 #accelgraph {
   position: absolute;
-  top: 0px; /* Moves the canvas 100px from the top */
-  left: 700px; /* Moves the canvas 200px from the left */
+  top: 1000px; /* Moves the canvas 100px from the top */
+  left: 1500px; /* Moves the canvas 200px from the left */
 
-  border: 5px solid rgb(255, 255, 255);
+  border: 2px solid rgb(255, 255, 255);
+  border-radius: 10px;
 }
 
 /* Styling for draggable points */
@@ -47,4 +50,67 @@ body {
 .point {
   cursor: grabbing;
   transform: translate(-50%, -50%) scale(1.3);
+}
+
+#mouse-coordinates {
+  position: absolute;
+  left: 1000px; /* Adjust based on your canvas position */
+  top: 10px;
+  font-size: 14px;
+  color: white;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-family: Arial, sans-serif;
+  font-weight: bold;
+  pointer-events: none; /* Prevents it from interfering with mouse events */
+  white-space: nowrap;
+  transition: opacity 0.2s ease-in-out;
+}
+
+#togglePoints {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  padding: 10px 15px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+#togglePoints:hover {
+  background-color: #2980b9;
+  transform: scale(1.05);
+}
+
+#togglePoints:active {
+  transform: scale(0.95);
+}
+
+
+#clear {
+  position: absolute;
+  top: 10px;
+  left: 150px;
+  padding: 10px 15px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+#clear:hover {
+  background-color: #2980b9;
+  transform: scale(1.05);
+}
+
+#clear:active {
+  transform: scale(0.95);
 }
