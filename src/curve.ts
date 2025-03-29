@@ -2,6 +2,7 @@
 const FIELD_WIDTH_INCHES = 144;
 const MAX_VELOCITY = 50;         // Maximum velocity in inches per second
 const MAX_ACCELERATION = 10;      // Maximum acceleration in inches per second squared
+const MAX_JERK = 100;           // Maximum jerk in inches per second cubed
 
 export interface Point {
   x: number;         // x-coordinate in inches
@@ -21,37 +22,8 @@ import { accelGraph, velocityGraph } from "./globals";
 import { Point as ControlPoint } from "./point";
 import { plotData, plotDataaccel } from "./plot";
 
-/**
- * Returns the x coordinate of a cubic Bezier curve (4 control points) at parameter t.
- * (Assumes control points are in inches.)
- */
-function getx(points: ControlPoint[], t: number): number {
-  let x = 0;
-  for (let j = 0; j < 4; j++) {
-    const pointX = points[j].x;
-    const coeff = binomialCoefficient(3, j) * Math.pow(1 - t, 3 - j) * Math.pow(t, j);
-    x += coeff * pointX;
-  }
-  return x;
-}
+// ... (Bezier interpolation and velocity limiting code remain unchanged)
 
-/**
- * Returns the y coordinate of a cubic Bezier curve (4 control points) at parameter t.
- */
-function gety(points: ControlPoint[], t: number): number {
-  let y = 0;
-  for (let j = 0; j < 4; j++) {
-    const pointY = points[j].y;
-    const coeff = binomialCoefficient(3, j) * Math.pow(1 - t, 3 - j) * Math.pow(t, j);
-    y += coeff * pointY;
-  }
-  return y;
-}
-
-/**
- * Computes waypoints along the Bezier curve using distance-based interpolation.
- * The computed waypoints have positions in inches.
- */
 export function computeBezierWaypoints(points: ControlPoint[]) {
   waypoints.splice(0, waypoints.length);
   if (points.length === 0) return;
@@ -161,7 +133,7 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
       turnAngle = computeTurnAngle(waypoints[i - 1], waypoints[i], waypoints[i + 1]);
     }
     // Use turnAngle to constrain velocity.
-    const maxVelBasedOnTurn = turnAngle > 0 ? Math.sqrt(2 * MAX_ACCELERATION / turnAngle) : MAX_VELOCITY;
+    const maxVelBasedOnTurn = turnAngle > 0 ? Math.sqrt(MAX_ACCELERATION / turnAngle) : MAX_VELOCITY;
     waypoints[i].velocity = Math.min(waypoints[i].velocity, maxVelBasedOnTurn);
     waypoints[i].angularVelocity = waypoints[i].velocity * turnAngle;
     // Optionally store turnAngle in curvature field.
@@ -179,10 +151,8 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
       currentPoint.velocity,
       computeMaxVelocity(futureVelocity, MAX_ACCELERATION, distStep)
     );
-
+    // (Acceleration will be calculated later)
   }
-
-
 
   for (let i = 1; i < waypoints.length; i++) {
     const currentPoint = waypoints[i];
@@ -205,17 +175,37 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
   waypoints[0].accel = 0;
   for (let i = 1; i < waypoints.length; i++) {
     const distStep = calcdistance(waypoints[i], waypoints[i - 1]);
-
-    const averagevel = (waypoints[i].velocity + waypoints[i-1].velocity)/2
-
+    const averagevel = (waypoints[i].velocity + waypoints[i - 1].velocity) / 2;
     cumtime += distStep / averagevel;
-    
     waypoints[i].time = cumtime;
+    // Compute acceleration as the difference in velocity over the elapsed time:
+    waypoints[i].accel = (waypoints[i].velocity - waypoints[i - 1].velocity) / (distStep / averagevel);
+  }
 
+  waypoints[waypoints.length - 1].accel = 0;
+  waypoints[0].accel = 0;
 
+  // --- Jerk limiting passes ---
+  // Backward pass: ensure that the change in acceleration between consecutive waypoints does not exceed MAX_JERK
+  for (let i = waypoints.length - 2; i >= 0; i--) {
+    const dt = waypoints[i + 1].time - waypoints[i].time;
+    const maxAccelDiff = MAX_JERK * dt;
+    if (waypoints[i + 1].accel - waypoints[i].accel > maxAccelDiff) {
+      // Lower the acceleration at the earlier waypoint:
+      waypoints[i].accel = waypoints[i + 1].accel - maxAccelDiff;
+      // Adjust velocity to be consistent with the new acceleration:
+      waypoints[i].velocity = waypoints[i + 1].velocity - waypoints[i].accel * dt;
+    }
+  }
 
-    waypoints[i].accel = (waypoints[i].velocity - waypoints[i-1].velocity) / (distStep/averagevel) ;
-
+  // Forward pass: similarly enforce the jerk limit in the forward direction
+  for (let i = 1; i < waypoints.length; i++) {
+    const dt = waypoints[i].time - waypoints[i - 1].time;
+    const maxAccelDiff = MAX_JERK * dt;
+    if (waypoints[i].accel - waypoints[i - 1].accel > maxAccelDiff) {
+      waypoints[i].accel = waypoints[i - 1].accel + maxAccelDiff;
+      waypoints[i].velocity = waypoints[i - 1].velocity + waypoints[i].accel * dt;
+    }
   }
 
   // Finally, plot graphs
@@ -246,5 +236,39 @@ function factorial(n: number): number {
  * For a cubic Bezier curve, each segment uses 4 points.
  */
 function section(points: ControlPoint[], segment: number): ControlPoint[] {
-  return points.slice(3 * segment, 3 * segment + 4);
+  const segPoints = points
+    .slice(3 * segment, 3 * segment + 4)
+    .map(p => ({ ...p }));
+
+  if (segPoints.length < 4) return segPoints;
+
+  const factor = 2;
+  const [p0, p1, p2, p3] = segPoints;
+
+  p1.x = p0.x + factor * (p1.x - p0.x);
+  p1.y = p0.y + factor * (p1.y - p0.y);
+  p2.x = p3.x + factor * (p2.x - p3.x);
+  p2.y = p3.y + factor * (p2.y - p3.y);
+
+  return segPoints;
+}
+
+function getx(points: ControlPoint[], t: number): number {
+  let x = 0;
+  for (let j = 0; j < 4; j++) {
+    const pointX = points[j].x;
+    const coeff = binomialCoefficient(3, j) * Math.pow(1 - t, 3 - j) * Math.pow(t, j);
+    x += coeff * pointX;
+  }
+  return x;
+}
+
+function gety(points: ControlPoint[], t: number): number {
+  let y = 0;
+  for (let j = 0; j < 4; j++) {
+    const pointY = points[j].y;
+    const coeff = binomialCoefficient(3, j) * Math.pow(1 - t, 3 - j) * Math.pow(t, j);
+    y += coeff * pointY;
+  }
+  return y;
 }

@@ -140,6 +140,39 @@ function redraw(ctx: CanvasRenderingContext2D) {
     drawPath(ctx, datas, "rgb(0, 255, 255)");
   }
   
+  export function plotDataCombined(chart: HTMLCanvasElement, waypoints: Point[]) {
+    const ctx = chart.getContext("2d")!;
+    redraw(ctx); 
+  
+    // Canvas & margin settings
+    const canvasWidth = chart.width;
+    const canvasHeight = chart.height;
+    const graphWidth = canvasWidth - marginLeft - marginRight;
+    const graphHeight = canvasHeight - marginTop - marginBottom;
+    
+    // Plot velocity
+    const velocityData: { x: number; y: number }[] = [];
+    for (let i = 0; i < waypoints.length; i++) {
+      const timeRatio = waypoints[i].time / waypoints[waypoints.length - 1].time;
+      const normVel = (waypoints[i].velocity - (-0.2 * MAX_VELOCITY)) / ((MAX_VELOCITY * 1.2) - (-0.2 * MAX_VELOCITY));
+      const xPos = marginLeft + timeRatio * graphWidth;
+      const yPos = marginTop + (1 - normVel) * graphHeight;
+      velocityData.push({ x: xPos, y: yPos });
+    }
+    drawPath(ctx, velocityData, "magenta");
+  
+    // Plot acceleration
+    const accelData: { x: number; y: number }[] = [];
+    for (let i = 0; i < waypoints.length; i++) {
+      const timeRatio = waypoints[i].time / waypoints[waypoints.length - 1].time;
+      const normAccel = (waypoints[i].accel - (-MAX_ACCELERATION * 1.2)) / ((MAX_ACCELERATION * 1.2) - (-MAX_ACCELERATION * 1.2));
+      const xPos = marginLeft + timeRatio * graphWidth;
+      const yPos = marginTop + (1 - normAccel) * graphHeight;
+      accelData.push({ x: xPos, y: yPos });
+    }
+    drawPath(ctx, accelData, "cyan");
+  }
+  
   function drawPath(ctx: CanvasRenderingContext2D, datas: { x: number; y: number }[], color: string) {
     for (let i = 1; i < datas.length; i++) {
       drawLine(ctx, datas[i - 1], datas[i], color);
@@ -155,4 +188,3 @@ function redraw(ctx: CanvasRenderingContext2D) {
     ctx.lineTo(end.x, end.y);
     ctx.stroke();
   }
-  

@@ -97,10 +97,13 @@ function handleMouseDown(e: MouseEvent) {
 
 function handleMouseMove(e: MouseEvent) {
   if (!activeDragPoint) return;
-
   const rect = canvas.getBoundingClientRect();
-  const newX = e.clientX - rect.left;
-  const newY = e.clientY - rect.top;
+  let newX = e.clientX - rect.left;
+  let newY = e.clientY - rect.top;
+
+  // Clamp values so points can't exit the canvas
+  newX = Math.max(0, Math.min(canvas.width, newX));
+  newY = Math.max(0, Math.min(canvas.height, newY));
 
   updateDrag(activeDragPoint, newX, newY);
   redrawPoints();
@@ -235,7 +238,7 @@ function updateDrag(point: Point, newX: number, newY: number) {
       }
     }
   }
-
+  
   dispatchPathGeneration();
 }
 

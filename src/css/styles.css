@@ -6,12 +6,14 @@ body {
   position: absolute;
   top: 50px; /* Moves the canvas 100px from the top */
   left: 50px; /* Moves the canvas 200px from the left */
+  border: 5px solid white;
+  border-radius: 10px;
 }
 
 #velocitygraph {
   position: absolute;
-  top: 1000px; /* Moves the canvas 100px from the top */
-  left: 1500px; /* Moves the canvas 200px from the left */
+  bottom: 10px; /* Moves the canvas 100px from the top */
+  right: 10px; /* Moves the canvas 200px from the left */
 
   border: 2px solid rgb(255, 255, 255);
   border-radius: 10px;
@@ -20,8 +22,8 @@ body {
 
 #accelgraph {
   position: absolute;
-  top: 1000px; /* Moves the canvas 100px from the top */
-  left: 1500px; /* Moves the canvas 200px from the left */
+  bottom: 10px; /* Moves the canvas 100px from the top */
+  right: 10px; /* Moves the canvas 200px from the left */
 
   border: 2px solid rgb(255, 255, 255);
   border-radius: 10px;
