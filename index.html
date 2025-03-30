@@ -7,14 +7,20 @@
 </head>
 <body>
   <canvas id="path"></canvas>
-  <canvas id="velocitygraph" width="600" height="200"></canvas>
-  <canvas id="accelgraph" width="600" height="200"></canvas>
+
   <div id="mouse-coordinates">X: 0, Y: 0</div>
   <button id="togglePoints">Toggle Points</button>
   <button id="clear">Clear Points</button>
   <input type="text" id="fileNameInput" placeholder="Enter file name (e.g., vex_path.cpp)" />
   <button id="saveCpp">Save C++ File</button>
+
+
+  <div id="graphs-container">
+    <canvas id="graph" width="600" height="200"></canvas>
   
+    <div id="time-label" class="graph-label">Time</div>
+  </div>
+
   <!-- Entrypoint -->
   <script src="src/index.ts" type="module"></script>
 </body>

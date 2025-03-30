@@ -1,129 +1,100 @@
+/* General Body Styling */
 body {
-  background-color: #111456; /* Change to your preferred color */
+  background-color: #111456;
+  font-family: Arial, sans-serif;
+  margin: 0;
+  padding: 0;
+}
+
+/* Canvas Styling */
+canvas {
+  border-radius: 10px;
 }
 
 #path {
   position: absolute;
-  top: 50px; /* Moves the canvas 100px from the top */
-  left: 50px; /* Moves the canvas 200px from the left */
+  top: 50px;
+  left: 50px;
   border: 5px solid white;
-  border-radius: 10px;
 }
 
-#velocitygraph {
+#graph{
   position: absolute;
-  bottom: 10px; /* Moves the canvas 100px from the top */
-  right: 10px; /* Moves the canvas 200px from the left */
-
-  border: 2px solid rgb(255, 255, 255);
-  border-radius: 10px;
-
+  bottom: 10px;
+  right: 10px;
+  border: 2px solid white;
 }
 
-#accelgraph {
+/* Graph Labels */
+.graph-label {
   position: absolute;
-  bottom: 10px; /* Moves the canvas 100px from the top */
-  right: 10px; /* Moves the canvas 200px from the left */
-
-  border: 2px solid rgb(255, 255, 255);
-  border-radius: 10px;
+  font-size: 16px;
+  font-weight: bold;
+  color: white;
 }
 
-/* Styling for draggable points */
-.point {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  position: absolute;
-  cursor: grab;
-  transform: translate(-50%, -50%);
-  border: 1px solid white; /* Enhances visibility */
-  transition: transform 0.1s ease-in-out;
+#time-label {
+  bottom: 220px; /* Adjust based on spacing */
+  right: 10px;
 }
 
-/* Primary draggable points *
-
-/* Hover effect */
-.point:hover {
-  transform: translate(-50%, -50%) scale(1.2);
-}
-
-/* When dragging a point */
-.point {
-  cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.3);
-}
-
+/* Mouse Coordinates */
 #mouse-coordinates {
   position: absolute;
-  left: 1000px; /* Adjust based on your canvas position */
+  left: 1000px;
   top: 10px;
   font-size: 14px;
   color: white;
   background: rgba(0, 0, 0, 0.75);
   padding: 8px 12px;
   border-radius: 6px;
-  font-family: Arial, sans-serif;
-  font-weight: bold;
-  pointer-events: none; /* Prevents it from interfering with mouse events */
+  pointer-events: none;
   white-space: nowrap;
   transition: opacity 0.2s ease-in-out;
 }
 
-#togglePoints {
+/* Buttons Styling */
+button {
   position: absolute;
+  padding: 10px 15px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  transition: background-color 0.3s, transform 0.2s;
+}
+
+button:hover {
+  background-color: #2980b9;
+  transform: scale(1.05);
+}
+
+button:active {
+  transform: scale(0.95);
+}
+
+#togglePoints {
   top: 10px;
   left: 10px;
-  padding: 10px 15px;
-  background-color: #3498db;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.3s, transform 0.2s;
 }
-
-#togglePoints:hover {
-  background-color: #2980b9;
-  transform: scale(1.05);
-}
-
-#togglePoints:active {
-  transform: scale(0.95);
-}
-
 
 #clear {
-  position: absolute;
   top: 10px;
   left: 150px;
-  padding: 10px 15px;
-  background-color: #3498db;
-  color: white;
-  border: none;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 14px;
-  transition: background-color 0.3s, transform 0.2s;
 }
 
-#clear:hover {
-  background-color: #2980b9;
-  transform: scale(1.05);
+#saveCpp {
+  right: 10%;
+  top: 10%;
 }
 
-#clear:active {
-  transform: scale(0.95);
-}
-
-
-/* Style for the input field */
+/* Input Field Styling */
 #fileNameInput {
   position: absolute;
   right: 10%;
   top: 20%;
-
   padding: 10px;
   font-size: 16px;
   margin: 10px;
@@ -133,23 +104,25 @@ body {
   box-sizing: border-box;
 }
 
-/* Style for the button */
-#saveCpp {
+/* Draggable Points */
+.point {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
   position: absolute;
-  right: 10%;
-  top: 10%;
-
-  padding: 10px 15px;
-  margin: 10px;
-  border: none;
-  background-color: #007bff;
-  color: white;
-  font-size: 16px;
-  cursor: pointer;
-  border-radius: 5px;
-  transition: background-color 0.3s ease;
+  cursor: grab;
+  transform: translate(-50%, -50%);
+  border: 1px solid white;
+  transition: transform 0.1s ease-in-out;
 }
 
-#saveCpp:hover {
-  background-color: #0056b3;
+/* Hover Effect */
+.point:hover {
+  transform: translate(-50%, -50%) scale(1.2);
+}
+
+/* When Dragging */
+.point:active {
+  cursor: grabbing;
+  transform: translate(-50%, -50%) scale(1.3);
 }

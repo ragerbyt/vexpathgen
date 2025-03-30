@@ -10,7 +10,7 @@ import { waypoints } from "./curve";
 document.addEventListener("DOMContentLoaded", () => {
     const saveCppButton = document.getElementById("saveCpp");
     const fileNameInput = document.getElementById("fileNameInput") as HTMLInputElement;
-
+    
     // Example waypoints (finalWaypoint objects)
   
 

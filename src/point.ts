@@ -29,36 +29,29 @@ function initCanvas() {
   redrawPoints();
 }
 
-
 let recordcontrolpoints: Point[][] = [];
 let currentindex = -1;
 
-document.addEventListener("keydown", (e) =>{
-  
-  if(e.ctrlKey){
+document.addEventListener("keydown", (e) => {
+  if (e.ctrlKey) {
     if (e.key.toLowerCase() === "z") {
       console.log("ab");
-      controlpoints = recordcontrolpoints[currentindex-1]; 
+      controlpoints = recordcontrolpoints[currentindex - 1];
       currentindex--;
 
       console.log(recordcontrolpoints);
 
       dispatchPathGeneration();
       redrawPoints();
-
     } else if (e.key.toLowerCase() === "y") {
-      
-      controlpoints = recordcontrolpoints[currentindex+1]; 
+      controlpoints = recordcontrolpoints[currentindex + 1];
       currentindex++;
 
       dispatchPathGeneration();
       redrawPoints();
-
     }
-
   }
-})
-
+});
 
 function handleCanvasClick(e: MouseEvent) {
   // If a drag event just occurred, do not create new points.
@@ -67,7 +60,7 @@ function handleCanvasClick(e: MouseEvent) {
     return;
   }
 
-  currentindex++;  
+  currentindex++;
   recordcontrolpoints[currentindex] = controlpoints;
 
   const rect = canvas.getBoundingClientRect();
@@ -81,9 +74,8 @@ function handleCanvasClick(e: MouseEvent) {
   createPointSet(fieldX, fieldY);
 }
 
-
 function handleMouseDown(e: MouseEvent) {
-  currentindex++;  
+  currentindex++;
   recordcontrolpoints[currentindex] = controlpoints;
 
   const rect = canvas.getBoundingClientRect();
@@ -121,7 +113,6 @@ function handleMouseMove(e: MouseEvent) {
   redrawPoints();
 }
 
-
 function handleMouseUp() {
   activeDragPoint = null;
   if (isDraggingGlobal) {
@@ -132,14 +123,14 @@ function handleMouseUp() {
 }
 
 function getPointAtPosition(fieldX: number, fieldY: number): Point | null {
-  const hitRadius = 4 * 144 / canvas.width; // in field units
+  const hitRadius = 10 * 144 / canvas.width; // in field units
   for (let i = controlpoints.length - 1; i >= 0; i--) {
     const point = controlpoints[i];
     const pointSize = point.size || 5;
     const dx = fieldX - point.x;
     const dy = fieldY - point.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
-    if (distance <= pointSize + hitRadius) {
+    if (distance <= hitRadius) {
       return point;
     }
   }
@@ -167,7 +158,7 @@ function createPointSet(fieldX: number, fieldY: number) {
   let idx = controlpoints.length - 1;
   let prevx = controlpoints[idx].x;
   let prevy = controlpoints[idx].y;
-  let offset = 20; // now in field units (0-144 range)
+  let offset = 40 * 144 / canvas.width; // now in field units (0-144 range)
 
   // Create first 2 control points
   const controlPoint1: Point = {
@@ -241,7 +232,7 @@ function updateDrag(point: Point, newX: number, newY: number) {
       }
     }
   }
-  
+
   dispatchPathGeneration();
 }
 
@@ -263,14 +254,12 @@ function dispatchPathGeneration() {
   document.dispatchEvent(new CustomEvent("drawpath", { detail: { controlpoints } }));
 }
 
-
 let showPoints = true; // Flag to track visibility
 
 document.getElementById("togglePoints")?.addEventListener("click", () => {
   showPoints = !showPoints;
   redrawPoints();
 });
-
 
 function redrawPoints() {
   const ctx = canvas.getContext("2d");
@@ -297,7 +286,7 @@ function redrawPoints() {
   // Draw points (converting field coordinates to canvas coordinates)
   for (const point of controlpoints) {
     ctx.beginPath();
-    const size = (point.size || 5);
+    const size = point.size || 5;
     const canvasX = fieldToCanvasX(point.x);
     const canvasY = fieldToCanvasY(point.y);
 
@@ -327,15 +316,13 @@ function drawLine(ctx: CanvasRenderingContext2D, start: Point, end: Point, color
   ctx.stroke();
 }
 
-
 // Export controlpoints for other modules
 export { controlpoints, type Point };
 
-
 document.getElementById("clear")?.addEventListener("click", () => {
-  controlpoints = []
+  controlpoints = [];
   redrawPoints();
-  dispatchPathGeneration()
+  dispatchPathGeneration();
 });
 
 // Convert canvas coordinate to field coordinate (0-144)
@@ -352,4 +339,53 @@ function fieldToCanvasX(x: number): number {
 }
 function fieldToCanvasY(y: number): number {
   return (y / 144) * canvas.height;
+}
+
+// Zoom and pan functionality
+let scale = 1; // Initial zoom level
+const minScale = 0.5; // Minimum zoom level
+const maxScale = 3; // Maximum zoom level
+let offsetX = 0; // Offset for panning
+let offsetY = 0;
+
+canvas.addEventListener("wheel", (e: WheelEvent) => {
+  e.preventDefault();
+
+  // Get mouse position relative to the canvas
+  const rect = canvas.getBoundingClientRect();
+  const mouseX = e.clientX - rect.left;
+  const mouseY = e.clientY - rect.top;
+
+  // Calculate the zoom direction
+  const zoomFactor = 0.1;
+  const zoomIn = e.deltaY < 0;
+  const newScale = zoomIn ? scale + zoomFactor : scale - zoomFactor;
+
+  // Clamp the scale to the min and max values
+  if (newScale < minScale || newScale > maxScale) return;
+
+  // Adjust the offset to zoom around the mouse pointer
+  offsetX = mouseX - (mouseX - offsetX) * (newScale / scale);
+  offsetY = mouseY - (mouseY - offsetY) * (newScale / scale);
+
+  scale = newScale;
+
+  redrawCanvasWithZoom();
+});
+
+function redrawCanvasWithZoom() {
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return;
+
+  // Clear the canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+  // Apply scaling and translation
+  ctx.save();
+  ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
+
+  // Redraw points and paths
+  redrawPoints();
+
+  ctx.restore();
 }
