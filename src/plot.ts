@@ -12,10 +12,7 @@ const marginRight = 20;
 const marginTop = 20;
 const marginBottom = 50;
 
-// Constants (all distances in inches)
-const MAX_VELOCITY = 50;         // Maximum velocity in inches per second
-const MAX_ACCELERATION = 10;      // Maximum acceleration in inches per second squared
-
+import { MAX_VELOCITY,MAX_ACCELERATION,MAX_JERK } from "./globals";
 // Function to plot velocity over time/index
 
 function redraw(ctx: CanvasRenderingContext2D) {

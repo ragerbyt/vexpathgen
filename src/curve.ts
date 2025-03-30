@@ -1,8 +1,4 @@
-// Constants (all distances in inches)
-const FIELD_WIDTH_INCHES = 144;
-const MAX_VELOCITY = 50;         // Maximum velocity in inches per second
-const MAX_ACCELERATION = 10;      // Maximum acceleration in inches per second squared
-const MAX_JERK = 100;           // Maximum jerk in inches per second cubed
+import { MAX_JERK,MAX_ACCELERATION,MAX_VELOCITY} from "./globals";
 
 export interface Point {
   x: number;         // x-coordinate in inches
@@ -13,6 +9,7 @@ export interface Point {
   accel: number;
   dist: number;
   time: number;
+  orientation: number; // Added: Orientation (heading) in radians
 }
 
 // Array to hold computed waypoints
@@ -73,6 +70,7 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
       dist: targetDist,
       accel: 0,
       time: 0,
+      orientation: 0, // Initialize orientation here
     };
     for (let j = 0; j < 4; j++) {
       const coeff = binomialCoefficient(3, j) *
@@ -81,7 +79,16 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
       waypoint.x += coeff * sectpoints[j].x;
       waypoint.y += coeff * sectpoints[j].y;
     }
-    // (Later, we'll adjust velocity using turn angle.)
+    
+    // Compute orientation (in degrees)
+    const dx = waypoint.x - (waypoints.length > 0 ? waypoints[waypoints.length - 1].x : 0);
+    const dy = waypoint.y - (waypoints.length > 0 ? waypoints[waypoints.length - 1].y : 0);
+    waypoint.orientation = Math.atan2(dy, dx) * (180 / Math.PI);
+
+    // Normalize orientation to be within the range of [-180, 180]
+    if (waypoint.orientation > 180) waypoint.orientation -= 360;
+    if (waypoint.orientation < -180) waypoint.orientation += 360;
+
     waypoints.push(waypoint);
     targetDist += sampleStep;
   }
@@ -98,6 +105,7 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
     dist: totaldist,
     accel: 0,
     time: 0,
+    orientation: 0, // Final waypoint orientation
   };
   const tFinal = 1;
   for (let j = 0; j < 4; j++) {
@@ -110,6 +118,7 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
   finalWaypoint.curvature = 0;
   finalWaypoint.velocity = 0;
   finalWaypoint.angularVelocity = 0;
+
   if (waypoints.length === 0 || calcdistance(waypoints[waypoints.length - 1], finalWaypoint) > 1e-6) {
     waypoints.push(finalWaypoint);
   }
@@ -184,29 +193,6 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
 
   waypoints[waypoints.length - 1].accel = 0;
   waypoints[0].accel = 0;
-
-  // --- Jerk limiting passes ---
-  // Backward pass: ensure that the change in acceleration between consecutive waypoints does not exceed MAX_JERK
-  for (let i = waypoints.length - 2; i >= 0; i--) {
-    const dt = waypoints[i + 1].time - waypoints[i].time;
-    const maxAccelDiff = MAX_JERK * dt;
-    if (waypoints[i + 1].accel - waypoints[i].accel > maxAccelDiff) {
-      // Lower the acceleration at the earlier waypoint:
-      waypoints[i].accel = waypoints[i + 1].accel - maxAccelDiff;
-      // Adjust velocity to be consistent with the new acceleration:
-      waypoints[i].velocity = waypoints[i + 1].velocity - waypoints[i].accel * dt;
-    }
-  }
-
-  // Forward pass: similarly enforce the jerk limit in the forward direction
-  for (let i = 1; i < waypoints.length; i++) {
-    const dt = waypoints[i].time - waypoints[i - 1].time;
-    const maxAccelDiff = MAX_JERK * dt;
-    if (waypoints[i].accel - waypoints[i - 1].accel > maxAccelDiff) {
-      waypoints[i].accel = waypoints[i - 1].accel + maxAccelDiff;
-      waypoints[i].velocity = waypoints[i - 1].velocity + waypoints[i].accel * dt;
-    }
-  }
 
   // Finally, plot graphs
   plotData(velocityGraph, waypoints);

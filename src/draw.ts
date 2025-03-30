@@ -1,6 +1,6 @@
 import fieldImageURL from "./assets/vexfield.png";
 import { waypoints } from "./curve";
-import { canvas } from "./globals";
+import { canvas, MAX_VELOCITY } from "./globals";
 import { controlpoints, Point } from "./point";
 
 /**
@@ -59,7 +59,7 @@ function redrawCanvas(ctx: CanvasRenderingContext2D, background: HTMLImageElemen
  */
 function velocityToColor(velocity: number): string {
   const minVel = -5;
-  const maxVel = 55;
+  const maxVel = MAX_VELOCITY * 1.2;
   // Normalize velocity to [0, 1]
   let norm = (velocity - minVel) / (maxVel - minVel);
   norm = Math.max(0, Math.min(1, norm));
@@ -92,8 +92,8 @@ function drawLine(ctx: CanvasRenderingContext2D, start: any, end: any, color: st
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(Number(start.x), Number(start.y));
-  ctx.lineTo(Number(end.x), Number(end.y));
+  ctx.moveTo(Number(start.x * canvas.width / 144), Number(start.y* canvas.width / 144));
+  ctx.lineTo(Number(end.x* canvas.width / 144), Number(end.y* canvas.width / 144));
   ctx.stroke();
 }
 

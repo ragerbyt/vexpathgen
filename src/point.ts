@@ -74,11 +74,15 @@ function handleCanvasClick(e: MouseEvent) {
   const clickX = e.clientX - rect.left;
   const clickY = e.clientY - rect.top;
 
-  createPointSet(clickX, clickY);
+  // Convert canvas coordinates to field coordinates (0-144)
+  const fieldX = canvasToFieldX(clickX);
+  const fieldY = canvasToFieldY(clickY);
+
+  createPointSet(fieldX, fieldY);
 }
 
+
 function handleMouseDown(e: MouseEvent) {
-  
   currentindex++;  
   recordcontrolpoints[currentindex] = controlpoints;
 
@@ -86,8 +90,12 @@ function handleMouseDown(e: MouseEvent) {
   const mouseX = e.clientX - rect.left;
   const mouseY = e.clientY - rect.top;
 
-  // Check if we're clicking on an existing point
-  const clickedPoint = getPointAtPosition(mouseX, mouseY);
+  // Convert to field coordinates
+  const fieldX = canvasToFieldX(mouseX);
+  const fieldY = canvasToFieldY(mouseY);
+
+  // Check if we're clicking on an existing point (using field coordinates)
+  const clickedPoint = getPointAtPosition(fieldX, fieldY);
   if (clickedPoint) {
     e.stopPropagation();
     activeDragPoint = clickedPoint;
@@ -98,16 +106,21 @@ function handleMouseDown(e: MouseEvent) {
 function handleMouseMove(e: MouseEvent) {
   if (!activeDragPoint) return;
   const rect = canvas.getBoundingClientRect();
-  let newX = e.clientX - rect.left;
-  let newY = e.clientY - rect.top;
+  let newCanvasX = e.clientX - rect.left;
+  let newCanvasY = e.clientY - rect.top;
 
-  // Clamp values so points can't exit the canvas
-  newX = Math.max(0, Math.min(canvas.width, newX));
-  newY = Math.max(0, Math.min(canvas.height, newY));
+  // Clamp canvas values to ensure they don't exceed canvas boundaries
+  newCanvasX = Math.max(0, Math.min(canvas.width, newCanvasX));
+  newCanvasY = Math.max(0, Math.min(canvas.height, newCanvasY));
 
-  updateDrag(activeDragPoint, newX, newY);
+  // Convert new canvas coordinates to field coordinates
+  const newFieldX = canvasToFieldX(newCanvasX);
+  const newFieldY = canvasToFieldY(newCanvasY);
+
+  updateDrag(activeDragPoint, newFieldX, newFieldY);
   redrawPoints();
 }
+
 
 function handleMouseUp() {
   activeDragPoint = null;
@@ -118,29 +131,26 @@ function handleMouseUp() {
   }
 }
 
-function getPointAtPosition(x: number, y: number): Point | null {
-  const hitRadius = 10; // Size to detect clicks on points
-
-  // Check points in reverse order to prioritize points drawn on top
+function getPointAtPosition(fieldX: number, fieldY: number): Point | null {
+  const hitRadius = 4 * 144 / canvas.width; // in field units
   for (let i = controlpoints.length - 1; i >= 0; i--) {
     const point = controlpoints[i];
     const pointSize = point.size || 5;
-    const distance = Math.sqrt(Math.pow(x - point.x, 2) + Math.pow(y - point.y, 2));
-
-    // If the mouse is within the point's hit area, return this point
+    const dx = fieldX - point.x;
+    const dy = fieldY - point.y;
+    const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance <= pointSize + hitRadius) {
       return point;
     }
   }
-
   return null;
 }
 
-function createPointSet(centerX: number, centerY: number) {
+function createPointSet(fieldX: number, fieldY: number) {
   if (controlpoints.length === 0) {
     const mainPoint: Point = {
-      x: centerX,
-      y: centerY,
+      x: fieldX,
+      y: fieldY,
       index: 0,
       color: "red",
       dist: 0,
@@ -157,11 +167,7 @@ function createPointSet(centerX: number, centerY: number) {
   let idx = controlpoints.length - 1;
   let prevx = controlpoints[idx].x;
   let prevy = controlpoints[idx].y;
-  let offset = 20;
-
-  offset *= window.innerHeight / 600;
-
-
+  let offset = 20; // now in field units (0-144 range)
 
   // Create first 2 control points
   const controlPoint1: Point = {
@@ -173,23 +179,20 @@ function createPointSet(centerX: number, centerY: number) {
     size: 6,
   };
   controlpoints.push(controlPoint1);
-  //updateControlPosition(controlpoints[idx], controlPoint1);
 
   const controlPoint2: Point = {
-    x: centerX - offset,
-    y: centerY,
+    x: fieldX - offset,
+    y: fieldY,
     index: controlpoints.length,
     color: "blue",
     dist: -offset,
     size: 6,
   };
   controlpoints.push(controlPoint2);
-  //updateControlPosition(controlpoints[idx], controlPoint1);
-
 
   const mainPoint: Point = {
-    x: centerX,
-    y: centerY,
+    x: fieldX,
+    y: fieldY,
     index: controlpoints.length,
     color: "red",
     dist: 0,
@@ -273,49 +276,57 @@ function redrawPoints() {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
 
-  // Get scaling factor based on canvas size
-  const defaultSize = 5;
-  const scaleFactor = Math.min(canvas.width, canvas.height) / 600; // Adjust based on the original canvas size
-  const borderSize = 1 * scaleFactor; // Border scales with size
+  // Clear canvas (and any other canvas reset you need)
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-  // Redraw points on top of the background and path
+  // Dispatch event to redraw background if needed
   document.dispatchEvent(new CustomEvent("redrawCanvas", { detail: { controlpoints } }));
 
-  if(!showPoints) return;
+  if (!showPoints) return;
 
+  // Draw lines (convert field coordinates to canvas coordinates)
   for (let i = 0; i < controlpoints.length; i += 3) {
-    if(controlpoints[i-1]){
-      drawLine(ctx,controlpoints[i-1],controlpoints[i],"white");
+    if (controlpoints[i - 1]) {
+      drawLine(ctx, controlpoints[i - 1], controlpoints[i], "white");
     }
-    if(controlpoints[i+1]){
-      drawLine(ctx,controlpoints[i+1],controlpoints[i],"white");
+    if (controlpoints[i + 1]) {
+      drawLine(ctx, controlpoints[i + 1], controlpoints[i], "white");
     }
   }
-  // Draw points
+
+  // Draw points (converting field coordinates to canvas coordinates)
   for (const point of controlpoints) {
     ctx.beginPath();
-    const size = (point.size || defaultSize) * scaleFactor;
+    const size = (point.size || 5);
+    const canvasX = fieldToCanvasX(point.x);
+    const canvasY = fieldToCanvasY(point.y);
 
     // Draw filled circle
-    ctx.arc(point.x, point.y, size, 0, Math.PI * 2);
+    ctx.arc(canvasX, canvasY, size, 0, Math.PI * 2);
     ctx.fillStyle = point.color;
     ctx.fill();
 
     // Draw border
-    ctx.lineWidth = borderSize;
-    ctx.strokeStyle = "white"; // Change to any border color you like
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "white";
     ctx.stroke();
   }
 }
 
-function drawLine(ctx: CanvasRenderingContext2D, start: any, end: any, color: string) {
+function drawLine(ctx: CanvasRenderingContext2D, start: Point, end: Point, color: string) {
+  const startX = fieldToCanvasX(start.x);
+  const startY = fieldToCanvasY(start.y);
+  const endX = fieldToCanvasX(end.x);
+  const endY = fieldToCanvasY(end.y);
+
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(Number(start.x), Number(start.y));
-  ctx.lineTo(Number(end.x), Number(end.y));
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
   ctx.stroke();
 }
+
 
 // Export controlpoints for other modules
 export { controlpoints, type Point };
@@ -326,3 +337,19 @@ document.getElementById("clear")?.addEventListener("click", () => {
   redrawPoints();
   dispatchPathGeneration()
 });
+
+// Convert canvas coordinate to field coordinate (0-144)
+function canvasToFieldX(x: number): number {
+  return (x / canvas.width) * 144;
+}
+function canvasToFieldY(y: number): number {
+  return (y / canvas.height) * 144;
+}
+
+// Convert field coordinate (0-144) to canvas coordinate
+function fieldToCanvasX(x: number): number {
+  return (x / 144) * canvas.width;
+}
+function fieldToCanvasY(y: number): number {
+  return (y / 144) * canvas.height;
+}
