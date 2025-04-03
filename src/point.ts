@@ -100,7 +100,7 @@ function handleMouseDown(e: MouseEvent) {
     isDraggingGlobal = true;
     pointdisplay.innerText = "point selected";
   }else{
-    pointdisplay.innerText = "no point selected";
+    pointdisplay.innerText = "No point selected";
   }
 }
 
@@ -136,8 +136,8 @@ function getPointAtPosition(fieldX: number, fieldY: number): Point | null {
   for (let i = controlpoints.length - 1; i >= 0; i--) {
     const point = controlpoints[i];
     const pointSize = point.size || 5;
-    const dx = fieldX - point.x;
-    const dy = fieldY - point.y;
+    const dx = fieldX - point.x - point.size/2;
+    const dy = fieldY - point.y - point.size/2;
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance <= hitRadius) {
       return point;
