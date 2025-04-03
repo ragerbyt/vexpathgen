@@ -30,8 +30,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 let routeName = pathNameInput.value.trim();
 
                 // Start building the C++ vector definition
-                let cppContent = `#include "paths.h"\n\n
-                std::vector<Data>`
+                let cppContent = `#include "paths.h"\n\nstd::vector<Data>`
                 cppContent += routeName
                 cppContent +=`= {\n`;
 

@@ -53,6 +53,9 @@ document.addEventListener("keydown", (e) => {
   }
 });
 
+
+
+
 function handleCanvasClick(e: MouseEvent) {
   // If a drag event just occurred, do not create new points.
   if (isDraggingGlobal) {
