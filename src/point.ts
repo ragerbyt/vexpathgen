@@ -110,6 +110,14 @@ function handleMouseDown(e: MouseEvent) {
 
 function handleMouseMove(e: MouseEvent) {
   if (!activeDragPoint) return;
+
+  let temptext = "point selected X: ";
+    temptext += clickedPoint.x;
+    temptext += " Y: ";
+    temptext += clickedPoint.y;
+    pointdisplay.innerText = temptext;
+
+    
   const rect = canvas.getBoundingClientRect();
   let newCanvasX = e.clientX - rect.left;
   let newCanvasY = e.clientY - rect.top;
