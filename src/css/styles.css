@@ -94,25 +94,23 @@ input[type="text"]::placeholder {
   font-style: italic;
 }
 
-/* Draggable Points */
-.point {
-  width: 10px; /* Slightly larger for accessibility */
-  height: 10px;
-  border-radius: 50%;
+/* Positioning for the Toggle Points Button */
+#togglePoints {
   position: absolute;
-  cursor: grab;
-  transform: translate(-50%, -50%);
-  border: 2px solid #ffffff;
-  background-color: rgba(255, 255, 255, 0.1); /* Transparent background for style */
-  transition: transform 0.1s ease-in-out, box-shadow 0.2s ease-in-out;
+  left: 5%; /* 5% from the left */
+  bottom: 10%; /* 10% from the bottom */
 }
 
-.point:hover {
-  transform: translate(-50%, -50%) scale(1.3);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5); /* Add shadow effect */
+/* Positioning for the Clear Points Button */
+#clear {
+  position: absolute;
+  left: 25%; /* 25% from the left */
+  bottom: 10%; /* 10% from the bottom */
 }
 
-.point:active {
-  cursor: grabbing;
-  transform: translate(-50%, -50%) scale(1.4);
+/* Positioning for the Save C++ File Button */
+#saveCpp {
+  position: absolute;
+  left: 45%; /* 45% from the left */
+  bottom: 10%; /* 10% from the bottom */
 }
