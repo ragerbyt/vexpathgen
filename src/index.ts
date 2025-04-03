@@ -10,7 +10,7 @@ import { waypoints } from "./curve";
 document.addEventListener("DOMContentLoaded", () => {
     const saveCppButton = document.getElementById("saveCpp");
     const fileNameInput = document.getElementById("fileNameInput") as HTMLInputElement;
-    
+    const pathNameInput = document.getElementById("pathNameInput") as HTMLInputElement;
     // Example waypoints (finalWaypoint objects)
   
 
@@ -27,8 +27,13 @@ document.addEventListener("DOMContentLoaded", () => {
                     fileName += ".cpp";
                 }
 
+                let routeName = pathNameInput.value.trim();
+
                 // Start building the C++ vector definition
-                let cppContent = `std::vector<Data> path = {\n`;
+                let cppContent = `#include "paths.h"\n\n
+                std::vector<Data>`
+                cppContent += routeName
+                cppContent +=`= {\n`;
 
                 // Add waypoints as structs to the vector
                 cppContent += waypoints

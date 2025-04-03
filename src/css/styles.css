@@ -104,6 +104,19 @@ button:active {
   box-sizing: border-box;
 }
 
+#pathNameInput {
+  position: absolute;
+  right: 10%;
+  top: 30%;
+  padding: 10px;
+  font-size: 16px;
+  margin: 10px;
+  border: 1px solid #ccc;
+  border-radius: 5px;
+  width: 250px;
+  box-sizing: border-box;
+}
+
 /* Draggable Points */
 .point {
   width: 8px;
