@@ -12,8 +12,10 @@ if(coordDisplay){
 
 function displayMouseCoordinates(e: MouseEvent) {
     const rect = canvas.getBoundingClientRect();
-    const mouseX = e.clientX - rect.left;
-    const mouseY = e.clientY - rect.top;
+    const mouseX = (e.clientX - rect.left) * 144 / canvas.width;
+    const mouseY = (e.clientY - rect.top)  * 144 / canvas.width;
+
+    
 
     if (coordDisplay) {
         coordDisplay.innerText = `X: ${Math.round(mouseX)}, Y: ${Math.round(mouseY)}`;

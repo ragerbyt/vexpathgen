@@ -52,6 +52,20 @@ canvas {
   transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
 }
 
+#point-coordinates {
+  position: absolute;
+  left: 1000px;
+  top: 110px;
+  font-size: 15px; /* Adjusted for readability */
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.1); /* Softer white background for readability */
+  padding: 10px 15px;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4); /* Shadow for depth */
+  pointer-events: none;
+  transition: opacity 0.2s ease-in-out, transform 0.2s ease-in-out;
+}
+
 /* Buttons Styling */
 button {
   position: absolute;
@@ -104,7 +118,7 @@ input[type="text"]::placeholder {
 /* Positioning for the Clear Points Button */
 #clear {
   position: absolute;
-  left: 65%; /* 25% from the left */
+  left: 55%; /* 25% from the left */
   top: 10%; /* 10% from the bottom */
 }
 
