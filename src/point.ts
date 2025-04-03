@@ -98,7 +98,11 @@ function handleMouseDown(e: MouseEvent) {
     e.stopPropagation();
     activeDragPoint = clickedPoint;
     isDraggingGlobal = true;
-    pointdisplay.innerText = "point selected";
+    let temptext = "point selected X: ";
+    temptext += clickedPoint.x;
+    temptext += " Y: ";
+    temptext += clickedPoint.y;
+    pointdisplay.innerText = temptext;
   }else{
     pointdisplay.innerText = "No point selected";
   }
