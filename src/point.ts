@@ -13,6 +13,9 @@ interface Point {
 let controlpoints: Point[] = [];
 let isDraggingGlobal = false;
 let activeDragPoint: Point | null = null;
+let selectedPoint: Point | null = null;
+
+const pointdisplay = document.getElementById("point-coordinates")
 
 import { computeBezierWaypoints } from "./curve";
 import { canvas } from "./globals";
@@ -95,6 +98,9 @@ function handleMouseDown(e: MouseEvent) {
     e.stopPropagation();
     activeDragPoint = clickedPoint;
     isDraggingGlobal = true;
+    pointdisplay.innerText = "point selected";
+  }else{
+    pointdisplay.innerText = "no point selected";
   }
 }
 
