@@ -97,20 +97,34 @@ input[type="text"]::placeholder {
 /* Positioning for the Toggle Points Button */
 #togglePoints {
   position: absolute;
-  left: 5%; /* 5% from the left */
-  bottom: 10%; /* 10% from the bottom */
+  left: 45%; /* 5% from the left */
+  top: 10%; /* 10% from the bottom */
 }
 
 /* Positioning for the Clear Points Button */
 #clear {
   position: absolute;
-  left: 25%; /* 25% from the left */
-  bottom: 10%; /* 10% from the bottom */
+  left: 65%; /* 25% from the left */
+  top: 10%; /* 10% from the bottom */
 }
 
 /* Positioning for the Save C++ File Button */
 #saveCpp {
   position: absolute;
   left: 45%; /* 45% from the left */
-  bottom: 10%; /* 10% from the bottom */
+  top: 50%; /* 10% from the bottom */
+}
+
+/* Positioning for the File Name Input Field */
+#fileNameInput {
+  position: absolute;
+  left: 45%; /* 45% from the left */
+  top: 30%; /* 10% from the bottom */
+}
+
+/* Positioning for the Path Name Input Field */
+#pathNameInput {
+  position: absolute;
+  left: 45%; /* 45% from the left */
+  top: 40%; /* 10% from the bottom */
 }
