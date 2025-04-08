@@ -15,6 +15,13 @@ let isDraggingGlobal = false;
 let activeDragPoint: Point | null = null;
 let selectedPoint: Point | null = null;
 
+
+
+//so if top = 20; left = 20 ;then top left is chopped off.
+
+
+
+
 const pointdisplay = document.getElementById("point-coordinates")
 
 import { computeBezierWaypoints } from "./curve";
@@ -71,7 +78,7 @@ function handleCanvasClick(e: MouseEvent) {
 
   const rect = canvas.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
-  const clickY = e.clientY - rect.top;
+  const clickY = rect.bottom - e.clientY; // Updated
 
   // Convert canvas coordinates to field coordinates (0-144)
   const fieldX = canvasToFieldX(clickX);
@@ -86,7 +93,7 @@ function handleMouseDown(e: MouseEvent) {
 
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
+  const mouseY = rect.bottom - e.clientY;
 
   // Convert to field coordinates
   const fieldX = canvasToFieldX(mouseX);
@@ -111,10 +118,9 @@ function handleMouseDown(e: MouseEvent) {
 function handleMouseMove(e: MouseEvent) {
   if (!activeDragPoint) return;
 
-  
   const rect = canvas.getBoundingClientRect();
   let newCanvasX = e.clientX - rect.left;
-  let newCanvasY = e.clientY - rect.top;
+  let newCanvasY = rect.bottom - e.clientY; // Updated
 
   // Clamp canvas values to ensure they don't exceed canvas boundaries
   newCanvasX = Math.max(0, Math.min(canvas.width, newCanvasX));
@@ -142,8 +148,8 @@ function getPointAtPosition(fieldX: number, fieldY: number): Point | null {
   for (let i = controlpoints.length - 1; i >= 0; i--) {
     const point = controlpoints[i];
     const pointSize = point.size || 5;
-    const dx = fieldX - point.x - point.size/2;
-    const dy = fieldY - point.y - point.size/2;
+    const dx = fieldX - point.x;
+    const dy = fieldY - point.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance <= hitRadius) {
       return point;
@@ -286,49 +292,6 @@ function redrawPoints() {
   // Dispatch event to redraw background if needed
   document.dispatchEvent(new CustomEvent("redrawCanvas", { detail: { controlpoints } }));
 
-  if (!showPoints) return;
-
-  // Draw lines (convert field coordinates to canvas coordinates)
-  for (let i = 0; i < controlpoints.length; i += 3) {
-    if (controlpoints[i - 1]) {
-      drawLine(ctx, controlpoints[i - 1], controlpoints[i], "white");
-    }
-    if (controlpoints[i + 1]) {
-      drawLine(ctx, controlpoints[i + 1], controlpoints[i], "white");
-    }
-  }
-
-  // Draw points (converting field coordinates to canvas coordinates)
-  for (const point of controlpoints) {
-    ctx.beginPath();
-    const size = point.size || 5;
-    const canvasX = fieldToCanvasX(point.x);
-    const canvasY = fieldToCanvasY(point.y);
-
-    // Draw filled circle
-    ctx.arc(canvasX, canvasY, size, 0, Math.PI * 2);
-    ctx.fillStyle = point.color;
-    ctx.fill();
-
-    // Draw border
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "white";
-    ctx.stroke();
-  }
-}
-
-function drawLine(ctx: CanvasRenderingContext2D, start: Point, end: Point, color: string) {
-  const startX = fieldToCanvasX(start.x);
-  const startY = fieldToCanvasY(start.y);
-  const endX = fieldToCanvasX(end.x);
-  const endY = fieldToCanvasY(end.y);
-
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(startX, startY);
-  ctx.lineTo(endX, endY);
-  ctx.stroke();
 }
 
 // Export controlpoints for other modules
@@ -342,19 +305,13 @@ document.getElementById("clear")?.addEventListener("click", () => {
 
 // Convert canvas coordinate to field coordinate (0-144)
 function canvasToFieldX(x: number): number {
-  return (x / canvas.width) * 144;
+  return (x / canvas.width)*144
 }
 function canvasToFieldY(y: number): number {
-  return (y / canvas.height) * 144;
+  return (y / canvas.height)*144
 }
 
-// Convert field coordinate (0-144) to canvas coordinate
-function fieldToCanvasX(x: number): number {
-  return (x / 144) * canvas.width;
-}
-function fieldToCanvasY(y: number): number {
-  return (y / 144) * canvas.height;
-}
+
 
 // Zoom and pan functionality
 let scale = 1; // Initial zoom level
@@ -363,44 +320,37 @@ const maxScale = 3; // Maximum zoom level
 let offsetX = 0; // Offset for panning
 let offsetY = 0;
 
-canvas.addEventListener("wheel", (e: WheelEvent) => {
-  e.preventDefault();
+let left = 0;
+let right = 144;
+let top = 0;
+let bottom = 144;
 
-  // Get mouse position relative to the canvas
+import { redrawCanvas } from "./draw";
+canvas.addEventListener("wheel", (e: WheelEvent) => {
+  
+  e.preventDefault();
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
-  const mouseY = e.clientY - rect.top;
+  const mouseY = rect.bottom - e.clientY;
 
-  // Calculate the zoom direction
+  // Convert mouse position to field coordinates
+  const mouseFieldX = left + (mouseX / canvas.width) * (right - left);
+  const mouseFieldY = top + (mouseY / canvas.height) * (bottom - top);
+
   const zoomFactor = 0.1;
   const zoomIn = e.deltaY < 0;
-  const newScale = zoomIn ? scale + zoomFactor : scale - zoomFactor;
+  const zoomMultiplier = zoomIn ? (1 - zoomFactor) : (1 + zoomFactor);
 
-  // Clamp the scale to the min and max values
-  if (newScale < minScale || newScale > maxScale) return;
+  const newWidth = (right - left) * zoomMultiplier;
+  const newHeight = (bottom - top) * zoomMultiplier;
 
-  // Adjust the offset to zoom around the mouse pointer
-  offsetX = mouseX - (mouseX - offsetX) * (newScale / scale);
-  offsetY = mouseY - (mouseY - offsetY) * (newScale / scale);
+  // Keep zoom centered on mouse
+  left = mouseFieldX - (mouseX / canvas.width) * newWidth;
+  right = left + newWidth;
 
-  scale = newScale;
-
-  redrawCanvasWithZoom();
+  top = mouseFieldY - (mouseY / canvas.height) * newHeight;
+  bottom = top + newHeight;
+  
+  redrawCanvas(); // Now should use left/right/top/bottom to transform the view
 });
 
-function redrawCanvasWithZoom() {
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return;
-
-  // Clear the canvas
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-  // Apply scaling and translation
-  ctx.save();
-  ctx.setTransform(scale, 0, 0, scale, offsetX, offsetY);
-
-  // Redraw points and paths
-  redrawPoints();
-
-  ctx.restore();
-}

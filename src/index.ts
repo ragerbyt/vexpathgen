@@ -37,7 +37,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Add waypoints as structs to the vector
                 cppContent += waypoints
                     .map(
-                        (wp) => `    {${wp.time}, ${wp.x}, ${wp.y}, ${wp.orientation}, ${wp.velocity}, ${wp.angularVelocity}}`
+                        (wp) => `    {${Math.round(wp.time*1000)}, ${Math.round(wp.x*50)}, ${Math.round(wp.y*50)}, ${Math.round(wp.orientation*10)}, ${Math.round(wp.velocity*100)}, ${Math.round(wp.angularVelocity*1000)}}`
                     )
                     .join(",\n");
                 cppContent += `\n};`;

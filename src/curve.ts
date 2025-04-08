@@ -78,12 +78,10 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
       waypoint.y += coeff * sectpoints[j].y;
     }
     
-    // Compute orientation (in degrees) based on movement direction.
+    // Compute orientation based on movement direction.
     const dx = waypoint.x - (waypoints.length > 0 ? waypoints[waypoints.length - 1].x : waypoint.x);
     const dy = waypoint.y - (waypoints.length > 0 ? waypoints[waypoints.length - 1].y : waypoint.y);
-    waypoint.orientation = Math.atan2(dy, dx) * (180 / Math.PI);
-    if (waypoint.orientation > 180) waypoint.orientation -= 360;
-    if (waypoint.orientation < -180) waypoint.orientation += 360;
+    waypoint.orientation = Math.atan2(dy, dx);
 
     waypoints.push(waypoint);
     targetDist += sampleStep;
@@ -92,6 +90,7 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
   // Ensure final waypoint is generated:
   const lastSegment = Math.floor((distances.length - 1) / 100);
   const finalSectPoints = section(points, lastSegment);
+
   const finalWaypoint: Point = {
     x: 0,
     y: 0,
@@ -103,6 +102,8 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
     time: 0,
     orientation: 0,
   };
+
+  // Position at t = 1
   const tFinal = 1;
   for (let j = 0; j < 4; j++) {
     const coeff = binomialCoefficient(3, j) *
@@ -111,13 +112,22 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
     finalWaypoint.x += coeff * finalSectPoints[j].x;
     finalWaypoint.y += coeff * finalSectPoints[j].y;
   }
-  finalWaypoint.curvature = 0;
-  finalWaypoint.velocity = 0;
-  finalWaypoint.angularVelocity = 0;
 
-  if (waypoints.length === 0 || calcdistance(waypoints[waypoints.length - 1], finalWaypoint) > 1e-6) {
-    waypoints.push(finalWaypoint);
+// Fill in missing data if we have at least one previous point
+  if (waypoints.length > 0) {
+    const prev = waypoints[waypoints.length - 1];
+    const dx = finalWaypoint.x - prev.x;
+    const dy = finalWaypoint.y - prev.y;
+    const dist = Math.hypot(dx, dy);
+    finalWaypoint.orientation = Math.atan2(dy, dx);
+    finalWaypoint.time = prev.time + (dist / ((prev.velocity + finalWaypoint.velocity) / 2 || 1e-6));
+    finalWaypoint.accel = (finalWaypoint.velocity - prev.velocity) / (dist / ((prev.velocity + finalWaypoint.velocity) / 2 || 1e-6));
+
+
   }
+
+waypoints.push(finalWaypoint);
+
 
   // --- Apply curvature constraints and update angular velocity ---
   for (let i = 0; i < waypoints.length; i++) {
@@ -126,7 +136,7 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
       curvature = calculateCurvature(waypoints[i - 1], waypoints[i], waypoints[i + 1]);
     }
     // Constrain velocity based on curvature:
-    const maxVelBasedOnCurve = curvature > 0 ? Math.sqrt(MAX_ACCELERATION / curvature) : MAX_VELOCITY;
+    const maxVelBasedOnCurve = Math.sqrt(MAX_ACCELERATION / Math.max(1e-6, Math.abs(curvature)));
     waypoints[i].velocity = Math.min(waypoints[i].velocity, maxVelBasedOnCurve);
     waypoints[i].curvature = curvature;
     waypoints[i].angularVelocity = waypoints[i].velocity * curvature;
@@ -261,12 +271,15 @@ function gety(points: ControlPoint[], t: number): number {
 function calculateCurvature(prev: Point, curr: Point, next: Point): number {
   const v1 = { x: curr.x - prev.x, y: curr.y - prev.y };
   const v2 = { x: next.x - curr.x, y: next.y - curr.y };
+
   const mag1 = Math.hypot(v1.x, v1.y);
   const mag2 = Math.hypot(v2.x, v2.y);
   if (mag1 === 0 || mag2 === 0) return 0;
-  let dot = v1.x * v2.x + v1.y * v2.y;
-  let cosTheta = dot / (mag1 * mag2);
-  cosTheta = Math.max(-1, Math.min(1, cosTheta));
-  const dTheta = Math.acos(cosTheta);
-  return dTheta / mag1;
+
+  const cross = v1.x * v2.y - v1.y * v2.x;
+  const sinTheta = cross / (mag1 * mag2);
+  const dTheta = Math.asin(Math.max(-1, Math.min(1, sinTheta))); // clamp for safety
+
+  return dTheta / mag1; // curvature κ = dθ/ds
 }
+
