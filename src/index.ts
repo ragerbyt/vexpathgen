@@ -5,7 +5,7 @@ import "./plot";
 import "./css/styles.css";
 import "./ui";
 
-import { waypoints } from "./curve";
+import { pathpoints } from "./globals";
 
 document.addEventListener("DOMContentLoaded", () => {
     const saveCppButton = document.getElementById("saveCpp");
@@ -30,12 +30,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 let routeName = pathNameInput.value.trim();
 
                 // Start building the C++ vector definition
-                let cppContent = `#include "paths.h"\n\nstd::vector<Data>`
+                let cppContent = `#include "paths.h"\n\nstd::vector<Data> `
                 cppContent += routeName
                 cppContent +=`= {\n`;
 
                 // Add waypoints as structs to the vector
-                cppContent += waypoints
+                cppContent += pathpoints
                     .map(
                         (wp) => `    {${Math.round(wp.time*1000)}, ${Math.round(wp.x*50)}, ${Math.round(wp.y*50)}, ${Math.round(wp.orientation*10)}, ${Math.round(wp.velocity*100)}, ${Math.round(wp.angularVelocity*1000)}}`
                     )

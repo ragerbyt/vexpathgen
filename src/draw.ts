@@ -1,6 +1,6 @@
-import { waypoints } from "./curve";
+import { pathpoints } from "./globals";
 import { canvas, MAX_VELOCITY ,top,left,bottom,right,ctx, background} from "./globals";
-import { controlpoints, Point } from "./point";
+import {controlpoints, pathPoint, controlPoint} from "./globals";
 
 /**
  * Initializes the canvas, loads the background image,
@@ -8,8 +8,8 @@ import { controlpoints, Point } from "./point";
  */
 function setupCanvas() {
   // Set canvas dimensions.
-  canvas.width = Math.min(window.innerWidth, window.innerHeight) * 0.8;
-  canvas.height = Math.min(window.innerWidth, window.innerHeight) * 0.8;
+  // Set canvas width to be the same as the height to make it square
+
   // Load background image.
   
   background.onload = () => {
@@ -17,12 +17,19 @@ function setupCanvas() {
     ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
   };
 
+
   // Listen for the custom "drawpath" event to update the path.
   document.addEventListener("drawpath", () => {
+    canvas.width = canvas.getBoundingClientRect().height;
+    canvas.height = canvas.getBoundingClientRect().height;
+  
     redrawCanvas();
   });
 
   document.addEventListener("redrawCanvas", () => {
+    canvas.width = canvas.getBoundingClientRect().height;
+    canvas.height = canvas.getBoundingClientRect().height;
+  
     redrawCanvas();
   });
 }
@@ -38,13 +45,14 @@ export function redrawCanvas() {
     console.warn("Background image not loaded yet.");
     return;
   }
+  
 
   // Clear the canvas and draw the background
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
 
-  // Draw the path if waypoints are available
-  if (waypoints.length > 1) {
+  // Draw the path if pathpoints are available
+  if (pathpoints.length > 1) {
     drawPath(ctx);
   }
 
@@ -84,7 +92,7 @@ export function redrawCanvas() {
 }
 
 /**
- * Draws a path connecting all the provided waypoints.
+ * Draws a path connecting all the provided pathpoints.
  *
  * @param {CanvasRenderingContext2D} ctx - The canvas drawing context.
  */
@@ -106,13 +114,13 @@ function velocityToColor(velocity: number): string {
 }
 
 function drawPath(ctx: CanvasRenderingContext2D) {
-  for (let i = 1; i < waypoints.length; i++) {
-    // Compute the average velocity between two waypoints
-    const avgVelocity = (waypoints[i - 1].velocity + waypoints[i].velocity) / 2;
+  for (let i = 1; i < pathpoints.length; i++) {
+    // Compute the average velocity between two pathpoints
+    const avgVelocity = (pathpoints[i - 1].velocity + pathpoints[i].velocity) / 2;
     const color = velocityToColor(avgVelocity);
 
     // Draw the line segment
-    drawLine(ctx, waypoints[i - 1], waypoints[i], color);
+    drawLine(ctx, pathpoints[i - 1], pathpoints[i], color);
   }
 }
 
@@ -125,8 +133,12 @@ function drawPath(ctx: CanvasRenderingContext2D) {
  * @param {Object} end - The ending point { x, y }.
  * @param {string} color - The stroke color.
  */
-function drawLine(ctx: CanvasRenderingContext2D, start: Point, end: Point, color: string) {
-  const startX = ((start.x - left) / (right - left)) * canvas.width;
+function drawLine(
+  ctx: CanvasRenderingContext2D,
+  start: pathPoint | controlPoint,
+  end: pathPoint | controlPoint,
+  color: string
+){const startX = ((start.x - left) / (right - left)) * canvas.width;
   const startY = ((bottom - start.y) / (bottom - top)) * canvas.height; // Adjusted for inverted Y-axis
   const endX = ((end.x - left) / (right - left)) * canvas.width;
   const endY = ((bottom - end.y) / (bottom - top)) * canvas.height; // Adjusted for inverted Y-axis

@@ -1,26 +1,14 @@
-import { MAX_JERK, MAX_ACCELERATION, MAX_VELOCITY} from "./globals";
+import { MAX_ACCELERATION, MAX_VELOCITY} from "./globals";
+import { pathPoint, controlPoint } from "./globals";
 
-export interface Point {
-  x: number;         // x-coordinate in inches
-  y: number;         // y-coordinate in inches
-  velocity: number;  // Linear velocity (inches/s)
-  curvature: number; // The curvature (radians per inch)
-  angularVelocity: number; // Angular velocity (rad/s)
-  accel: number;
-  dist: number;
-  time: number;
-  orientation: number; // Orientation (heading) in degrees
-}
 
-// Array to hold computed waypoints
-export let waypoints: Point[] = [];
+// Array to hold computed pathpoints
 
-import {graph } from "./globals";
-import { Point as ControlPoint } from "./point";
+import {pathpoints } from "./globals";
 import { plot} from "./plot";
 
-export function computeBezierWaypoints(points: ControlPoint[]) {
-  waypoints.splice(0, waypoints.length);
+export function computeBezierWaypoints(points: controlPoint[]) {
+  pathpoints.splice(0, pathpoints.length);
   if (points.length === 0) return;
 
   let totaldist = 0;
@@ -39,8 +27,8 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
     }
   }
 
-  // Interpolate waypoints based on a fixed distance increment
-  const numInterpPoints = 1000;
+  // Interpolate pathpoints based on a fixed distance increment
+  const numInterpPoints = 5000;
   const sampleStep = totaldist / numInterpPoints;
   let targetDist = 0;
   let iIndex = 1;
@@ -59,7 +47,7 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
     const tLocal = (localIndex + ratio) / 100;
 
     const sectpoints = section(points, segmentIndex);
-    const waypoint: Point = {
+    const waypoint: pathPoint = {
       x: 0,
       y: 0,
       velocity: MAX_VELOCITY,
@@ -79,11 +67,11 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
     }
     
     // Compute orientation based on movement direction.
-    const dx = waypoint.x - (waypoints.length > 0 ? waypoints[waypoints.length - 1].x : waypoint.x);
-    const dy = waypoint.y - (waypoints.length > 0 ? waypoints[waypoints.length - 1].y : waypoint.y);
+    const dx = waypoint.x - (pathpoints.length > 0 ? pathpoints[pathpoints.length - 1].x : waypoint.x);
+    const dy = waypoint.y - (pathpoints.length > 0 ? pathpoints[pathpoints.length - 1].y : waypoint.y);
     waypoint.orientation = Math.atan2(dy, dx);
 
-    waypoints.push(waypoint);
+    pathpoints.push(waypoint);
     targetDist += sampleStep;
   }
 
@@ -91,7 +79,7 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
   const lastSegment = Math.floor((distances.length - 1) / 100);
   const finalSectPoints = section(points, lastSegment);
 
-  const finalWaypoint: Point = {
+  const finalWaypoint: pathPoint = {
     x: 0,
     y: 0,
     velocity: 0,
@@ -113,9 +101,9 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
     finalWaypoint.y += coeff * finalSectPoints[j].y;
   }
 
-// Fill in missing data if we have at least one previous point
-  if (waypoints.length > 0) {
-    const prev = waypoints[waypoints.length - 1];
+// Fill in missing data if we have at least one previous pathPoint
+  if (pathpoints.length > 0) {
+    const prev = pathpoints[pathpoints.length - 1];
     const dx = finalWaypoint.x - prev.x;
     const dy = finalWaypoint.y - prev.y;
     const dist = Math.hypot(dx, dy);
@@ -126,31 +114,35 @@ export function computeBezierWaypoints(points: ControlPoint[]) {
 
   }
 
-waypoints.push(finalWaypoint);
+  pathpoints.push(finalWaypoint);
+  const TRACK_WIDTH = 10;
 
 
   // --- Apply curvature constraints and update angular velocity ---
-  for (let i = 0; i < waypoints.length; i++) {
+  for (let i = 0; i < pathpoints.length; i++) {
     let curvature = 0;
-    if (i > 0 && i < waypoints.length - 1) {
-      curvature = calculateCurvature(waypoints[i - 1], waypoints[i], waypoints[i + 1]);
+    if (i > 0 && i < pathpoints.length - 1) {
+      curvature = calculateCurvature(pathpoints[i - 1], pathpoints[i], pathpoints[i + 1]);
     }
     // Constrain velocity based on curvature:
-    const maxVelBasedOnCurve = Math.sqrt(MAX_ACCELERATION / Math.max(1e-6, Math.abs(curvature)));
-    waypoints[i].velocity = Math.min(waypoints[i].velocity, maxVelBasedOnCurve);
-    waypoints[i].curvature = curvature;
-    waypoints[i].angularVelocity = waypoints[i].velocity * curvature;
+    const leftFactor = Math.abs(1 - (TRACK_WIDTH / 2) * curvature);
+  const rightFactor = Math.abs(1 + (TRACK_WIDTH / 2) * curvature);
+  const maxDriveTrainVel = Math.min(60 / leftFactor, 60 / rightFactor);
+  pathpoints[i].velocity = Math.min(pathpoints[i].velocity, maxDriveTrainVel);
+
+    pathpoints[i].curvature = curvature;
+    pathpoints[i].angularVelocity = pathpoints[i].velocity * curvature;
   }
 
   // --- Velocity smoothing passes (backward then forward) ---
   // Backward pass: enforce deceleration limits
 
-  waypoints[0].velocity = 0;
-  waypoints[waypoints.length-1].velocity = 0;
-  for (let i = waypoints.length - 2; i >= 0; i--) {
-    const currentPoint = waypoints[i];
-    const futureVelocity = waypoints[i + 1].velocity;
-    const distStep = calcdistance(waypoints[i], waypoints[i + 1]);
+  pathpoints[0].velocity = 0;
+  pathpoints[pathpoints.length-1].velocity = 0;
+  for (let i = pathpoints.length - 2; i >= 0; i--) {
+    const currentPoint = pathpoints[i];
+    const futureVelocity = pathpoints[i + 1].velocity;
+    const distStep = calcdistance(pathpoints[i], pathpoints[i + 1]);
     currentPoint.velocity = Math.min(
       currentPoint.velocity,
       computeMaxVelocity(futureVelocity, MAX_ACCELERATION, distStep)
@@ -158,9 +150,9 @@ waypoints.push(finalWaypoint);
   }
 
   // Forward pass: enforce acceleration limits
-  for (let i = 1; i < waypoints.length; i++) {
-    const currentPoint = waypoints[i];
-    const prevPoint = waypoints[i - 1];
+  for (let i = 1; i < pathpoints.length; i++) {
+    const currentPoint = pathpoints[i];
+    const prevPoint = pathpoints[i - 1];
     const distStep = calcdistance(prevPoint, currentPoint);
     currentPoint.velocity = Math.min(
       currentPoint.velocity,
@@ -171,38 +163,38 @@ waypoints.push(finalWaypoint);
 
   // --- Compute timestamps and cumulative distance ---
   let cumtime = 0;
-  waypoints[0].time = 0;
-  waypoints[0].accel = 0;
-  for (let i = 1; i < waypoints.length; i++) {
-    const distStep = calcdistance(waypoints[i], waypoints[i - 1]);
-    const averagevel = (waypoints[i].velocity + waypoints[i - 1].velocity) / 2;
+  pathpoints[0].time = 0;
+  pathpoints[0].accel = 0;
+  for (let i = 1; i < pathpoints.length; i++) {
+    const distStep = calcdistance(pathpoints[i], pathpoints[i - 1]);
+    const averagevel = (pathpoints[i].velocity + pathpoints[i - 1].velocity) / 2;
     cumtime += distStep / averagevel;
-    waypoints[i].time = cumtime;
-    waypoints[i].accel = (waypoints[i].velocity - waypoints[i - 1].velocity) / (distStep / averagevel);
+    pathpoints[i].time = cumtime;
+    pathpoints[i].accel = (pathpoints[i].velocity - pathpoints[i - 1].velocity) / (distStep / averagevel);
   }
 
   // --- Apply smoothing to acceleration (moving average) ---
   const windowSize = 5; // Size of the moving average window
 
   const smoothedAccel: number[] = [];
-  for (let i = 0; i < waypoints.length; i++) {
+  for (let i = 0; i < pathpoints.length; i++) {
     const start = Math.max(0, i - windowSize + 1);
     const end = i + 1;
-    const avgAccel = waypoints.slice(start, end).reduce((sum, p) => sum + p.accel, 0) / (end - start);
+    const avgAccel = pathpoints.slice(start, end).reduce((sum, p) => sum + p.accel, 0) / (end - start);
     smoothedAccel.push(avgAccel);
   }
 
   // Update acceleration with smoothed values
-  for (let i = 0; i < waypoints.length; i++) {
-    waypoints[i].accel = smoothedAccel[i];
+  for (let i = 0; i < pathpoints.length; i++) {
+    pathpoints[i].accel = smoothedAccel[i];
   }
 
 
-  waypoints[waypoints.length - 1].accel = 0;
-  waypoints[0].accel = 0;
+  pathpoints[pathpoints.length - 1].accel = 0;
+  pathpoints[0].accel = 0;
 
   // Finally, plot graphs
-  plot(graph, waypoints);
+  plot();
 }
 
 // --- Helper functions ---
@@ -211,7 +203,7 @@ function computeMaxVelocity(adjVelocity: number, maxAcceleration: number, distan
   return Math.sqrt(Math.max(0, adjVelocity ** 2 + 2 * maxAcceleration * distance));
 }
 
-function calcdistance(point1: Point, point2: Point): number {
+function calcdistance(point1: pathPoint, point2: pathPoint): number {
   return Math.hypot(point1.x - point2.x, point1.y - point2.y);
 }
 
@@ -227,7 +219,7 @@ function factorial(n: number): number {
  * Returns the control points for the given segment.
  * For a cubic Bezier curve, each segment uses 4 points.
  */
-function section(points: ControlPoint[], segment: number): ControlPoint[] {
+function section(points: controlPoint[], segment: number): controlPoint[] {
   const segPoints = points
     .slice(3 * segment, 3 * segment + 4)
     .map(p => ({ ...p }));
@@ -244,7 +236,7 @@ function section(points: ControlPoint[], segment: number): ControlPoint[] {
   return segPoints;
 }
 
-function getx(points: ControlPoint[], t: number): number {
+function getx(points: controlPoint[], t: number): number {
   let x = 0;
   for (let j = 0; j < 4; j++) {
     const pointX = points[j].x;
@@ -254,7 +246,7 @@ function getx(points: ControlPoint[], t: number): number {
   return x;
 }
 
-function gety(points: ControlPoint[], t: number): number {
+function gety(points: controlPoint[], t: number): number {
   let y = 0;
   for (let j = 0; j < 4; j++) {
     const pointY = points[j].y;
@@ -265,10 +257,10 @@ function gety(points: ControlPoint[], t: number): number {
 }
 
 /**
- * Calculates curvature as the change in heading divided by the distance between waypoints.
+ * Calculates curvature as the change in heading divided by the distance between pathpoints.
  * Approximates κ = dθ/ds.
  */
-function calculateCurvature(prev: Point, curr: Point, next: Point): number {
+function calculateCurvature(prev: pathPoint, curr: pathPoint, next: pathPoint): number {
   const v1 = { x: curr.x - prev.x, y: curr.y - prev.y };
   const v2 = { x: next.x - curr.x, y: next.y - curr.y };
 

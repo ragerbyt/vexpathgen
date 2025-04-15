@@ -1,31 +1,18 @@
-interface Point {
-  x: number;
-  y: number;
-  index: number;
-  color: string;
-  dist: number;
-  isMain?: boolean;
-  anglex?: number;
-  angley?: number;
-  size?: number;
-}
+import { controlPoint } from "./globals";
 
-let controlpoints: Point[] = [];
 let isDraggingGlobal = false;
-let activeDragPoint: Point | null = null;
-let selectedPoint: Point | null = null;
+let activeDragPoint: controlPoint | null = null;
+let selectedPoint: controlPoint | null = null;
 
 
 
 //so if top = 20; left = 20 ;then top left is chopped off.
 
 
-
-
-const pointdisplay = document.getElementById("point-coordinates")
+const pointdisplay = document.getElementById("controlPoint-coordinates")
 
 import { computeBezierWaypoints } from "./curve";
-import { canvas } from "./globals";
+import { canvas,controlpoints } from "./globals";
 
 document.addEventListener("DOMContentLoaded", initCanvas);
 
@@ -39,32 +26,6 @@ function initCanvas() {
   redrawPoints();
 }
 
-let recordcontrolpoints: Point[][] = [];
-let currentindex = -1;
-
-document.addEventListener("keydown", (e) => {
-  if (e.ctrlKey) {
-    if (e.key.toLowerCase() === "z") {
-      console.log("ab");
-      controlpoints = recordcontrolpoints[currentindex - 1];
-      currentindex--;
-
-      console.log(recordcontrolpoints);
-
-      dispatchPathGeneration();
-      redrawPoints();
-    } else if (e.key.toLowerCase() === "y") {
-      controlpoints = recordcontrolpoints[currentindex + 1];
-      currentindex++;
-
-      dispatchPathGeneration();
-      redrawPoints();
-    }
-  }
-});
-
-
-
 
 function handleCanvasClick(e: MouseEvent) {
   // If a drag event just occurred, do not create new points.
@@ -73,8 +34,6 @@ function handleCanvasClick(e: MouseEvent) {
     return;
   }
 
-  currentindex++;
-  recordcontrolpoints[currentindex] = controlpoints;
 
   const rect = canvas.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
@@ -88,8 +47,6 @@ function handleCanvasClick(e: MouseEvent) {
 }
 
 function handleMouseDown(e: MouseEvent) {
-  currentindex++;
-  recordcontrolpoints[currentindex] = controlpoints;
 
   const rect = canvas.getBoundingClientRect();
   const mouseX = e.clientX - rect.left;
@@ -99,19 +56,19 @@ function handleMouseDown(e: MouseEvent) {
   const fieldX = canvasToFieldX(mouseX);
   const fieldY = canvasToFieldY(mouseY);
 
-  // Check if we're clicking on an existing point (using field coordinates)
+  // Check if we're clicking on an existing controlPoint (using field coordinates)
   const clickedPoint = getPointAtPosition(fieldX, fieldY);
   if (clickedPoint) {
     e.stopPropagation();
     activeDragPoint = clickedPoint;
     isDraggingGlobal = true;
-    let temptext = "point selected X: ";
+    let temptext = "controlPoint selected X: ";
     temptext += clickedPoint.x;
     temptext += " Y: ";
     temptext += clickedPoint.y;
     pointdisplay.innerText = temptext;
   }else{
-    pointdisplay.innerText = "No point selected";
+    pointdisplay.innerText = "No controlPoint selected";
   }
 }
 
@@ -143,16 +100,16 @@ function handleMouseUp() {
   }
 }
 
-function getPointAtPosition(fieldX: number, fieldY: number): Point | null {
+function getPointAtPosition(fieldX: number, fieldY: number): controlPoint | null {
   const hitRadius = 10 * 144 / canvas.width; // in field units
   for (let i = controlpoints.length - 1; i >= 0; i--) {
-    const point = controlpoints[i];
-    const pointSize = point.size || 5;
-    const dx = fieldX - point.x;
-    const dy = fieldY - point.y;
+    const controlPoint = controlpoints[i];
+    const pointSize = controlPoint.size || 5;
+    const dx = fieldX - controlPoint.x;
+    const dy = fieldY - controlPoint.y;
     const distance = Math.sqrt(dx * dx + dy * dy);
     if (distance <= hitRadius) {
-      return point;
+      return controlPoint;
     }
   }
   return null;
@@ -160,7 +117,7 @@ function getPointAtPosition(fieldX: number, fieldY: number): Point | null {
 
 function createPointSet(fieldX: number, fieldY: number) {
   if (controlpoints.length === 0) {
-    const mainPoint: Point = {
+    const mainPoint: controlPoint = {
       x: fieldX,
       y: fieldY,
       index: 0,
@@ -182,7 +139,7 @@ function createPointSet(fieldX: number, fieldY: number) {
   let offset = 40 * 144 / canvas.width; // now in field units (0-144 range)
 
   // Create first 2 control points
-  const controlPoint1: Point = {
+  const controlPoint1: controlPoint = {
     x: prevx + offset,
     y: prevy,
     index: controlpoints.length,
@@ -192,7 +149,7 @@ function createPointSet(fieldX: number, fieldY: number) {
   };
   controlpoints.push(controlPoint1);
 
-  const controlPoint2: Point = {
+  const controlPoint2: controlPoint = {
     x: fieldX - offset,
     y: fieldY,
     index: controlpoints.length,
@@ -202,7 +159,7 @@ function createPointSet(fieldX: number, fieldY: number) {
   };
   controlpoints.push(controlPoint2);
 
-  const mainPoint: Point = {
+  const mainPoint: controlPoint = {
     x: fieldX,
     y: fieldY,
     index: controlpoints.length,
@@ -219,16 +176,16 @@ function createPointSet(fieldX: number, fieldY: number) {
   redrawPoints();
 }
 
-function updateDrag(point: Point, newX: number, newY: number) {
-  const index = point.index;
-  // Determine the index of the main point for this group (main points are at indexes that are multiples of 3)
+function updateDrag(controlPoint: controlPoint, newX: number, newY: number) {
+  const index = controlPoint.index;
+  // Determine the index of the main controlPoint for this group (main points are at indexes that are multiples of 3)
   const groupStartIndex = Math.round(index / 3) * 3;
   const mainPoint = controlpoints[groupStartIndex];
-  const deltaX = point.x - newX;
-  const deltaY = point.y - newY;
+  const deltaX = controlPoint.x - newX;
+  const deltaY = controlPoint.y - newY;
 
-  if (point.isMain) {
-    // Main point: update the entire group of points.
+  if (controlPoint.isMain) {
+    // Main controlPoint: update the entire group of points.
     for (let i = -1; i <= 1; i++) {
       const groupPointIndex = index + i;
       if (groupPointIndex >= 0 && groupPointIndex < controlpoints.length) {
@@ -237,13 +194,13 @@ function updateDrag(point: Point, newX: number, newY: number) {
       }
     }
   } else {
-    // Control point: update only its own position.
-    point.x = newX;
-    point.y = newY;
+    // Control controlPoint: update only its own position.
+    controlPoint.x = newX;
+    controlPoint.y = newY;
 
-    point.dist = calculateSignedDistance(mainPoint, point);
-    mainPoint.anglex = (point.x - mainPoint.x) / point.dist;
-    mainPoint.angley = (point.y - mainPoint.y) / point.dist;
+    controlPoint.dist = calculateSignedDistance(mainPoint, controlPoint);
+    mainPoint.anglex = (controlPoint.x - mainPoint.x) / controlPoint.dist;
+    mainPoint.angley = (controlPoint.y - mainPoint.y) / controlPoint.dist;
 
     // Update control points positions based on the new angle.
     for (let i = -1; i <= 1; i++) {
@@ -257,7 +214,7 @@ function updateDrag(point: Point, newX: number, newY: number) {
   dispatchPathGeneration();
 }
 
-function calculateSignedDistance(pointA: Point, pointB: Point) {
+function calculateSignedDistance(pointA: controlPoint, pointB: controlPoint) {
   const dx = pointA.x - pointB.x;
   const dy = pointA.y - pointB.y;
   const rawDist = Math.sqrt(dx * dx + dy * dy);
@@ -265,7 +222,7 @@ function calculateSignedDistance(pointA: Point, pointB: Point) {
   return rawDist * sign;
 }
 
-function updateControlPosition(mainPoint: Point, controlPoint: Point) {
+function updateControlPosition(mainPoint: controlPoint, controlPoint: controlPoint) {
   controlPoint.x = mainPoint.x + controlPoint.dist * (mainPoint.anglex || 0);
   controlPoint.y = mainPoint.y + controlPoint.dist * (mainPoint.angley || 0);
 }
@@ -290,15 +247,13 @@ function redrawPoints() {
   ctx.clearRect(0, 0, canvas.width, canvas.height);
 
   // Dispatch event to redraw background if needed
-  document.dispatchEvent(new CustomEvent("redrawCanvas", { detail: { controlpoints } }));
+  document.dispatchEvent(new CustomEvent("redrawCanvas"));
 
 }
-
 // Export controlpoints for other modules
-export { controlpoints, type Point };
 
 document.getElementById("clear")?.addEventListener("click", () => {
-  controlpoints = [];
+  controlpoints.length = 0;
   redrawPoints();
   dispatchPathGeneration();
 });
@@ -306,51 +261,9 @@ document.getElementById("clear")?.addEventListener("click", () => {
 // Convert canvas coordinate to field coordinate (0-144)
 function canvasToFieldX(x: number): number {
   return (x / canvas.width)*144
+
 }
 function canvasToFieldY(y: number): number {
   return (y / canvas.height)*144
 }
-
-
-
-// Zoom and pan functionality
-let scale = 1; // Initial zoom level
-const minScale = 0.5; // Minimum zoom level
-const maxScale = 3; // Maximum zoom level
-let offsetX = 0; // Offset for panning
-let offsetY = 0;
-
-let left = 0;
-let right = 144;
-let top = 0;
-let bottom = 144;
-
-import { redrawCanvas } from "./draw";
-canvas.addEventListener("wheel", (e: WheelEvent) => {
-  
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  const mouseX = e.clientX - rect.left;
-  const mouseY = rect.bottom - e.clientY;
-
-  // Convert mouse position to field coordinates
-  const mouseFieldX = left + (mouseX / canvas.width) * (right - left);
-  const mouseFieldY = top + (mouseY / canvas.height) * (bottom - top);
-
-  const zoomFactor = 0.1;
-  const zoomIn = e.deltaY < 0;
-  const zoomMultiplier = zoomIn ? (1 - zoomFactor) : (1 + zoomFactor);
-
-  const newWidth = (right - left) * zoomMultiplier;
-  const newHeight = (bottom - top) * zoomMultiplier;
-
-  // Keep zoom centered on mouse
-  left = mouseFieldX - (mouseX / canvas.width) * newWidth;
-  right = left + newWidth;
-
-  top = mouseFieldY - (mouseY / canvas.height) * newHeight;
-  bottom = top + newHeight;
-  
-  redrawCanvas(); // Now should use left/right/top/bottom to transform the view
-});
 

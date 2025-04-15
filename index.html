@@ -6,27 +6,62 @@
   <title>Vex Path Gen</title>
 </head>
 <body>
-  <canvas id="path"></canvas>
+  <div id= "screen">
+    <canvas id="path"></canvas>
 
-  <div id="mouse-coordinates">X: 0, Y: 0</div>
-  <div id="point-coordinates">No point selected</div>
+    
 
+    <div id="sidebar">
+      <div id="info">
+        <div id="mouse-coordinates">X: 0, Y: 0</div>
+        <div id="point-coordinates">No point selected</div>
+      </div>
 
-
-  <button id="togglePoints">Toggle Points</button>
-  <button id="clear">Clear Points</button>
-
-  <input type="text" id="fileNameInput" placeholder="Enter file name (e.g., vex_path.cpp)" />
-  <input type="text" id="pathNameInput" placeholder="Enter path name (e.g., redside)" />
-
-  <button id="saveCpp">Save C++ File</button>
-
-
-  <div id="graphs-container">
-    <canvas id="graph" width="600" height="200"></canvas>
+      <div id="menu">
+        <button id="togglePoints">Toggle Points</button>
+        <button id="clear">Clear Points</button>
   
-    <div id="time-label" class="graph-label">Time</div>
+  
+        <div id="botconfig">
+          <div class="field">
+            <label for="maxaccel">Max Acceleration:</label>
+            <input type="number" id="maxaccel" value="50" />
+          </div>
+        
+          <div class="field">
+            <label for="maxvel">Max Velocity:</label>
+            <input type="number" id="maxvel" value="100" />
+          </div>
+        </div>
+      </div>
+  
+  
+      <div id="graphs-container">
+        <canvas id="graph" width="600" height="200"></canvas>
+    
+        <!-- Time Label for the Bottom -->
+        <div id="time-label" class="graph-label">Time (s)</div>
+        <div id="velocity-label" class="graph-label">Vel<br>(in/s)</div>
+
+        <!-- Time Start and End Labels -->
+        <div id="start-time-label" class="graph-label">0.00</div>
+        <div id="end-time-label" class="graph-label">0.00</div>
+    
+        <!-- Velocity Markings -->
+        <div id="velocity-max-label" class="graph-label">60.0</div> <!-- For max velocity -->
+        <div id="velocity-zero-label" class="graph-label">0.00</div> <!-- For velocity zero -->
+      </div>
+
+      <div id="saving">
+        <input type="text" id="fileNameInput" placeholder="Enter file name (e.g., vex_path.cpp)" />
+        <input type="text" id="pathNameInput" placeholder="Enter path name (e.g., redside)" />
+        <button id="saveCpp">Save C++ File</button>
+      </div>
+    
+    
+    </div>
   </div>
+  
 
   <!-- Entrypoint -->
   <script src="src/index.ts" type="module"></script>
