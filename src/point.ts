@@ -140,8 +140,8 @@ function createPointSet(fieldX: number, fieldY: number) {
 
   // Create first 2 control points
   const controlPoint1: controlPoint = {
-    x: prevx + offset,
-    y: prevy,
+    x: prevx + offset * controlpoints[idx].anglex!,
+    y: prevy + offset * controlpoints[idx].angley!,
     index: controlpoints.length,
     color: "blue",
     dist: offset,
