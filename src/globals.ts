@@ -44,8 +44,18 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 
     maxvelInput.addEventListener("input", () => {
-        MAX_VELOCITY = Number(maxaccelInput.value);
+        MAX_VELOCITY = Number(maxvelInput.value);
         computeBezierWaypoints();
+    });
+
+    const input = document.getElementById("import") as HTMLInputElement;
+
+    input.addEventListener("change", (event) => {
+        const target = event.target as HTMLInputElement;
+        const file = target.files?.[0];
+        if (file) {
+            console.log("Selected file:", file.name);
+        }
     });
 });
 

@@ -183,6 +183,13 @@ input[type="text"]::placeholder {
   text-align: center;
 }
 
+#currtime-label {
+  top: 20%;
+  left: 20%;
+  transform: translateX(0%);
+}
+
+
 /* Time label at the bottom */
 #time-label {
   bottom: 10%;
@@ -279,4 +286,10 @@ canvas {
   display: flex;
   flex-direction: row;
   gap: 12px;
+}
+
+#import{
+  position: relative;
+  left: 10;
+  right:10;
 }

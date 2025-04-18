@@ -30,7 +30,7 @@
         
           <div class="field">
             <label for="maxvel">Max Velocity:</label>
-            <input type="number" id="maxvel" value="100" />
+            <input type="number" id="maxvel" value="60" />
           </div>
         </div>
       </div>
@@ -39,6 +39,7 @@
       <div id="graphs-container">
         <canvas id="graph" width="600" height="200"></canvas>
         <canvas id="overlay" width="600" height="200"></canvas>
+        <div id="currtime-label" class="graph-label">0.0s</div>
 
         <!-- Time Label for the Bottom -->
         <div id="time-label" class="graph-label">Time (s)</div>
@@ -49,13 +50,15 @@
         <div id="end-time-label" class="graph-label">0.00</div>
     
         <!-- Velocity Markings -->
-        <div id="velocity-max-label" class="graph-label">60.0</div> <!-- For max velocity -->
-        <div id="velocity-zero-label" class="graph-label">0.00</div> <!-- For velocity zero -->
+        <div id="velocity-max-label" class="graph-label">60</div> <!-- For max velocity -->
+        <div id="velocity-zero-label" class="graph-label">0</div> <!-- For velocity zero -->
       </div>
 
       <div id="saving">
         <input type="text" id="pathNameInput" placeholder="Enter path name (e.g., redside)" />
         <button id="saveCpp">Save C++ File</button>
+        <input type="file" id="import" accept=".cpp" />
+
       </div>
     
     

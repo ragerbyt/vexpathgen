@@ -22,14 +22,26 @@ document.addEventListener("DOMContentLoaded", () => {
                     return;
                 }
 
+                let mode = "BACK";
+
                 // Construct the C++ file content
                 let cppContent = `#include "paths.h"\n\nstd::vector<Data> ${routeName} = {\n`;
-                cppContent += pathpoints
-                    .map(wp =>
-                        `    {${Math.round(wp.time * 1000)}, ${Math.round(wp.x * 50)}, ${Math.round(wp.y * 50)}, ${Math.round(wp.orientation * 10)}, ${Math.round(wp.velocity * 100)}, ${Math.round(wp.angularVelocity * 1000)}}`
-                    )
-                    .join(",\n");
-                cppContent += `\n};`;
+
+                if(mode == "FORWARD"){                
+                    cppContent += pathpoints
+                        .map(wp =>
+                            `    {${Math.round(wp.time * 1000)}, ${Math.round(wp.x * 50)}, ${Math.round(wp.y * 50)}, ${Math.round(wp.orientation * 100)}, ${Math.round(wp.velocity * 100)}, ${Math.round(wp.angularVelocity * 1000)}}`
+                        )
+                        .join(",\n");
+                    cppContent += `\n};`;
+                }else if (mode == "BACK"){
+                    cppContent += pathpoints
+                        .map(wp =>
+                            `    {${Math.round(wp.time * 1000)}, ${Math.round(wp.x * 50)}, ${Math.round(wp.y * 50)}, ${Math.round((wp.orientation + Math.PI) * 100)}, ${Math.round(wp.velocity * -100)}, ${Math.round(wp.angularVelocity * 1000)}}`
+                        )
+                        .join(",\n");
+                    cppContent += `\n};`;
+                }
 
                 // Use File System Access API to show Save As dialog
                 const fileHandle = await (window as any).showSaveFilePicker({

@@ -27,7 +27,7 @@ export function plot() {
   const width = graph.width;
   const height = graph.height;
 
-  const maxVelocity = MAX_VELOCITY * 1.2;
+  const maxVelocity = Math.round(MAX_VELOCITY * 1.2);
   const minVelocity = 0;
 
   const velocityData: { x: number; y: number }[] = [];
@@ -66,7 +66,7 @@ export function plot() {
   const velocityZeroLabel = document.getElementById("velocity-zero-label") as HTMLDivElement;
 
   if (velocityMaxLabel) {
-    velocityMaxLabel.textContent = `${maxVelocity.toFixed(1)}`; // Example max velocity
+    velocityMaxLabel.textContent = `${maxVelocity.toFixed(0)}`; // Example max velocity
   }
 
   if (velocityZeroLabel) {
@@ -96,6 +96,7 @@ document.addEventListener("mousemove", (e: MouseEvent) => handleMouseMove(e));
 
 const overlay = document.getElementById("overlay") as HTMLCanvasElement;
 const octx = overlay.getContext("2d")!
+const currtime = document.getElementById("currtime-label") as HTMLDivElement;
 
 import { bot } from "./globals";
 
@@ -106,6 +107,7 @@ function handleMouseMove(e: MouseEvent) {
   bot.y = -1;
   bot.o = -1;
   redrawCanvas();
+  currtime.style.display = "none";
 
   if (!pathpoints || pathpoints.length === 0) return; 
   const rect = graph.getBoundingClientRect();
@@ -124,12 +126,13 @@ function handleMouseMove(e: MouseEvent) {
   
   drawLine(octx,{x: newCanvasX * 600 / rect.width, y: 0},{x: newCanvasX * 600 / rect.width, y: octx.canvas.height},"red");
 
+  let last = pathpoints.length-1
 
 
-  let time = newCanvasX / rect.width * pathpoints[pathpoints.length - 1].time ;
+  let time = newCanvasX / rect.width * pathpoints[last].time ;
   for(let i = 1; i < pathpoints.length; i++){
     if(time > pathpoints[i].time){
-      let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time);
+      let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time)+0.01;
 
       bot.x = pathpoints[i-1].x + (pathpoints[i].x - pathpoints[i-1].x) * frac;
       bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
@@ -138,13 +141,22 @@ function handleMouseMove(e: MouseEvent) {
     }
   }
 
-  if(time < 0.1){
+  if(time <= 0.05){
     bot.x = pathpoints[0].x;
     bot.y = pathpoints[0].y;
     bot.o = pathpoints[0].orientation;
   }
 
+
+  if(time >= pathpoints[last].time - 0.1){
+    bot.x = pathpoints[last].x;
+    bot.y = pathpoints[last].y;
+    bot.o = pathpoints[last].orientation;
+  }
+
+  currtime.style.display = "block";
+  currtime.innerText = `${time.toFixed(2)}s`
+
   redrawCanvas();
-  console.log (time);
 
 }
