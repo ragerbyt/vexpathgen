@@ -16,18 +16,19 @@ body {
 /* Screen Layout Styling */
 #screen {
   display: flex;
-  flex-direction: row; /* Row layout: canvas and sidebar side by side */
+  flex-direction: row;
   gap: 1rem;
   align-items: flex-start;
   padding: 1rem;
   background: transparent;
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  width: 85%;
-  height: 95%;
+  width: 95%;
+  aspect-ratio: 2 / 1;
   border: 2px solid white;
   box-sizing: border-box;
 }
+
 
 /* Sidebar Styling */
 #sidebar {
@@ -149,7 +150,7 @@ input[type="text"]::placeholder {
 
 }
 
-#graph {
+#graph, #overlay {
   position: absolute;
   top: 10%;
   left: 10%;
@@ -227,9 +228,10 @@ canvas {
 
 /* Ensure path canvas is square */
 #path {
-  height: 100%;
+  height: min(100%, 50vw); /* 50% of the viewport width */
   aspect-ratio: 1 / 1; /* Keeps canvas square */
 }
+
 
 /* Floating mouse/point coordinate overlays (kept absolutely positioned) */
 #mouse-coordinates,

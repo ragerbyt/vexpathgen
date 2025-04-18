@@ -7,7 +7,8 @@ export interface Point {
   time: number;
 }
 
-import { graph, MAX_VELOCITY,pathpoints } from "./globals";
+import { redrawCanvas } from "./draw";
+import {graph, MAX_VELOCITY,pathpoints } from "./globals";
 
 // Redraw graph grid, axes, and labels
 function redraw(ctx: CanvasRenderingContext2D) {
@@ -89,4 +90,61 @@ function drawLine(ctx: CanvasRenderingContext2D, start: { x: number; y: number }
   ctx.moveTo(start.x, start.y);
   ctx.lineTo(end.x, end.y);
   ctx.stroke();
+}
+
+document.addEventListener("mousemove", (e: MouseEvent) => handleMouseMove(e));
+
+const overlay = document.getElementById("overlay") as HTMLCanvasElement;
+const octx = overlay.getContext("2d")!
+
+import { bot } from "./globals";
+
+function handleMouseMove(e: MouseEvent) {
+
+  octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
+  bot.x = -1;
+  bot.y = -1;
+  bot.o = -1;
+  redrawCanvas();
+
+  if (!pathpoints || pathpoints.length === 0) return; 
+  const rect = graph.getBoundingClientRect();
+  let newCanvasX = e.clientX - rect.left;
+  let newCanvasY = e.clientY - rect.top; // Updated
+
+  // Clamp canvas values to ensure they don't exceed canvas boundaries
+  if(newCanvasX < 0 || newCanvasX > rect.width){
+    return;
+  }
+
+  if(newCanvasY < 0 || newCanvasY > rect.height){
+    return;
+  }
+
+  
+  drawLine(octx,{x: newCanvasX * 600 / rect.width, y: 0},{x: newCanvasX * 600 / rect.width, y: octx.canvas.height},"red");
+
+
+
+  let time = newCanvasX / rect.width * pathpoints[pathpoints.length - 1].time ;
+  for(let i = 1; i < pathpoints.length; i++){
+    if(time > pathpoints[i].time){
+      let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time);
+
+      bot.x = pathpoints[i-1].x + (pathpoints[i].x - pathpoints[i-1].x) * frac;
+      bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
+      bot.o = pathpoints[i-1].orientation + (pathpoints[i].orientation - pathpoints[i-1].orientation) * frac;
+
+    }
+  }
+
+  if(time < 0.1){
+    bot.x = pathpoints[0].x;
+    bot.y = pathpoints[0].y;
+    bot.o = pathpoints[0].orientation;
+  }
+
+  redrawCanvas();
+  console.log (time);
+
 }

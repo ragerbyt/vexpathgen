@@ -11,7 +11,6 @@ function setupCanvas() {
   // Set canvas width to be the same as the height to make it square
 
   // Load background image.
-  
   background.onload = () => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
@@ -76,8 +75,9 @@ export function redrawCanvas() {
     const size = point.size || 5;
 
     // Map field coordinates to canvas coordinates
-    const canvasX = ((point.x - left) / (right - left)) * canvas.width;
-    const canvasY = ((bottom - point.y) / (bottom - top)) * canvas.height; // Adjusted for inverted Y-axis
+    const canvasX = (point.x / 144) * canvas.width;
+    const canvasY = ((144 - point.y) / 144) * canvas.height;
+
 
     // Draw filled circle
     ctx.arc(canvasX, canvasY, size, 0, Math.PI * 2);
@@ -89,6 +89,10 @@ export function redrawCanvas() {
     ctx.strokeStyle = "white";
     ctx.stroke();
   }
+  if(bot.x == -1){
+    return;
+  }
+  drawBot(ctx)
 }
 
 /**
@@ -125,23 +129,16 @@ function drawPath(ctx: CanvasRenderingContext2D) {
 }
 
 
-/**
- * Draws a line between two points with specified color.
- *
- * @param {CanvasRenderingContext2D} ctx - The canvas drawing context.
- * @param {Object} start - The starting point { x, y }.
- * @param {Object} end - The ending point { x, y }.
- * @param {string} color - The stroke color.
- */
 function drawLine(
   ctx: CanvasRenderingContext2D,
   start: pathPoint | controlPoint,
   end: pathPoint | controlPoint,
   color: string
-){const startX = ((start.x - left) / (right - left)) * canvas.width;
-  const startY = ((bottom - start.y) / (bottom - top)) * canvas.height; // Adjusted for inverted Y-axis
-  const endX = ((end.x - left) / (right - left)) * canvas.width;
-  const endY = ((bottom - end.y) / (bottom - top)) * canvas.height; // Adjusted for inverted Y-axis
+) {
+  const startX = (start.x / 144) * canvas.width;
+  const startY = ((144 - start.y) / 144) * canvas.height;
+  const endX = (end.x / 144) * canvas.width;
+  const endY = ((144 - end.y) / 144) * canvas.height;
 
   ctx.strokeStyle = color;
   ctx.lineWidth = 2;
@@ -151,6 +148,74 @@ function drawLine(
   ctx.lineTo(endX, endY);
   ctx.stroke();
 }
+
+import { bot } from "./globals";
+
+function drawBot(ctx: CanvasRenderingContext2D) {
+  const { x, y, o, width, length } = bot;
+
+  const canvasX = (x / 144) * canvas.width;
+  const canvasY = ((144 - y) / 144) * canvas.height;
+
+  const scale = canvas.width / 144;
+  const w = width * scale;
+  const l = length * scale;
+
+  ctx.save();
+  ctx.translate(canvasX, canvasY);
+  ctx.rotate(-o); // adjust for canvas Y-axis flip
+
+  // Draw bot rectangle
+  ctx.beginPath();
+  ctx.rect(-l / 2, -w / 2, l, w); // centered
+  ctx.fillStyle = "rgba(0, 0, 255, 0.4)";
+  ctx.fill();
+  ctx.lineWidth = 2;
+  ctx.strokeStyle = "blue";
+  ctx.stroke();
+
+  // Direction line
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(l / 2, 0);
+  ctx.strokeStyle = "white";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  ctx.restore();
+
+  // === Draw center point dot with velocity color ===
+  // Find closest segment
+  let closestIndex = 0;
+  let minDist = Infinity;
+  for (let i = 1; i < pathpoints.length; i++) {
+    const px = (pathpoints[i - 1].x + pathpoints[i].x) / 2;
+    const py = (pathpoints[i - 1].y + pathpoints[i].y) / 2;
+    const dist = Math.hypot(px - x, py - y);
+    if (dist < minDist) {
+      minDist = dist;
+      closestIndex = i;
+    }
+  }
+
+  if (closestIndex > 0) {
+    const p1 = pathpoints[closestIndex - 1];
+    const p2 = pathpoints[closestIndex];
+    const avgVelocity = (p1.velocity + p2.velocity) / 2;
+    const color = velocityToColor(avgVelocity);
+
+    // Draw the center dot
+    ctx.beginPath();
+    ctx.arc(canvasX, canvasY, 4, 0, Math.PI * 2);
+    ctx.fillStyle = color;
+    ctx.fill();
+    ctx.lineWidth = 1;
+    ctx.strokeStyle = "white";
+    ctx.stroke();
+  }
+}
+
+
 
 setupCanvas();
 

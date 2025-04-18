@@ -9,7 +9,7 @@ let selectedPoint: controlPoint | null = null;
 //so if top = 20; left = 20 ;then top left is chopped off.
 
 
-const pointdisplay = document.getElementById("controlPoint-coordinates")
+const pointdisplay = document.getElementById("point-coordinates")!
 
 import { computeBezierWaypoints } from "./curve";
 import { canvas,controlpoints } from "./globals";
@@ -228,7 +228,7 @@ function updateControlPosition(mainPoint: controlPoint, controlPoint: controlPoi
 }
 
 function dispatchPathGeneration() {
-  computeBezierWaypoints(controlpoints);
+  computeBezierWaypoints();
   document.dispatchEvent(new CustomEvent("drawpath", { detail: { controlpoints } }));
 }
 

@@ -4,19 +4,19 @@ import { pathPoint, controlPoint } from "./globals";
 
 // Array to hold computed pathpoints
 
-import {pathpoints } from "./globals";
+import {pathpoints,controlpoints } from "./globals";
 import { plot} from "./plot";
 
-export function computeBezierWaypoints(points: controlPoint[]) {
+export function computeBezierWaypoints() {
   pathpoints.splice(0, pathpoints.length);
-  if (points.length === 0) return;
+  if (controlpoints.length === 0) return;
 
   let totaldist = 0;
   const distances: number[] = [];
 
-  const numSegments = (points.length - 1) / 3;
+  const numSegments = (controlpoints.length - 1) / 3;
   for (let seg = 0; seg < numSegments; seg++) {
-    const sectpoints = section(points, seg);
+    const sectpoints = section(controlpoints, seg);
     for (let t = 0; t < 1; t += 0.01) {
       if (t === 0 && seg === 0) { distances.push(0); continue; }
       const prevT = t - 0.01;
@@ -28,7 +28,7 @@ export function computeBezierWaypoints(points: controlPoint[]) {
   }
 
   // Interpolate pathpoints based on a fixed distance increment
-  const numInterpPoints = 5000;
+  const numInterpPoints = 500;
   const sampleStep = totaldist / numInterpPoints;
   let targetDist = 0;
   let iIndex = 1;
@@ -46,7 +46,7 @@ export function computeBezierWaypoints(points: controlPoint[]) {
     const localIndex = (iIndex - 1) % 100;
     const tLocal = (localIndex + ratio) / 100;
 
-    const sectpoints = section(points, segmentIndex);
+    const sectpoints = section(controlpoints, segmentIndex);
     const waypoint: pathPoint = {
       x: 0,
       y: 0,
@@ -77,7 +77,7 @@ export function computeBezierWaypoints(points: controlPoint[]) {
 
   // Ensure final waypoint is generated:
   const lastSegment = Math.floor((distances.length - 1) / 100);
-  const finalSectPoints = section(points, lastSegment);
+  const finalSectPoints = section(controlpoints, lastSegment);
 
   const finalWaypoint: pathPoint = {
     x: 0,
@@ -110,8 +110,6 @@ export function computeBezierWaypoints(points: controlPoint[]) {
     finalWaypoint.orientation = Math.atan2(dy, dx);
     finalWaypoint.time = prev.time + (dist / ((prev.velocity + finalWaypoint.velocity) / 2 || 1e-6));
     finalWaypoint.accel = (finalWaypoint.velocity - prev.velocity) / (dist / ((prev.velocity + finalWaypoint.velocity) / 2 || 1e-6));
-
-
   }
 
   pathpoints.push(finalWaypoint);
@@ -126,9 +124,9 @@ export function computeBezierWaypoints(points: controlPoint[]) {
     }
     // Constrain velocity based on curvature:
     const leftFactor = Math.abs(1 - (TRACK_WIDTH / 2) * curvature);
-  const rightFactor = Math.abs(1 + (TRACK_WIDTH / 2) * curvature);
-  const maxDriveTrainVel = Math.min(60 / leftFactor, 60 / rightFactor);
-  pathpoints[i].velocity = Math.min(pathpoints[i].velocity, maxDriveTrainVel);
+    const rightFactor = Math.abs(1 + (TRACK_WIDTH / 2) * curvature);
+    const maxDriveTrainVel = Math.min(60 / leftFactor, 60 / rightFactor);
+    pathpoints[i].velocity = Math.min(MAX_VELOCITY, maxDriveTrainVel);
 
     pathpoints[i].curvature = curvature;
     pathpoints[i].angularVelocity = pathpoints[i].velocity * curvature;
@@ -216,11 +214,11 @@ function factorial(n: number): number {
 }
 
 /**
- * Returns the control points for the given segment.
- * For a cubic Bezier curve, each segment uses 4 points.
+ * Returns the control controlpoints for the given segment.
+ * For a cubic Bezier curve, each segment uses 4 controlpoints.
  */
-function section(points: controlPoint[], segment: number): controlPoint[] {
-  const segPoints = points
+function section(controlpoints: controlPoint[], segment: number): controlPoint[] {
+  const segPoints = controlpoints
     .slice(3 * segment, 3 * segment + 4)
     .map(p => ({ ...p }));
 
@@ -236,20 +234,20 @@ function section(points: controlPoint[], segment: number): controlPoint[] {
   return segPoints;
 }
 
-function getx(points: controlPoint[], t: number): number {
+function getx(controlpoints: controlPoint[], t: number): number {
   let x = 0;
   for (let j = 0; j < 4; j++) {
-    const pointX = points[j].x;
+    const pointX = controlpoints[j].x;
     const coeff = binomialCoefficient(3, j) * Math.pow(1 - t, 3 - j) * Math.pow(t, j);
     x += coeff * pointX;
   }
   return x;
 }
 
-function gety(points: controlPoint[], t: number): number {
+function gety(controlpoints: controlPoint[], t: number): number {
   let y = 0;
   for (let j = 0; j < 4; j++) {
-    const pointY = points[j].y;
+    const pointY = controlpoints[j].y;
     const coeff = binomialCoefficient(3, j) * Math.pow(1 - t, 3 - j) * Math.pow(t, j);
     y += coeff * pointY;
   }

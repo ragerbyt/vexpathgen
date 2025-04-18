@@ -9,53 +9,50 @@ import { pathpoints } from "./globals";
 
 document.addEventListener("DOMContentLoaded", () => {
     const saveCppButton = document.getElementById("saveCpp");
-    const fileNameInput = document.getElementById("fileNameInput") as HTMLInputElement;
     const pathNameInput = document.getElementById("pathNameInput") as HTMLInputElement;
-    // Example waypoints (finalWaypoint objects)
-  
 
     if (saveCppButton) {
-        saveCppButton.addEventListener("click", () => {
+        saveCppButton.addEventListener("click", async () => {
             try {
-                // Get the file name from the input field
-                let fileName = fileNameInput.value.trim();
-                if (!fileName) {
-                    fileName = "waypoints.cpp"; // Default name
+                let fileName = "path.cpp";
+
+                const routeName = pathNameInput.value.trim();
+                if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(routeName)) {
+                    alert("Please enter a valid C++ variable name.");
+                    return;
                 }
 
-                if (!fileName.endsWith(".cpp")) {
-                    fileName += ".cpp";
-                }
-
-                let routeName = pathNameInput.value.trim();
-
-                // Start building the C++ vector definition
-                let cppContent = `#include "paths.h"\n\nstd::vector<Data> `
-                cppContent += routeName
-                cppContent +=`= {\n`;
-
-                // Add waypoints as structs to the vector
+                // Construct the C++ file content
+                let cppContent = `#include "paths.h"\n\nstd::vector<Data> ${routeName} = {\n`;
                 cppContent += pathpoints
-                    .map(
-                        (wp) => `    {${Math.round(wp.time*1000)}, ${Math.round(wp.x*50)}, ${Math.round(wp.y*50)}, ${Math.round(wp.orientation*10)}, ${Math.round(wp.velocity*100)}, ${Math.round(wp.angularVelocity*1000)}}`
+                    .map(wp =>
+                        `    {${Math.round(wp.time * 1000)}, ${Math.round(wp.x * 50)}, ${Math.round(wp.y * 50)}, ${Math.round(wp.orientation * 10)}, ${Math.round(wp.velocity * 100)}, ${Math.round(wp.angularVelocity * 1000)}}`
                     )
                     .join(",\n");
                 cppContent += `\n};`;
 
-                // Create a Blob object for the file
-                const blob = new Blob([cppContent], { type: "text/plain" });
+                // Use File System Access API to show Save As dialog
+                const fileHandle = await (window as any).showSaveFilePicker({
+                    suggestedName: fileName,
+                    types: [
+                        {
+                            description: "C++ Source File",
+                            accept: {
+                                "text/x-c++src": [".cpp"]
+                            }
+                        }
+                    ],
+                    excludeAcceptAllOption: true
+                });
 
-                // Create an anchor element for download
-                const a = document.createElement("a");
-                a.href = URL.createObjectURL(blob);
-                a.download = fileName; // Use the file name with the .cpp extension
+                const writable = await fileHandle.createWritable();
+                await writable.write(cppContent);
+                await writable.close();
 
-                // Trigger the download
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
+                console.log("File saved successfully!");
             } catch (err) {
-                console.error("Error saving file:", err);
+                console.error("Save As failed:", err);
+                alert("Save failed. Make sure your browser supports the File System Access API.");
             }
         });
     }
