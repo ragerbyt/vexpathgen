@@ -100,7 +100,10 @@ const currtime = document.getElementById("currtime-label") as HTMLDivElement;
 
 import { bot } from "./globals";
 
+let disable = false;
+
 function handleMouseMove(e: MouseEvent) {
+  if (disable) return;
 
   octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
   bot.x = -1;
@@ -131,14 +134,12 @@ function handleMouseMove(e: MouseEvent) {
 
   let time = newCanvasX / rect.width * pathpoints[last].time ;
   for(let i = 1; i < pathpoints.length; i++){
-    if(time > pathpoints[i].time){
-      let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time)+0.01;
+    if(time < pathpoints[i].time){continue};
+    let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time)+0.01;
 
-      bot.x = pathpoints[i-1].x + (pathpoints[i].x - pathpoints[i-1].x) * frac;
-      bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
-      bot.o = pathpoints[i-1].orientation + (pathpoints[i].orientation - pathpoints[i-1].orientation) * frac;
-
-    }
+    bot.x = pathpoints[i-1].x + (pathpoints[i].x - pathpoints[i-1].x) * frac;
+    bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
+    bot.o = pathpoints[i-1].orientation + (pathpoints[i].orientation - pathpoints[i-1].orientation) * frac;
   }
 
   if(time <= 0.05){
@@ -160,3 +161,33 @@ function handleMouseMove(e: MouseEvent) {
   redrawCanvas();
 
 }
+
+const run = document.getElementById("run");
+
+run!.addEventListener("click", async () => {
+
+  let time = 0;
+  disable = true;
+  console.log("run");
+
+  while (time <  pathpoints[pathpoints.length-1].time){
+    for(let i = 1; i < pathpoints.length; i++){
+      if(time < pathpoints[i].time){continue};
+      let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time)+0.01;
+  
+      bot.x = pathpoints[i-1].x + (pathpoints[i].x - pathpoints[i-1].x) * frac;
+      bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
+      bot.o = pathpoints[i-1].orientation + (pathpoints[i].orientation - pathpoints[i-1].orientation) * frac;
+    }
+    time += 0.005;
+    redrawCanvas();
+    await new Promise(resolve => setTimeout(resolve, 5));
+
+  }
+
+  await new Promise(resolve => setTimeout(resolve, 200));
+
+  disable = false;
+
+})
+

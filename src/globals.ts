@@ -25,7 +25,7 @@ export const bot = {
     y: 0,
     o: 0,      
     width: 12,  
-    length: 18
+    length: 12
 };
     
 export let STATE = "Waypoints"
@@ -36,6 +36,8 @@ export let pathpoints: pathPoint[] = [];
 document.addEventListener("DOMContentLoaded", () => {
     const maxaccelInput = document.getElementById("maxaccel") as HTMLInputElement;
     const maxvelInput = document.getElementById("maxvel") as HTMLInputElement;
+    const len = document.getElementById("botlen") as HTMLInputElement;
+    const width = document.getElementById("botwidth") as HTMLInputElement;
 
 
     maxaccelInput.addEventListener("input", () => {
@@ -45,6 +47,14 @@ document.addEventListener("DOMContentLoaded", () => {
 
     maxvelInput.addEventListener("input", () => {
         MAX_VELOCITY = Number(maxvelInput.value);
+        computeBezierWaypoints();
+    });
+
+    len.addEventListener("input", () => {
+        bot.length = Number(len.value);
+    });
+    width.addEventListener("input", () => {
+        bot.width = Number(width.value);
         computeBezierWaypoints();
     });
 

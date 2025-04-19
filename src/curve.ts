@@ -4,7 +4,7 @@ import { pathPoint, controlPoint } from "./globals";
 
 // Array to hold computed pathpoints
 
-import {pathpoints,controlpoints } from "./globals";
+import {pathpoints,controlpoints,bot } from "./globals";
 import { plot} from "./plot";
 
 export function computeBezierWaypoints() {
@@ -113,7 +113,7 @@ export function computeBezierWaypoints() {
   }
 
   pathpoints.push(finalWaypoint);
-  const TRACK_WIDTH = 10;
+  const TRACK_WIDTH = bot.width;
 
 
   // --- Apply curvature constraints and update angular velocity ---
@@ -171,25 +171,6 @@ export function computeBezierWaypoints() {
     pathpoints[i].accel = (pathpoints[i].velocity - pathpoints[i - 1].velocity) / (distStep / averagevel);
   }
 
-  // --- Apply smoothing to acceleration (moving average) ---
-  const windowSize = 5; // Size of the moving average window
-
-  const smoothedAccel: number[] = [];
-  for (let i = 0; i < pathpoints.length; i++) {
-    const start = Math.max(0, i - windowSize + 1);
-    const end = i + 1;
-    const avgAccel = pathpoints.slice(start, end).reduce((sum, p) => sum + p.accel, 0) / (end - start);
-    smoothedAccel.push(avgAccel);
-  }
-
-  // Update acceleration with smoothed values
-  for (let i = 0; i < pathpoints.length; i++) {
-    pathpoints[i].accel = smoothedAccel[i];
-  }
-
-
-  pathpoints[pathpoints.length - 1].accel = 0;
-  pathpoints[0].accel = 0;
 
   // Finally, plot graphs
   plot();

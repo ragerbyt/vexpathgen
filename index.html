@@ -20,9 +20,21 @@
       <div id="menu">
         <button id="togglePoints">Toggle Points</button>
         <button id="clear">Clear Points</button>
-  
+        
+        <label class="switch">
+          <input type="checkbox">
+          <span class="slider round"></span>
+        </label>
   
         <div id="botconfig">
+          <div class="field">
+            <label for="botlen">Bot width:</label>
+            <input type="number" id="botwidth" value="16" />
+          </div>
+          <div class="field">
+            <label for="botwidth">Bot length:</label>
+            <input type="number" id="botlen" value="16" />
+          </div>
           <div class="field">
             <label for="maxaccel">Max Acceleration:</label>
             <input type="number" id="maxaccel" value="50" />
@@ -37,6 +49,8 @@
   
   
       <div id="graphs-container">
+
+
         <canvas id="graph" width="600" height="200"></canvas>
         <canvas id="overlay" width="600" height="200"></canvas>
         <div id="currtime-label" class="graph-label">0.0s</div>
@@ -52,6 +66,9 @@
         <!-- Velocity Markings -->
         <div id="velocity-max-label" class="graph-label">60</div> <!-- For max velocity -->
         <div id="velocity-zero-label" class="graph-label">0</div> <!-- For velocity zero -->
+
+        <button id="run">run</button>
+
       </div>
 
       <div id="saving">

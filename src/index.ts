@@ -25,7 +25,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 let mode = "BACK";
 
                 // Construct the C++ file content
-                let cppContent = `#include "paths.h"\n\nstd::vector<Data> ${routeName} = {\n`;
+                let cppContent = `#include "paths.h"\n\nconst std::vector<Data> ${routeName} = {\n`;
 
                 if(mode == "FORWARD"){                
                     cppContent += pathpoints
