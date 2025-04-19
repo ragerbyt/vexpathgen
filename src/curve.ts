@@ -28,7 +28,7 @@ export function computeBezierWaypoints() {
   }
 
   // Interpolate pathpoints based on a fixed distance increment
-  const numInterpPoints = 500;
+  const numInterpPoints = 1000;
   const sampleStep = totaldist / numInterpPoints;
   let targetDist = 0;
   let iIndex = 1;
@@ -58,6 +58,8 @@ export function computeBezierWaypoints() {
       time: 0,
       orientation: 0,
     };
+
+    console.log(MAX_VELOCITY);
     for (let j = 0; j < 4; j++) {
       const coeff = binomialCoefficient(3, j) *
                     Math.pow(1 - tLocal, 3 - j) *
@@ -113,6 +115,8 @@ export function computeBezierWaypoints() {
   }
 
   pathpoints.push(finalWaypoint);
+
+  
   const TRACK_WIDTH = bot.width;
 
 

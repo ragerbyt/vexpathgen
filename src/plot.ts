@@ -171,6 +171,10 @@ run!.addEventListener("click", async () => {
   console.log("run");
 
   while (time <  pathpoints[pathpoints.length-1].time){
+    currtime.style.display = "block";
+
+    currtime.innerText = `${time.toFixed(2)}s`
+
     for(let i = 1; i < pathpoints.length; i++){
       if(time < pathpoints[i].time){continue};
       let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time)+0.01;
@@ -179,7 +183,19 @@ run!.addEventListener("click", async () => {
       bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
       bot.o = pathpoints[i-1].orientation + (pathpoints[i].orientation - pathpoints[i-1].orientation) * frac;
     }
+
+    let last = pathpoints.length-1
+
+
+    if(time >= pathpoints[last].time - 0.1){
+      bot.x = pathpoints[last].x;
+      bot.y = pathpoints[last].y;
+      bot.o = pathpoints[last].orientation;
+    }
+    
     time += 0.005;
+
+    
     redrawCanvas();
     await new Promise(resolve => setTimeout(resolve, 5));
 
