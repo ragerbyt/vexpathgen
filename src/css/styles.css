@@ -191,7 +191,7 @@ input[type="text"]::placeholder {
 
 
 /* Time label at the bottom */
-#time-label {
+#unit-label {
   bottom: 10%;
   left: 50%;
   transform: translateX(0%);
@@ -241,9 +241,7 @@ canvas {
 
 
 /* Floating mouse/point coordinate overlays (kept absolutely positioned) */
-#mouse-coordinates,
-#point-coordinates {
-
+.info-box {
   font-size: 15px;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.1);
@@ -271,7 +269,6 @@ canvas {
   overflow-y: auto;
   box-sizing: border-box;
   display: flex;
-  flex-direction: column;
   gap: 12px;
 }
 
@@ -357,7 +354,43 @@ input:checked + .slider:before {
   border-radius: 50%;
 }
 
-#run{
-  position: absolute;
-  bottom: 0;
+/* Styling for file upload button */
+.file-upload-button {
+  padding: 12px 18px;
+  background-color: #4ca3ec; /* Similar to your button color */
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 15px;
+  transition: background-color 0.3s ease-in-out, transform 0.2s ease-in-out;
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+  width: fit-content;
+  display: inline-block;
+  text-align: center;
+  margin-top: 10px; /* Adjusted spacing for placement */
+}
+
+.file-upload-button:hover {
+  background-color: #3b90d0; /* Darker blue on hover */
+  transform: scale(1.05);
+}
+
+.file-upload-button:active {
+  transform: scale(0.95); /* Active state */
+}
+
+.file-upload-button:focus {
+  outline: none;
+  box-shadow: 0 0 5px #4ca3ec; /* Adds a glow when focused */
+}
+
+.file-upload-button::before {
+  content: "📂"; /* You can add an icon here if you want */
+  margin-right: 8px;
+}
+
+.file-upload-button span {
+  font-weight: bold;
+  font-size: 15px;
 }

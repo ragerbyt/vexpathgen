@@ -13,14 +13,16 @@
 
     <div id="sidebar">
       <div id="info">
-        <div id="mouse-coordinates">X: 0, Y: 0</div>
-        <div id="point-coordinates">No point selected</div>
+        <div class="info-box" id="mouse-coordinates"></div>
+        <div class="info-box" id="point-coordinates"></div>
+
       </div>
 
       <div id="menu">
         <button id="togglePoints">Toggle Points</button>
         <button id="clear">Clear Points</button>
-        
+        <button id="sidepath">Toggle wheel paths</button>
+
         <label class="switch">
           <input type="checkbox">
           <span class="slider round"></span>
@@ -56,7 +58,7 @@
         <div id="currtime-label" class="graph-label">0.0s</div>
 
         <!-- Time Label for the Bottom -->
-        <div id="time-label" class="graph-label">Time (s)</div>
+        <div id="unit-label" class="graph-label">TIME (S)</div>
         <div id="velocity-label" class="graph-label">Vel<br>(in/s)</div>
 
         <!-- Time Start and End Labels -->
@@ -67,14 +69,24 @@
         <div id="velocity-max-label" class="graph-label">60</div> <!-- For max velocity -->
         <div id="velocity-zero-label" class="graph-label">0</div> <!-- For velocity zero -->
 
-        <button id="run">run</button>
+        
 
+      </div>
+
+      <div id = "graphcustom">
+        <button id="run">run</button>
+        <button id="dist">dist graph</button>
+        <button id="time">time graph</button>
       </div>
 
       <div id="saving">
         <input type="text" id="pathNameInput" placeholder="Enter path name (e.g., redside)" />
         <button id="saveCpp">Save C++ File</button>
-        <input type="file" id="import" accept=".cpp" />
+
+
+        <input type="file" id="import" accept=".cpp" hidden />
+        <label for="import" class="file-upload-button">Import C++ File</label>
+
 
       </div>
     
@@ -82,7 +94,7 @@
     </div>
   </div>
   
-
+  
   <!-- Entrypoint -->
   <script src="src/index.ts" type="module"></script>
 </body>

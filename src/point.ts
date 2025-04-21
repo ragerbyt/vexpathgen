@@ -258,6 +258,7 @@ document.getElementById("clear")?.addEventListener("click", () => {
   dispatchPathGeneration();
 });
 
+
 // Convert canvas coordinate to field coordinate (0-144)
 function canvasToFieldX(x: number): number {
   return (x / canvas.width)*144
@@ -266,4 +267,6 @@ function canvasToFieldX(x: number): number {
 function canvasToFieldY(y: number): number {
   return (y / canvas.height)*144
 }
+
+
 

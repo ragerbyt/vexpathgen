@@ -1,10 +1,10 @@
-import { MAX_ACCELERATION, MAX_VELOCITY} from "./globals";
-import { pathPoint, controlPoint } from "./globals";
+import { left, MAX_ACCELERATION, MAX_VELOCITY} from "./globals";
+import { pathPoint, controlPoint,Point } from "./globals";
 
 
 // Array to hold computed pathpoints
 
-import {pathpoints,controlpoints,bot } from "./globals";
+import {pathpoints,controlpoints,bot,leftdt,rightdt } from "./globals";
 import { plot} from "./plot";
 
 export function computeBezierWaypoints() {
@@ -59,7 +59,6 @@ export function computeBezierWaypoints() {
       orientation: 0,
     };
 
-    console.log(MAX_VELOCITY);
     for (let j = 0; j < 4; j++) {
       const coeff = binomialCoefficient(3, j) *
                     Math.pow(1 - tLocal, 3 - j) *
@@ -118,7 +117,65 @@ export function computeBezierWaypoints() {
 
   
   const TRACK_WIDTH = bot.width;
+  
+  leftdt.splice(0,leftdt.length)
+  rightdt.splice(0,rightdt.length)
 
+
+  for (let i = 0; i < pathpoints.length; i++) {
+
+    const curr = pathpoints[i];
+    let prev, fut;
+  
+    // Handle first and last points
+    if (i === 0) {
+      // For the first point, use the next point as 'fut'
+      fut = pathpoints[i + 1];
+      prev = curr;  // No previous, just set it to current for calculation safety
+    } else if (i === pathpoints.length - 1) {
+      // For the last point, use the previous point as 'prev'
+      prev = pathpoints[i - 1];
+      fut = curr;  // No future, just set it to current for calculation safety
+    } else {
+      // For middle points, use both previous and future points
+      prev = pathpoints[i - 1];
+      fut = pathpoints[i + 1];
+    }
+  
+    // Vectors from previous to current, and current to future
+    let v1x = curr.x - prev.x;
+    let v1y = curr.y - prev.y;
+    let v2x = fut.x - curr.x;
+    let v2y = fut.y - curr.y;
+  
+    // Sum the vectors to get the angle bisector (not normalized yet)
+    let bisx = v1x + v2x;
+    let bisy = v1y + v2y;
+  
+    // Normalize the bisector
+    let bisSq = bisx * bisx + bisy * bisy;
+    if (bisSq !== 0) {
+      const invMag = 1 / Math.sqrt(bisSq);
+      bisx *= invMag;
+      bisy *= invMag;
+    }
+  
+    // Perpendicular to bisector is the local left direction
+    const leftX = -bisy;
+    const leftY = bisx;
+  
+    // Offset from center to get wheel positions
+    const halfWidth = TRACK_WIDTH / 2;
+    const leftWheelX = curr.x + leftX * halfWidth;
+    const leftWheelY = curr.y + leftY * halfWidth;
+    const rightWheelX = curr.x - leftX * halfWidth;
+    const rightWheelY = curr.y - leftY * halfWidth;
+  
+    // Push the wheel positions to their respective arrays
+    leftdt.push({ x: leftWheelX, y: leftWheelY });
+    rightdt.push({ x: rightWheelX, y: rightWheelY });
+  }
+  
 
   // --- Apply curvature constraints and update angular velocity ---
   for (let i = 0; i < pathpoints.length; i++) {

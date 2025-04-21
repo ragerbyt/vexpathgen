@@ -30,8 +30,13 @@ export const bot = {
     
 export let STATE = "Waypoints"
 
+
 export let controlpoints: controlPoint[] = [];
 export let pathpoints: pathPoint[] = [];
+export let leftdt: Point[] = [];
+export let rightdt: Point[] = [];
+
+
 
 document.addEventListener("DOMContentLoaded", () => {
     const maxaccelInput = document.getElementById("maxaccel") as HTMLInputElement;
@@ -92,4 +97,9 @@ export interface controlPoint {
     anglex?: number;
     angley?: number;
     size?: number;
+}
+
+export interface Point{
+    x: number;
+    y: number;
 }

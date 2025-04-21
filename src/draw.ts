@@ -1,56 +1,41 @@
-import { pathpoints } from "./globals";
-import { canvas, MAX_VELOCITY ,top,left,bottom,right,ctx, background} from "./globals";
-import {controlpoints, pathPoint, controlPoint} from "./globals";
+import { Point } from "chart.js";
+import { leftdt, pathpoints, rightdt } from "./globals";
+import { canvas, MAX_VELOCITY, top, left, bottom, right, ctx, background } from "./globals";
+import { controlpoints, pathPoint, controlPoint } from "./globals";
 
-/**
- * Initializes the canvas, loads the background image,
- * and sets up the event listeners to redraw the path.
- */
 function setupCanvas() {
-  // Set canvas dimensions.
-  // Set canvas width to be the same as the height to make it square
-
-  // Load background image.
   background.onload = () => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
   };
 
-
-  // Listen for the custom "drawpath" event to update the path.
   document.addEventListener("drawpath", () => {
     canvas.width = canvas.getBoundingClientRect().height;
     canvas.height = canvas.getBoundingClientRect().height;
-  
     redrawCanvas();
   });
 
   document.addEventListener("redrawCanvas", () => {
     canvas.width = canvas.getBoundingClientRect().height;
     canvas.height = canvas.getBoundingClientRect().height;
-  
     redrawCanvas();
   });
 }
 
-/**
- * Clears the canvas, draws the background, and then draws the path if available.
- *
- * @param {CanvasRenderingContext2D} ctx - The canvas drawing context.
- * @param {HTMLImageElement} background - The background image.
- */
+let drawpoints = true;
+
 export function redrawCanvas() {
+
   if (!background.complete || background.naturalWidth === 0) {
     console.warn("Background image not loaded yet.");
     return;
   }
+
   
 
-  // Clear the canvas and draw the background
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
 
-  // Draw the path if pathpoints are available
   if (pathpoints.length > 1) {
     drawPath(ctx);
   }
@@ -59,94 +44,109 @@ export function redrawCanvas() {
     return;
   }
 
-  // Draw lines connecting control points
   for (let i = 0; i < controlpoints.length; i += 3) {
+    if (!drawpoints) break;
     if (controlpoints[i - 1]) {
-      drawLine(ctx, controlpoints[i - 1], controlpoints[i], "white");
+      drawLine(ctx, controlpoints[i - 1], controlpoints[i], "white", 2);
     }
     if (controlpoints[i + 1]) {
-      drawLine(ctx, controlpoints[i + 1], controlpoints[i], "white");
+      drawLine(ctx, controlpoints[i + 1], controlpoints[i], "white", 2);
     }
   }
 
-  // Draw control points
   for (const point of controlpoints) {
+    if (!drawpoints) break;
     ctx.beginPath();
     const size = point.size || 5;
 
-    // Map field coordinates to canvas coordinates
     const canvasX = (point.x / 144) * canvas.width;
     const canvasY = ((144 - point.y) / 144) * canvas.height;
 
-
-    // Draw filled circle
     ctx.arc(canvasX, canvasY, size, 0, Math.PI * 2);
     ctx.fillStyle = point.color;
     ctx.fill();
 
-    // Draw border
     ctx.lineWidth = 1;
     ctx.strokeStyle = "white";
     ctx.stroke();
   }
-  if(bot.x == -1){
+
+  if (bot.x == -1) {
     return;
   }
-  drawBot(ctx)
+  drawBot(ctx);
 }
 
-/**
- * Draws a path connecting all the provided pathpoints.
- *
- * @param {CanvasRenderingContext2D} ctx - The canvas drawing context.
- */
-/**
- * Maps a velocity value (assumed range 0 to 20) to a color.
- * Lower velocities are red; higher velocities are green.
- */
+document.getElementById("togglePoints")?.addEventListener("click", () => {
+  drawpoints = !drawpoints;
+  redrawCanvas();
+});
+
 function velocityToColor(velocity: number): string {
   const minVel = -5;
   const maxVel = MAX_VELOCITY * 1.2;
-  // Normalize velocity to [0, 1]
   let norm = (velocity - minVel) / (maxVel - minVel);
   norm = Math.max(0, Math.min(1, norm));
-  // Interpolate between red (255, 0, 0) and green (0, 255, 0)
   const r = Math.round(255 * (1 - norm));
   const g = Math.round(255 * norm);
   const b = 0;
-  return `rgb(${r}, ${g}, ${b})`;
+  const a = 1; // Increase this for more opacity (max 1.0)
+  ctx.globalAlpha = 1.0;
+
+  return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
+
+
+let sidetrack = false;
 
 function drawPath(ctx: CanvasRenderingContext2D) {
   for (let i = 1; i < pathpoints.length; i++) {
-    // Compute the average velocity between two pathpoints
     const avgVelocity = (pathpoints[i - 1].velocity + pathpoints[i].velocity) / 2;
     const color = velocityToColor(avgVelocity);
+    drawLine(ctx, pathpoints[i - 1], pathpoints[i], color, 4);
+  }
 
-    // Draw the line segment
-    drawLine(ctx, pathpoints[i - 1], pathpoints[i], color);
+  if (!sidetrack) return;
+
+  for (let i = 1; i < leftdt.length; i++) {
+    drawLine(ctx, leftdt[i - 1], leftdt[i], "red", 1);
+  }
+
+  for (let i = 1; i < rightdt.length; i++) {
+    drawLine(ctx, rightdt[i - 1], rightdt[i], "blue", 1);
   }
 }
 
+document.getElementById("sidepath")?.addEventListener("click", () => {
+  sidetrack = !sidetrack;
+  redrawCanvas();
+});
 
 function drawLine(
   ctx: CanvasRenderingContext2D,
-  start: pathPoint | controlPoint,
-  end: pathPoint | controlPoint,
-  color: string
+  start: pathPoint | controlPoint | Point,
+  end: pathPoint | controlPoint | Point,
+  color: string,
+  thickness: number = 2
 ) {
+
+  
   const startX = (start.x / 144) * canvas.width;
   const startY = ((144 - start.y) / 144) * canvas.height;
   const endX = (end.x / 144) * canvas.width;
   const endY = ((144 - end.y) / 144) * canvas.height;
 
+  ctx.save(); // Save the current canvas state
+  ctx.globalAlpha = 1; // Fully opaque
+  ctx.globalCompositeOperation = "source-over"; // Default compositing mode
   ctx.strokeStyle = color;
-  ctx.lineWidth = 2;
+  ctx.lineWidth = thickness;
   ctx.setLineDash([]);
   ctx.beginPath();
   ctx.moveTo(startX, startY);
   ctx.lineTo(endX, endY);
   ctx.stroke();
+  ctx.restore(); // Restore the previous canvas state
 }
 
 import { bot } from "./globals";
@@ -163,18 +163,16 @@ function drawBot(ctx: CanvasRenderingContext2D) {
 
   ctx.save();
   ctx.translate(canvasX, canvasY);
-  ctx.rotate(-o); // adjust for canvas Y-axis flip
+  ctx.rotate(-o);
 
-  // Draw bot rectangle
   ctx.beginPath();
-  ctx.rect(-l / 2, -w / 2, l, w); // centered
+  ctx.rect(-l / 2, -w / 2, l, w);
   ctx.fillStyle = "rgba(0, 0, 255, 0.4)";
   ctx.fill();
   ctx.lineWidth = 2;
   ctx.strokeStyle = "blue";
   ctx.stroke();
 
-  // Direction line
   ctx.beginPath();
   ctx.moveTo(0, 0);
   ctx.lineTo(l / 2, 0);
@@ -184,8 +182,6 @@ function drawBot(ctx: CanvasRenderingContext2D) {
 
   ctx.restore();
 
-  // === Draw center point dot with velocity color ===
-  // Find closest segment
   let closestIndex = 0;
   let minDist = Infinity;
   for (let i = 1; i < pathpoints.length; i++) {
@@ -204,7 +200,6 @@ function drawBot(ctx: CanvasRenderingContext2D) {
     const avgVelocity = (p1.velocity + p2.velocity) / 2;
     const color = velocityToColor(avgVelocity);
 
-    // Draw the center dot
     ctx.beginPath();
     ctx.arc(canvasX, canvasY, 4, 0, Math.PI * 2);
     ctx.fillStyle = color;
@@ -215,8 +210,4 @@ function drawBot(ctx: CanvasRenderingContext2D) {
   }
 }
 
-
-
 setupCanvas();
-
-
