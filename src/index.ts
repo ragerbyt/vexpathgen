@@ -14,6 +14,11 @@ document.addEventListener("DOMContentLoaded", () => {
     const pathNameInput = document.getElementById("pathNameInput") as HTMLInputElement;
     const statusMessage = document.getElementById("statusMessage");
 
+    saveCppButton.addEventListener("click",() => {
+        
+
+
+
     // Initial save function
     async function saveFile(): Promise<void> {
         try {
@@ -95,4 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (saveCppButton) {
         saveCppButton.addEventListener("click", saveFile);
     }
+
+    });
+
 });
