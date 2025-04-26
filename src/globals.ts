@@ -24,8 +24,9 @@ export const bot = {
     x: 0,
     y: 0,
     o: 0,      
-    width: 12,  
-    length: 12
+    width: 16,  
+    length: 16,
+    trackwidth: 10,
 };
     
 export let STATE = "Waypoints"
@@ -43,7 +44,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const maxvelInput = document.getElementById("maxvel") as HTMLInputElement;
     const len = document.getElementById("botlen") as HTMLInputElement;
     const width = document.getElementById("botwidth") as HTMLInputElement;
-
+    const trackw = document.getElementById("trackwidth") as HTMLInputElement;
 
     maxaccelInput.addEventListener("input", () => {
         MAX_ACCELERATION = Number(maxaccelInput.value);
@@ -60,6 +61,11 @@ document.addEventListener("DOMContentLoaded", () => {
     });
     width.addEventListener("input", () => {
         bot.width = Number(width.value);
+        computeBezierWaypoints();
+    });
+
+    trackw.addEventListener("input", () => {
+        bot.trackwidth = Number(trackw.value);
         computeBezierWaypoints();
     });
 

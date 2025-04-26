@@ -152,36 +152,58 @@ function drawLine(
 import { bot } from "./globals";
 
 function drawBot(ctx: CanvasRenderingContext2D) {
-  const { x, y, o, width, length } = bot;
+  const { x, y, o, width, length, trackwidth } = bot;
 
+  // convert robot‐coords (0–144) → canvas‐coords
   const canvasX = (x / 144) * canvas.width;
   const canvasY = ((144 - y) / 144) * canvas.height;
+  const scale   = canvas.width / 144;
 
-  const scale = canvas.width / 144;
-  const w = width * scale;
+  // body dims in px
+  const w = width  * scale;
   const l = length * scale;
+  // track‐width in px and half:
+  const tw = trackwidth * scale;
+  const ht = tw / 2;
 
   ctx.save();
   ctx.translate(canvasX, canvasY);
   ctx.rotate(-o);
 
+  // draw robot body
   ctx.beginPath();
   ctx.rect(-l / 2, -w / 2, l, w);
-  ctx.fillStyle = "rgba(0, 0, 255, 0.4)";
+  ctx.fillStyle   = "rgba(0, 0, 255, 0.4)";
   ctx.fill();
-  ctx.lineWidth = 2;
+  ctx.lineWidth   = 2;
   ctx.strokeStyle = "blue";
   ctx.stroke();
 
+  // heading line
   ctx.beginPath();
   ctx.moveTo(0, 0);
   ctx.lineTo(l / 2, 0);
   ctx.strokeStyle = "white";
-  ctx.lineWidth = 2;
+  ctx.lineWidth   = 2;
   ctx.stroke();
+
+  // ** new: track‐width “rails” **
+  ctx.beginPath();
+  // left side
+  ctx.moveTo(-l / 2, -ht);
+  ctx.lineTo( l / 2, -ht);
+  // right side
+  ctx.moveTo(-l / 2,  ht);
+  ctx.lineTo( l / 2,  ht);
+  ctx.strokeStyle = "rgba(255, 255, 0, 0.8)";
+  ctx.lineWidth   = 1;
+  ctx.setLineDash([4,2]);
+  ctx.stroke();
+  ctx.setLineDash([]);  // back to solid
 
   ctx.restore();
 
+  // existing: draw nearest‐point velocity dot...
   let closestIndex = 0;
   let minDist = Infinity;
   for (let i = 1; i < pathpoints.length; i++) {
@@ -204,10 +226,11 @@ function drawBot(ctx: CanvasRenderingContext2D) {
     ctx.arc(canvasX, canvasY, 4, 0, Math.PI * 2);
     ctx.fillStyle = color;
     ctx.fill();
-    ctx.lineWidth = 1;
+    ctx.lineWidth   = 1;
     ctx.strokeStyle = "white";
     ctx.stroke();
   }
 }
+
 
 setupCanvas();

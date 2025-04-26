@@ -113,7 +113,7 @@ export function computeBezierWaypoints() {
 
     const leftX = -Math.sin(heading);
     const leftY = Math.cos(heading);
-    const halfW = bot.width / 2;
+    const halfW = bot.trackwidth / 2;
 
     leftdt.push({
       x: curr.x + leftX * halfW,
@@ -134,7 +134,7 @@ export function computeBezierWaypoints() {
 
   // Start at i=1 so we can compare to the previous point
   // threshold curvature where inner‐wheel radius goes negative:
-  const threshold = 2 / bot.width;
+  const threshold = 2 / bot.trackwidth;
 
   for (let i = 1; i < pathpoints.length; i++) {
     const κCurr = pathpoints[i].curvature;
@@ -281,7 +281,7 @@ export function computeBezierWaypoints() {
   for (let i = 0; i < pathpoints.length; i++) {
     const vL = leftdt[i].vel, vR = rightdt[i].vel;
     const vc = (vL + vR) / 2;
-    const ω  = (vR - vL) / bot.width;
+    const ω  = (vR - vL) / bot.trackwidth;
     pathpoints[i].velocity        = vc;
     pathpoints[i].angularVelocity = ω;
   }
