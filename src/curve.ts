@@ -1,250 +1,327 @@
-import { left, MAX_ACCELERATION, MAX_VELOCITY} from "./globals";
-import { pathPoint, controlPoint,Point } from "./globals";
+import { left, MAX_ACCELERATION, MAX_VELOCITY, right } from "./globals";
+import { pathPoint, controlPoint, Point } from "./globals";
+import { pathpoints, controlpoints, bot, leftdt, rightdt } from "./globals";
+import { plot } from "./plot";
 
-
-// Array to hold computed pathpoints
-
-import {pathpoints,controlpoints,bot,leftdt,rightdt } from "./globals";
-import { plot} from "./plot";
+export let leftVel : number[] = []
+export let rightVel : number[] = []
 
 export function computeBezierWaypoints() {
+  // Clear any existing waypoints
   pathpoints.splice(0, pathpoints.length);
   if (controlpoints.length === 0) return;
 
-  let totaldist = 0;
-  const distances: number[] = [];
-
   const numSegments = (controlpoints.length - 1) / 3;
+  let totaldist = 0;
+
+  // --- Uniform per-segment interpolation ---
+  const totalInterp = 1000;
+  const ptsPerSeg = Math.floor(totalInterp / numSegments);
+  const remainder = totalInterp - ptsPerSeg * numSegments;
+
   for (let seg = 0; seg < numSegments; seg++) {
-    const sectpoints = section(controlpoints, seg);
-    for (let t = 0; t < 1; t += 0.01) {
-      if (t === 0 && seg === 0) { distances.push(0); continue; }
-      const prevT = t - 0.01;
-      const dx = getx(sectpoints, t) - getx(sectpoints, prevT);
-      const dy = gety(sectpoints, t) - gety(sectpoints, prevT);
-      totaldist += Math.hypot(dx, dy);
-      distances.push(totaldist);
+    const sectpts = section(controlpoints, seg);
+    const count = seg === numSegments - 1 ? ptsPerSeg + remainder : ptsPerSeg;
+
+    for (let i = 0; i < count; i++) {
+      const t = i / count;
+      const wp: pathPoint = {
+        x: 0, y: 0,
+        velocity: MAX_VELOCITY,
+        curvature: 0,
+        angularVelocity: 0,
+        dist: 0,
+        accel: 0,
+        time: 0,
+        orientation: 0,
+      };
+      // Bézier point
+      for (let j = 0; j < 4; j++) {
+        const coeff = binomialCoefficient(3, j)
+          * Math.pow(1 - t, 3 - j) * Math.pow(t, j);
+        wp.x += coeff * sectpts[j].x;
+        wp.y += coeff * sectpts[j].y;
+      }
+      if (pathpoints.length > 0) {
+        let dist = calcdistance(pathpoints[pathpoints.length - 1], wp);
+        totaldist += dist;
+
+      }else{
+        const first = controlpoints[0];
+        wp.orientation = Math.atan2(first.angley!, first.anglex!);
+      }
+
+      wp.dist = totaldist;
+      pathpoints.push(wp);
     }
   }
 
-  // Interpolate pathpoints based on a fixed distance increment
-  const numInterpPoints = 1000;
-  const sampleStep = totaldist / numInterpPoints;
-  let targetDist = 0;
-  let iIndex = 1;
-
-  while (targetDist <= totaldist && iIndex < distances.length) {
-    while (iIndex < distances.length && distances[iIndex] < targetDist) {
-      iIndex++;
-    }
-    if (iIndex >= distances.length) break;
-    const d0 = distances[iIndex - 1];
-    const d1 = distances[iIndex];
-    const ratio = (targetDist - d0) / (d1 - d0);
-
-    const segmentIndex = Math.floor((iIndex - 1) / 100);
-    const localIndex = (iIndex - 1) % 100;
-    const tLocal = (localIndex + ratio) / 100;
-
-    const sectpoints = section(controlpoints, segmentIndex);
-    const waypoint: pathPoint = {
-      x: 0,
-      y: 0,
-      velocity: MAX_VELOCITY,
+  // Append exact final endpoint at t=1 of last segment
+  {
+    const sectpts = section(controlpoints, numSegments - 1);
+    const finalWP: pathPoint = {
+      x: 0, y: 0,
+      velocity: 0,
       curvature: 0,
       angularVelocity: 0,
-      dist: targetDist,
+      dist: 0,
       accel: 0,
       time: 0,
       orientation: 0,
     };
-
     for (let j = 0; j < 4; j++) {
-      const coeff = binomialCoefficient(3, j) *
-                    Math.pow(1 - tLocal, 3 - j) *
-                    Math.pow(tLocal, j);
-      waypoint.x += coeff * sectpoints[j].x;
-      waypoint.y += coeff * sectpoints[j].y;
+      const coeff = binomialCoefficient(3, j)
+        * Math.pow(1 - 1, 3 - j) * Math.pow(1, j);
+      finalWP.x += coeff * sectpts[j].x;
+      finalWP.y += coeff * sectpts[j].y;
     }
+
+    let dist = calcdistance(pathpoints[pathpoints.length - 1], finalWP);
+    totaldist += dist;
+    finalWP.dist = totaldist;
+
+    const finalcontrol = controlpoints[controlpoints.length - 1];
+    finalWP.orientation = Math.atan2(finalcontrol.angley!, finalcontrol.anglex!);
+    pathpoints.push(finalWP)
+  }
+
+  // --- Compute geometry-based curvature & orientation ---
+  for (let i = 0; i < pathpoints.length; i++) {
     
-    // Compute orientation based on movement direction.
-    const dx = waypoint.x - (pathpoints.length > 0 ? pathpoints[pathpoints.length - 1].x : waypoint.x);
-    const dy = waypoint.y - (pathpoints.length > 0 ? pathpoints[pathpoints.length - 1].y : waypoint.y);
-    waypoint.orientation = Math.atan2(dy, dx);
-
-    pathpoints.push(waypoint);
-    targetDist += sampleStep;
-  }
-
-  // Ensure final waypoint is generated:
-  const lastSegment = Math.floor((distances.length - 1) / 100);
-  const finalSectPoints = section(controlpoints, lastSegment);
-
-  const finalWaypoint: pathPoint = {
-    x: 0,
-    y: 0,
-    velocity: 0,
-    curvature: 0,
-    angularVelocity: 0,
-    dist: totaldist,
-    accel: 0,
-    time: 0,
-    orientation: 0,
-  };
-
-  // Position at t = 1
-  const tFinal = 1;
-  for (let j = 0; j < 4; j++) {
-    const coeff = binomialCoefficient(3, j) *
-                  Math.pow(1 - tFinal, 3 - j) *
-                  Math.pow(tFinal, j);
-    finalWaypoint.x += coeff * finalSectPoints[j].x;
-    finalWaypoint.y += coeff * finalSectPoints[j].y;
-  }
-
-// Fill in missing data if we have at least one previous pathPoint
-  if (pathpoints.length > 0) {
-    const prev = pathpoints[pathpoints.length - 1];
-    const dx = finalWaypoint.x - prev.x;
-    const dy = finalWaypoint.y - prev.y;
-    const dist = Math.hypot(dx, dy);
-    finalWaypoint.orientation = Math.atan2(dy, dx);
-    finalWaypoint.time = prev.time + (dist / ((prev.velocity + finalWaypoint.velocity) / 2 || 1e-6));
-    finalWaypoint.accel = (finalWaypoint.velocity - prev.velocity) / (dist / ((prev.velocity + finalWaypoint.velocity) / 2 || 1e-6));
-  }
-
-  pathpoints.push(finalWaypoint);
-
-  
-  const TRACK_WIDTH = bot.width;
-  
-  leftdt.splice(0,leftdt.length)
-  rightdt.splice(0,rightdt.length)
-
-
-  for (let i = 0; i < pathpoints.length; i++) {
-
-    const curr = pathpoints[i];
-    let prev, fut;
-  
-    // Handle first and last points
-    if (i === 0) {
-      // For the first point, use the next point as 'fut'
-      fut = pathpoints[i + 1];
-      prev = curr;  // No previous, just set it to current for calculation safety
-    } else if (i === pathpoints.length - 1) {
-      // For the last point, use the previous point as 'prev'
-      prev = pathpoints[i - 1];
-      fut = curr;  // No future, just set it to current for calculation safety
-    } else {
-      // For middle points, use both previous and future points
-      prev = pathpoints[i - 1];
-      fut = pathpoints[i + 1];
-    }
-  
-    // Vectors from previous to current, and current to future
-    let v1x = curr.x - prev.x;
-    let v1y = curr.y - prev.y;
-    let v2x = fut.x - curr.x;
-    let v2y = fut.y - curr.y;
-  
-    // Sum the vectors to get the angle bisector (not normalized yet)
-    let bisx = v1x + v2x;
-    let bisy = v1y + v2y;
-  
-    // Normalize the bisector
-    let bisSq = bisx * bisx + bisy * bisy;
-    if (bisSq !== 0) {
-      const invMag = 1 / Math.sqrt(bisSq);
-      bisx *= invMag;
-      bisy *= invMag;
-    }
-  
-    // Perpendicular to bisector is the local left direction
-    const leftX = -bisy;
-    const leftY = bisx;
-  
-    // Offset from center to get wheel positions
-    const halfWidth = TRACK_WIDTH / 2;
-    const leftWheelX = curr.x + leftX * halfWidth;
-    const leftWheelY = curr.y + leftY * halfWidth;
-    const rightWheelX = curr.x - leftX * halfWidth;
-    const rightWheelY = curr.y - leftY * halfWidth;
-  
-    // Push the wheel positions to their respective arrays
-    leftdt.push({ x: leftWheelX, y: leftWheelY });
-    rightdt.push({ x: rightWheelX, y: rightWheelY });
-  }
-  
-
-  // --- Apply curvature constraints and update angular velocity ---
-  for (let i = 0; i < pathpoints.length; i++) {
-    let curvature = 0;
     if (i > 0 && i < pathpoints.length - 1) {
-      curvature = calculateCurvature(pathpoints[i - 1], pathpoints[i], pathpoints[i + 1]);
+      const result = calculate_Curvature_Orientation(
+        pathpoints[i - 1],
+        pathpoints[i],
+        pathpoints[i + 1]
+      );
+      const κ = result.curvature;
+      const o = result.orientation;
+
+      pathpoints[i].curvature   = κ;
+      pathpoints[i].orientation = o;
     }
-    // Constrain velocity based on curvature:
-    const leftFactor = Math.abs(1 - (TRACK_WIDTH / 2) * curvature);
-    const rightFactor = Math.abs(1 + (TRACK_WIDTH / 2) * curvature);
-    const maxDriveTrainVel = Math.min(60 / leftFactor, 60 / rightFactor);
-    pathpoints[i].velocity = Math.min(MAX_VELOCITY, maxDriveTrainVel);
 
-    pathpoints[i].curvature = curvature;
-    pathpoints[i].angularVelocity = pathpoints[i].velocity * curvature;
   }
 
-  // --- Velocity smoothing passes (backward then forward) ---
-  // Backward pass: enforce deceleration limits
+  // Build left/right trajectory points
+  leftdt.splice(0, leftdt.length);
+  rightdt.splice(0, rightdt.length);
 
-  pathpoints[0].velocity = 0;
-  pathpoints[pathpoints.length-1].velocity = 0;
-  for (let i = pathpoints.length - 2; i >= 0; i--) {
-    const currentPoint = pathpoints[i];
-    const futureVelocity = pathpoints[i + 1].velocity;
-    const distStep = calcdistance(pathpoints[i], pathpoints[i + 1]);
-    currentPoint.velocity = Math.min(
-      currentPoint.velocity,
-      computeMaxVelocity(futureVelocity, MAX_ACCELERATION, distStep)
-    );
+  for (let i = 0; i < pathpoints.length; i++) {
+    const curr = pathpoints[i];
+    const heading = curr.orientation;
+
+    const leftX = -Math.sin(heading);
+    const leftY = Math.cos(heading);
+    const halfW = bot.width / 2;
+
+    leftdt.push({
+      x: curr.x + leftX * halfW,
+      y: curr.y + leftY * halfW,
+      vel: MAX_VELOCITY,
+      neg: false,
+    });
+
+    rightdt.push({
+      x: curr.x - leftX * halfW,
+      y: curr.y - leftY * halfW,
+      vel: MAX_VELOCITY,
+      neg: false,
+    });
   }
 
-  // Forward pass: enforce acceleration limits
+
+
+  // Start at i=1 so we can compare to the previous point
+  // threshold curvature where inner‐wheel radius goes negative:
+  const threshold = 2 / bot.width;
+
   for (let i = 1; i < pathpoints.length; i++) {
-    const currentPoint = pathpoints[i];
-    const prevPoint = pathpoints[i - 1];
-    const distStep = calcdistance(prevPoint, currentPoint);
-    currentPoint.velocity = Math.min(
-      currentPoint.velocity,
-      computeMaxVelocity(prevPoint.velocity, MAX_ACCELERATION, distStep)
-    );
-    currentPoint.angularVelocity = currentPoint.velocity * currentPoint.curvature;
+    const κCurr = pathpoints[i].curvature;
+
+
+    leftdt[i].neg = κCurr >  threshold;
+    rightdt[i].neg = κCurr < -threshold;
+
+
+    // once left is inner, reverse left; keep outer (right) forward
+    if (leftdt[i].neg) {
+      leftdt[i].vel  = -MAX_VELOCITY;
+    }else{
+      leftdt[i].vel  =  MAX_VELOCITY;
+    }
+    // once right is inner, reverse right; keep outer (left) forward
+    if (rightdt[i].neg) {
+      rightdt[i].vel = -MAX_VELOCITY;
+    }else{
+      rightdt[i].vel =  MAX_VELOCITY;
+    }
+
+    // on the frame where left becomes inner, zero left
+    if (leftdt[i].neg != leftdt[i-1].neg) {
+      leftdt[i].vel = 0;
+      leftdt[i - 1].vel = 0;
+    }
+    // on the frame where right becomes inner, zero right
+    if (rightdt[i].neg != rightdt[i-1].neg) {
+      rightdt[i].vel = 0;
+      rightdt[i - 1].vel = 0;
+    }
   }
 
-  // --- Compute timestamps and cumulative distance ---
+  // zero endpoints
+  leftdt[0].vel = 0;
+  rightdt[0].vel = 0;
+  leftdt[leftdt.length - 1].vel = 0;
+  rightdt[rightdt.length - 1].vel = 0;
+
+  // --- Backward pass (decel) ---
+  for (let i = pathpoints.length - 2; i >= 0; i--) {
+    const dist   = pathpoints[i + 1].dist - pathpoints[i].dist;
+
+    let lf = 1;
+    if(leftdt[i].neg == true) lf = -1;
+    const dL = calcdistance(leftdt[i+1],leftdt[i]) * lf;
+
+    let rf = 1;
+    if(rightdt[i].neg == true) rf = -1;
+
+    const dR = calcdistance(rightdt[i+1],rightdt[i]) * rf;
+    
+    const vL_nxt = leftdt[i + 1].vel;
+    const vR_nxt = rightdt[i + 1].vel;
+
+
+    let maxVL = 0;
+    let maxVR = 0;
+    if(dL < 0){
+      maxVL = Math.max(-MAX_VELOCITY,-computeMaxVelocity(-vL_nxt, MAX_ACCELERATION, -dL));
+      maxVL = Math.max(maxVL,leftdt[i].vel);
+    }else{
+      maxVL = Math.min(MAX_VELOCITY,computeMaxVelocity(vL_nxt, MAX_ACCELERATION, dL));
+      maxVL = Math.min(maxVL,leftdt[i].vel);
+
+    }
+
+    if(dR < 0){
+      maxVR = Math.max(-MAX_VELOCITY,-computeMaxVelocity(-vR_nxt, MAX_ACCELERATION, -dR));
+      maxVR = Math.max(maxVR,rightdt[i].vel);
+
+
+    }else{
+      maxVR = Math.min(MAX_VELOCITY,computeMaxVelocity(vR_nxt, MAX_ACCELERATION, dR));
+      maxVR = Math.min(maxVR,rightdt[i].vel);
+    }
+
+
+    const maxVC_from_L = maxVL * (dist / dL);
+    const maxVC_from_R = maxVR * (dist / dR);
+    const vc_mag       = Math.min(Math.abs(maxVC_from_L), Math.abs(maxVC_from_R));
+    const signC        = Math.sign((maxVL + maxVR) / 2);
+    const maxVC        = signC * vc_mag;
+
+    leftdt[i].vel  = maxVC * (dL / dist);
+    rightdt[i].vel = maxVC * (dR / dist);
+  }
+
+
+  //fwd pass
+  for (let i = 1; i < pathpoints.length; i++) {
+    const dist = pathpoints[i].dist - pathpoints[i-1].dist;
+
+
+    let lf = 1;
+    if(leftdt[i].neg == true) lf = -1;
+    const dL = calcdistance(leftdt[i-1],leftdt[i]) * lf;
+
+
+    let rf = 1;
+    if(rightdt[i].neg == true) rf = -1;
+    const dR = calcdistance(rightdt[i-1],rightdt[i]) * rf;
+    
+    const vL_prev = leftdt[i - 1].vel;
+    const vR_prev = rightdt[i - 1].vel;
+
+
+    let maxVL = 0;
+    let maxVR = 0;
+    if(dL < 0){
+      maxVL = Math.max(-MAX_VELOCITY,-computeMaxVelocity(-vL_prev, MAX_ACCELERATION, -dL));
+      maxVL = Math.max(maxVL,leftdt[i].vel);
+
+    }else{
+      maxVL = Math.min(MAX_VELOCITY,computeMaxVelocity(vL_prev, MAX_ACCELERATION, dL));
+      maxVL = Math.min(maxVL,leftdt[i].vel);
+
+    }
+
+    if(dR < 0){
+      maxVR = Math.max(-MAX_VELOCITY,-computeMaxVelocity(-vR_prev, MAX_ACCELERATION, -dR));
+      maxVR = Math.max(maxVR,rightdt[i].vel);
+
+    }else{
+      maxVR = Math.min(MAX_VELOCITY,computeMaxVelocity(vR_prev, MAX_ACCELERATION, dR));
+      maxVR = Math.min(maxVR,rightdt[i].vel);
+
+    }
+
+
+    const maxVC_from_L = maxVL * (dist / dL);
+    const maxVC_from_R = maxVR * (dist / dR);
+    const vc_mag       = Math.min(Math.abs(maxVC_from_L), Math.abs(maxVC_from_R));
+    const signC        = Math.sign((maxVL + maxVR) / 2);
+    const maxVC        = signC * vc_mag;
+
+    leftdt[i].vel  = maxVC * (dL / dist);
+    rightdt[i].vel = maxVC * (dR / dist);
+  }
+
+
+  // Recombine
+  for (let i = 0; i < pathpoints.length; i++) {
+    const vL = leftdt[i].vel, vR = rightdt[i].vel;
+    const vc = (vL + vR) / 2;
+    const ω  = (vR - vL) / bot.width;
+    pathpoints[i].velocity        = vc;
+    pathpoints[i].angularVelocity = ω;
+  }
+
+  // --- Timestamp & accel compute ---
   let cumtime = 0;
-  pathpoints[0].time = 0;
+  pathpoints[0].time  = 0;
   pathpoints[0].accel = 0;
   for (let i = 1; i < pathpoints.length; i++) {
-    const distStep = calcdistance(pathpoints[i], pathpoints[i - 1]);
-    const averagevel = (pathpoints[i].velocity + pathpoints[i - 1].velocity) / 2;
-    cumtime += distStep / averagevel;
-    pathpoints[i].time = cumtime;
-    pathpoints[i].accel = (pathpoints[i].velocity - pathpoints[i - 1].velocity) / (distStep / averagevel);
+    const ds  = calcdistance(pathpoints[i], pathpoints[i - 1]);
+    const avg = (pathpoints[i].velocity + pathpoints[i - 1].velocity) / 2;
+    if (avg != 0){
+      cumtime += ds / avg;
+    }else{
+      cumtime += 0.0000001;
+    };
+    pathpoints[i].time  = cumtime;
+    pathpoints[i].accel = (pathpoints[i].velocity - pathpoints[i - 1].velocity)
+                        / (ds / avg);
   }
 
+  
 
-  // Finally, plot graphs
   plot();
 }
 
-// --- Helper functions ---
-
-function computeMaxVelocity(adjVelocity: number, maxAcceleration: number, distance: number): number {
+// --- Helpers ---
+function computeMaxVelocity(
+  adjVelocity: number,
+  maxAcceleration: number,
+  distance: number
+): number {
   return Math.sqrt(Math.max(0, adjVelocity ** 2 + 2 * maxAcceleration * distance));
 }
 
-function calcdistance(point1: pathPoint, point2: pathPoint): number {
-  return Math.hypot(point1.x - point2.x, point1.y - point2.y);
+function calcdistance(
+  p1: pathPoint | Point,
+  p2: pathPoint | Point
+): number {
+  return Math.hypot(p1.x - p2.x, p1.y - p2.y);
 }
 
 function binomialCoefficient(n: number, k: number): number {
@@ -255,63 +332,58 @@ function factorial(n: number): number {
   return n <= 1 ? 1 : n * factorial(n - 1);
 }
 
-/**
- * Returns the control controlpoints for the given segment.
- * For a cubic Bezier curve, each segment uses 4 controlpoints.
- */
 function section(controlpoints: controlPoint[], segment: number): controlPoint[] {
-  const segPoints = controlpoints
+  const seg = controlpoints
     .slice(3 * segment, 3 * segment + 4)
     .map(p => ({ ...p }));
-
-  if (segPoints.length < 4) return segPoints;
-
-  const factor = 2;
-  const [p0, p1, p2, p3] = segPoints;
-  p1.x = p0.x + factor * (p1.x - p0.x);
-  p1.y = p0.y + factor * (p1.y - p0.y);
-  p2.x = p3.x + factor * (p2.x - p3.x);
-  p2.y = p3.y + factor * (p2.y - p3.y);
-
-  return segPoints;
+  if (seg.length < 4) return seg;
+  const [p0, p1, p2, p3] = seg;
+  const f = 2;
+  p1.x = p0.x + f * (p1.x - p0.x);
+  p1.y = p0.y + f * (p1.y - p0.y);
+  p2.x = p3.x + f * (p2.x - p3.x);
+  p2.y = p3.y + f * (p2.y - p3.y);
+  return seg;
 }
 
-function getx(controlpoints: controlPoint[], t: number): number {
+function getx(ctrl: controlPoint[], t: number): number {
   let x = 0;
   for (let j = 0; j < 4; j++) {
-    const pointX = controlpoints[j].x;
-    const coeff = binomialCoefficient(3, j) * Math.pow(1 - t, 3 - j) * Math.pow(t, j);
-    x += coeff * pointX;
+    x += binomialCoefficient(3, j)
+       * Math.pow(1-t, 3-j) * Math.pow(t, j)
+       * ctrl[j].x;
   }
   return x;
 }
 
-function gety(controlpoints: controlPoint[], t: number): number {
+function gety(ctrl: controlPoint[], t: number): number {
   let y = 0;
   for (let j = 0; j < 4; j++) {
-    const pointY = controlpoints[j].y;
-    const coeff = binomialCoefficient(3, j) * Math.pow(1 - t, 3 - j) * Math.pow(t, j);
-    y += coeff * pointY;
+    y += binomialCoefficient(3, j)
+       * Math.pow(1-t, 3-j) * Math.pow(t, j)
+       * ctrl[j].y;
   }
   return y;
 }
 
-/**
- * Calculates curvature as the change in heading divided by the distance between pathpoints.
- * Approximates κ = dθ/ds.
- */
-function calculateCurvature(prev: pathPoint, curr: pathPoint, next: pathPoint): number {
+function calculate_Curvature_Orientation(
+  prev: pathPoint,
+  curr: pathPoint,
+  next: pathPoint
+): { curvature: number; orientation: number } {
   const v1 = { x: curr.x - prev.x, y: curr.y - prev.y };
   const v2 = { x: next.x - curr.x, y: next.y - curr.y };
+  const m1 = Math.hypot(v1.x, v1.y),
+        m2 = Math.hypot(v2.x, v2.y);
+  if (!m1 || !m2) return { curvature: 0, orientation: 0 };
 
-  const mag1 = Math.hypot(v1.x, v1.y);
-  const mag2 = Math.hypot(v2.x, v2.y);
-  if (mag1 === 0 || mag2 === 0) return 0;
+  const cross      = v1.x * v2.y - v1.y * v2.x;
+  const sinT       = cross / (m1 * m2);
+  const dθ         = Math.asin(Math.max(-1, Math.min(1, sinT)));
+  const curvature  = dθ / m1;
 
-  const cross = v1.x * v2.y - v1.y * v2.x;
-  const sinTheta = cross / (mag1 * mag2);
-  const dTheta = Math.asin(Math.max(-1, Math.min(1, sinTheta))); // clamp for safety
+  const avgDir     = { x: (v1.x + v2.x) / 2, y: (v1.y + v2.y) / 2 };
+  const orientation = Math.atan2(avgDir.y, avgDir.x);
 
-  return dTheta / mag1; // curvature κ = dθ/ds
+  return { curvature, orientation };
 }
-

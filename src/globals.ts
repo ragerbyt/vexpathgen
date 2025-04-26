@@ -102,4 +102,6 @@ export interface controlPoint {
 export interface Point{
     x: number;
     y: number;
+    vel: number;
+    neg: boolean;
 }

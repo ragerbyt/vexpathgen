@@ -144,7 +144,6 @@ input[type="text"]::placeholder {
   position: relative;
   width: 100%;
   height: 200px;
-  border: 2px solid white; /* Border simulates axes */
   border-radius: 8px;
   background-color: rgba(255, 255, 255, 0.05);
 
@@ -164,14 +163,13 @@ input[type="text"]::placeholder {
 
   /* Fake border with custom dotted/dashed look */
   background-image:
-    repeating-linear-gradient(to right, white 0px, white 6px, transparent 6px, transparent 12px), /* top */
-    repeating-linear-gradient(to right, white 0px, white 6px, transparent 6px, transparent 12px), /* bottom */
-    repeating-linear-gradient(to bottom, white 0px, white 6px, transparent 6px, transparent 12px), /* left */
-    repeating-linear-gradient(to bottom, white 0px, white 6px, transparent 6px, transparent 12px); /* right */
-    
-  background-position: top left, bottom left, top left, top right;
+  repeating-linear-gradient(to right, white 0px, white 6px, transparent 6px, transparent 12px), /* bottom */
+  repeating-linear-gradient(to bottom, white 0px, white 6px, transparent 6px, transparent 12px); /* left */
+
+  background-position: bottom left, top left;
   background-repeat: no-repeat;
-  background-size: 100% 2px, 100% 2px, 2px 100%, 2px 100%;
+  background-size: 100% 2px, 2px 100%;
+
 }
 
 /* Labels */
@@ -184,10 +182,17 @@ input[type="text"]::placeholder {
 }
 
 #currtime-label {
-  top: 20%;
+  bottom: 20%;
   left: 20%;
   transform: translateX(0%);
 }
+
+#currvel-label {
+  bottom: 30%;
+  left: 20%;
+  transform: translateX(0%);
+}
+
 
 
 /* Time label at the bottom */
@@ -263,7 +268,6 @@ canvas {
 #saving {
   width: 100%;
   padding: 15px;
-  border: 2px solid #ffffff;
   border-radius: 10px;
   background-color: rgba(255, 255, 255, 0.05);
   overflow-y: auto;

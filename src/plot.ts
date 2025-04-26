@@ -2,9 +2,10 @@
 
 export let GRAPHMODE = "time"
 
+import { leftVel, rightVel } from "./curve"; // Assuming they're exported there
 
 import { redrawCanvas } from "./draw";
-import {graph, MAX_VELOCITY,pathpoints } from "./globals";
+import {graph, leftdt, MAX_ACCELERATION, MAX_VELOCITY,pathpoints, rightdt } from "./globals";
 
 // Redraw graph grid, axes, and labels
 function redraw(ctx: CanvasRenderingContext2D) {
@@ -12,7 +13,18 @@ function redraw(ctx: CanvasRenderingContext2D) {
   const height = ctx.canvas.height;
 
   ctx.clearRect(0, 0, width, height);
+
+  // Draw dotted horizontal midline (zero velocity)
+  ctx.beginPath();
+  ctx.setLineDash([5, 5]); // Dotted pattern: 5px dash, 5px gap
+  ctx.moveTo(0, height / 2);
+  ctx.lineTo(width, height / 2);
+  ctx.strokeStyle = "#888"; // Gray color for the midline
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.setLineDash([]); // Reset to solid for future drawing
 }
+
 const startTimeLabel = document.getElementById("start-time-label") as HTMLDivElement;
   const endTimeLabel = document.getElementById("end-time-label") as HTMLDivElement;
   const unitlabel = document.getElementById("unit-label") as HTMLDivElement;
@@ -25,10 +37,14 @@ export function plot() {
   const width = graph.width;
   const height = graph.height;
 
-  const maxVelocity = Math.round(MAX_VELOCITY * 1.2);
-  const minVelocity = 0;
+  const maxVelocity = Math.round(MAX_VELOCITY);
+  const minVelocity = -Math.round(MAX_VELOCITY);
+
+  const maxAccel = MAX_ACCELERATION;
+  const minAccel = -MAX_ACCELERATION;
 
   const velocityData: { x: number; y: number }[] = [];
+  const accelData: {x: number; y: number}[] = [];
 
   if(GRAPHMODE == "time"){
     for (let i = 0; i < pathpoints.length; i++) {
@@ -38,6 +54,10 @@ export function plot() {
       const normVel = (pathpoints[i].velocity - minVelocity) / (maxVelocity - minVelocity);
       const yVel = height - (normVel * height);
       velocityData.push({ x: xPos, y: yVel });
+
+      const normAccel = (pathpoints[i].accel - minAccel) / (maxAccel - minAccel);
+      const yAccel = height - (normAccel * height);
+      accelData.push({ x: xPos, y: yAccel });
     }
   }else{
     for (let i = 0; i < pathpoints.length; i++) {
@@ -47,14 +67,55 @@ export function plot() {
       const normVel = (pathpoints[i].velocity - minVelocity) / (maxVelocity - minVelocity);
       const yVel = height - (normVel * height);
       velocityData.push({ x: xPos, y: yVel });
+
+      const normAccel = (pathpoints[i].accel - minAccel) / (maxAccel - minAccel);
+      const yAccel = height - (normAccel * height);
+      accelData.push({ x: xPos, y: yAccel });
     }
   }
+
+  const leftVelocityData: { x: number; y: number }[] = [];
+  const rightVelocityData: { x: number; y: number }[] = [];
+
+
+  if (GRAPHMODE == "time") {
+    for (let i = 0; i < pathpoints.length; i++) {
+      const timeRatio = pathpoints[i].time / pathpoints[pathpoints.length - 1].time;
+      const xPos = timeRatio * width;
+
+      const normLeft = (leftdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
+      const yLeft = height - (normLeft * height);
+      leftVelocityData.push({ x: xPos, y: yLeft });
+
+      const normRight = (rightdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
+      const yRight = height - (normRight * height);
+      rightVelocityData.push({ x: xPos, y: yRight });
+    }
+  } else {
+    for (let i = 0; i < pathpoints.length; i++) {
+      const distRatio = pathpoints[i].dist / pathpoints[pathpoints.length - 1].dist;
+      const xPos = distRatio * width;
+
+      const normLeft = (leftdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
+      const yLeft = height - (normLeft * height);
+      leftVelocityData.push({ x: xPos, y: yLeft });
+
+      const normRight = (rightdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
+      const yRight = height - (normRight * height);
+      rightVelocityData.push({ x: xPos, y: yRight });
+    }
+  }
+
   // Normalize and scale velocity
   
 
   // Draw velocity curve
-  drawPath(ctx, velocityData, "white");
+  drawPath(ctx, velocityData, "white");   // center velocity
+  drawPath(ctx, accelData, "green");   // center velocity
 
+  drawPath(ctx, leftVelocityData, "red"); // left wheel
+  drawPath(ctx, rightVelocityData, "blue"); // right wheel
+  
   // Get the time values
   const startTime = pathpoints[0].time.toFixed(2);
   let end;
@@ -110,6 +171,8 @@ const currtime = document.getElementById("currtime-label") as HTMLDivElement;
 import { bot } from "./globals";
 
 let disable = false;
+let velocityDisplayMode: "center" | "left" | "right" = "center";
+const currVelocity = document.getElementById("currvel-label") as HTMLDivElement;
 
 function handleMouseMove(e: MouseEvent) {
   if (disable) return;
@@ -120,55 +183,56 @@ function handleMouseMove(e: MouseEvent) {
   bot.o = -1;
   redrawCanvas();
   currtime.style.display = "none";
+  currVelocity.style.display = "none";
 
-  if (!pathpoints || pathpoints.length === 0) return; 
+  if (!pathpoints || pathpoints.length === 0) return;
+
   const rect = graph.getBoundingClientRect();
   let newCanvasX = e.clientX - rect.left;
-  let newCanvasY = e.clientY - rect.top; // Updated
+  let newCanvasY = e.clientY - rect.top;
 
-  // Clamp canvas values to ensure they don't exceed canvas boundaries
-  if(newCanvasX < 0 || newCanvasX > rect.width){
-    return;
-  }
+  if (newCanvasX < 0 || newCanvasX > rect.width) return;
+  if (newCanvasY < 0 || newCanvasY > rect.height) return;
 
-  if(newCanvasY < 0 || newCanvasY > rect.height){
-    return;
-  }
+  drawLine(octx, { x: newCanvasX * 600 / rect.width, y: 0 }, { x: newCanvasX * 600 / rect.width, y: octx.canvas.height }, "red");
 
-  
-  drawLine(octx,{x: newCanvasX * 600 / rect.width, y: 0},{x: newCanvasX * 600 / rect.width, y: octx.canvas.height},"red");
+  let last = pathpoints.length - 1;
 
-  let last = pathpoints.length-1
+  let time = 0;
+  let displayedVel = 0;
 
-  if(GRAPHMODE == "time"){
-    let time = newCanvasX / rect.width * pathpoints[last].time ;
-    for(let i = 1; i < pathpoints.length; i++){
-      if(time < pathpoints[i].time){continue};
-      let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time)+0.01;
-  
-      bot.x = pathpoints[i-1].x + (pathpoints[i].x - pathpoints[i-1].x) * frac;
-      bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
-      bot.o = pathpoints[i-1].orientation + (pathpoints[i].orientation - pathpoints[i-1].orientation) * frac;
+  if (GRAPHMODE === "time") {
+    time = newCanvasX / rect.width * pathpoints[last].time;
+
+    for (let i = 1; i < pathpoints.length; i++) {
+      if (time < pathpoints[i].time) continue;
+
+      const frac = (time - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
+
+      bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
+      bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
+      bot.o = pathpoints[i - 1].orientation + (pathpoints[i].orientation - pathpoints[i - 1].orientation) * frac;
+
+      if((pathpoints[i].time - pathpoints[i-1].time) < 0.000001){
+        bot.x = pathpoints[i-1].x + (pathpoints[i+1].x - pathpoints[i-1].x) * 3/4;
+        bot.y = pathpoints[i-1].y + (pathpoints[i+1].y - pathpoints[i-1].y) * 3/4;
+        bot.o = pathpoints[i-1].orientation + (pathpoints[i+1].orientation - pathpoints[i-1].orientation) * 3/4;;
+      }
+
+      if (velocityDisplayMode === "center") {
+        displayedVel = pathpoints[i - 1].velocity + (pathpoints[i].velocity - pathpoints[i - 1].velocity) * frac;
+      } else if (velocityDisplayMode === "left") {
+        displayedVel = leftdt[i - 1].vel + (leftdt[i].vel - leftdt[i - 1].vel) * frac;
+      } else if (velocityDisplayMode === "right") {
+        displayedVel = rightdt[i - 1].vel + (rightdt[i].vel - rightdt[i - 1].vel) * frac;
+      }
     }
-  
-    if(time <= 0.05){
-      bot.x = pathpoints[0].x;
-      bot.y = pathpoints[0].y;
-      bot.o = pathpoints[0].orientation;
-    }
-  
-  
-    if(time >= pathpoints[last].time - 0.1){
-      bot.x = pathpoints[last].x;
-      bot.y = pathpoints[last].y;
-      bot.o = pathpoints[last].orientation;
-    }
+
     currtime.style.display = "block";
-    currtime.innerText = `${time.toFixed(2)}s`
-  
-  }else{
-    let dist = newCanvasX / rect.width * pathpoints[last].dist;
-    let time = 0;
+    currtime.innerText = `${time.toFixed(2)}s`;
+
+  } else {
+    const dist = newCanvasX / rect.width * pathpoints[last].dist;
 
     for (let i = 1; i < pathpoints.length; i++) {
       const p1 = pathpoints[i - 1];
@@ -180,7 +244,17 @@ function handleMouseMove(e: MouseEvent) {
         bot.x = p1.x + (p2.x - p1.x) * frac;
         bot.y = p1.y + (p2.y - p1.y) * frac;
         bot.o = p1.orientation + (p2.orientation - p1.orientation) * frac;
+        
+
         time = p1.time + (p2.time - p1.time) * frac;
+
+        if (velocityDisplayMode === "center") {
+          displayedVel = p1.velocity + (p2.velocity - p1.velocity) * frac;
+        } else if (velocityDisplayMode === "left") {
+          displayedVel = leftdt[i - 1].vel + (leftdt[i].vel - leftdt[i - 1].vel) * frac;
+        } else if (velocityDisplayMode === "right") {
+          displayedVel = rightdt[i - 1].vel + (rightdt[i].vel - rightdt[i - 1].vel) * frac;
+        }
 
         break;
       }
@@ -188,12 +262,26 @@ function handleMouseMove(e: MouseEvent) {
 
     currtime.style.display = "block";
     currtime.innerText = `${time.toFixed(2)}s`;
-
   }
-  
-  redrawCanvas();
 
+  currVelocity.style.display = "block";
+  currVelocity.innerText = `${displayedVel.toFixed(1)} in/s (${velocityDisplayMode})`;
+
+  redrawCanvas();
 }
+
+const container = document.getElementById("graphs-container")!
+container.addEventListener("click", () => {
+  if (velocityDisplayMode === "center") {
+    velocityDisplayMode = "left";
+  } else if (velocityDisplayMode === "left") {
+    velocityDisplayMode = "right";
+  } else {
+    velocityDisplayMode = "center";
+  }
+
+});
+
 
 const run = document.getElementById("run");
 
@@ -213,11 +301,19 @@ run!.addEventListener("click", async () => {
 
     for(let i = 1; i < pathpoints.length; i++){
       if(time < pathpoints[i].time){continue};
-      let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time)+0.01;
+      let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time);
+
+      
   
       bot.x = pathpoints[i-1].x + (pathpoints[i].x - pathpoints[i-1].x) * frac;
       bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
       bot.o = pathpoints[i-1].orientation + (pathpoints[i].orientation - pathpoints[i-1].orientation) * frac;
+
+      if((pathpoints[i].time - pathpoints[i-1].time) < 0.000001){
+        bot.x = pathpoints[i-1].x + (pathpoints[i+1].x - pathpoints[i-1].x) * 3/4;
+        bot.y = pathpoints[i-1].y + (pathpoints[i+1].y - pathpoints[i-1].y) * 3/4;
+        bot.o = pathpoints[i-1].orientation + (pathpoints[i+1].orientation - pathpoints[i-1].orientation) * 3/4;;
+      }
     }
 
     let last = pathpoints.length-1
