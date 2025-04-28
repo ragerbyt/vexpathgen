@@ -211,12 +211,12 @@ function handleMouseMove(e: MouseEvent) {
 
       bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
       bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
-      bot.o = pathpoints[i - 1].orientation + (pathpoints[i].orientation - pathpoints[i - 1].orientation) * frac;
+      bot.o = pathpoints[i - 1].orientation + Normalize((pathpoints[i].orientation - pathpoints[i - 1].orientation)) * frac;
 
       if((pathpoints[i].time - pathpoints[i-1].time) < 0.000001){
         bot.x = pathpoints[i-1].x + (pathpoints[i+1].x - pathpoints[i-1].x) * 3/4;
         bot.y = pathpoints[i-1].y + (pathpoints[i+1].y - pathpoints[i-1].y) * 3/4;
-        bot.o = pathpoints[i-1].orientation + (pathpoints[i+1].orientation - pathpoints[i-1].orientation) * 3/4;;
+        bot.o = pathpoints[i-1].orientation + Normalize((pathpoints[i+1].orientation - pathpoints[i-1].orientation)) * 3/4;;
       }
 
       if (velocityDisplayMode === "center") {
@@ -243,7 +243,7 @@ function handleMouseMove(e: MouseEvent) {
 
         bot.x = p1.x + (p2.x - p1.x) * frac;
         bot.y = p1.y + (p2.y - p1.y) * frac;
-        bot.o = p1.orientation + (p2.orientation - p1.orientation) * frac;
+        bot.o = p1.orientation + Normalize((p2.orientation - p1.orientation)) * frac;
         
 
         time = p1.time + (p2.time - p1.time) * frac;
@@ -263,6 +263,8 @@ function handleMouseMove(e: MouseEvent) {
     currtime.style.display = "block";
     currtime.innerText = `${time.toFixed(2)}s`;
   }
+
+   
 
   currVelocity.style.display = "block";
   currVelocity.innerText = `${displayedVel.toFixed(1)} in/s (${velocityDisplayMode})`;
@@ -307,12 +309,12 @@ run!.addEventListener("click", async () => {
   
       bot.x = pathpoints[i-1].x + (pathpoints[i].x - pathpoints[i-1].x) * frac;
       bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
-      bot.o = pathpoints[i-1].orientation + (pathpoints[i].orientation - pathpoints[i-1].orientation) * frac;
+      bot.o = pathpoints[i-1].orientation + Normalize((pathpoints[i].orientation - pathpoints[i-1].orientation)) * frac;
 
       if((pathpoints[i].time - pathpoints[i-1].time) < 0.000001){
         bot.x = pathpoints[i-1].x + (pathpoints[i+1].x - pathpoints[i-1].x) * 3/4;
         bot.y = pathpoints[i-1].y + (pathpoints[i+1].y - pathpoints[i-1].y) * 3/4;
-        bot.o = pathpoints[i-1].orientation + (pathpoints[i+1].orientation - pathpoints[i-1].orientation) * 3/4;;
+        bot.o = pathpoints[i-1].orientation + Normalize((pathpoints[i+1].orientation - pathpoints[i-1].orientation)) * 3/4;;
       }
     }    
     drawLine(octx,{x: time / pathpoints[pathpoints.length-1].time * 600, y: 0},{x: time / pathpoints[pathpoints.length-1].time * 600, y: octx.canvas.height},"red");
@@ -341,3 +343,31 @@ document.getElementById("time")?.addEventListener("click", () => {
   GRAPHMODE = "time";
   plot(); 
 });
+
+function Normalize(n1: number){
+  if(n1 > Math.PI/2){
+    n1 -= Math.PI
+  }
+
+  if(n1 < -Math.PI/2){
+    n1 += Math.PI
+  }
+  
+  if(n1 > Math.PI/2){
+    n1 -= Math.PI
+  }
+
+  if(n1 < -Math.PI/2){
+    n1 += Math.PI
+  }
+  
+  if(n1 > Math.PI/2){
+    n1 -= Math.PI
+  }
+
+  if(n1 < -Math.PI/2){
+    n1 += Math.PI
+  }
+  return n1
+
+}

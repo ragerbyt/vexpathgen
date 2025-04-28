@@ -101,11 +101,24 @@ function velocityToColor(velocity: number): string {
 let sidetrack = false;
 
 function drawPath(ctx: CanvasRenderingContext2D) {
+
+  
+  if(start_hi != -1){
+
+    for(let i = start_hi; i < hi_len + start_hi; i++){
+      drawLine(ctx, pathpoints[i], pathpoints[i+1], "yellow", 8); 
+    }
+
+  } 
+
+
   for (let i = 1; i < pathpoints.length; i++) {
     const avgVelocity = (pathpoints[i - 1].velocity + pathpoints[i].velocity) / 2;
     const color = velocityToColor(avgVelocity);
-    drawLine(ctx, pathpoints[i - 1], pathpoints[i], color, 4);
+    drawLine(ctx, pathpoints[i - 1], pathpoints[i], color, 2);
   }
+
+
 
   if (!sidetrack) return;
 
@@ -151,6 +164,7 @@ function drawLine(
 }
 
 import { bot } from "./globals";
+import { hi_len, start_hi } from "./handling";
 
 function drawBot(ctx: CanvasRenderingContext2D) {
   const { x, y, o, width, length, trackwidth } = bot;

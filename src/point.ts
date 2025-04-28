@@ -5,7 +5,7 @@ let activeDragPoint: controlPoint | null = null;
 let selectedPoint: controlPoint | null = null;
 
 
-const state = true;
+const state = false;
 
 //so if top = 20; left = 20 ;then top left is chopped off.
 
@@ -14,8 +14,9 @@ const pointdisplay = document.getElementById("point-coordinates")!
 
 import { computeBezierWaypoints } from "./curve";
 import { canvas,controlpoints } from "./globals";
-import { findsegment } from "./handling";
+import { findsegment, hi_seg } from "./handling";
 
+import { resetsegment } from "./handling";
 document.addEventListener("DOMContentLoaded", initCanvas);
 
 function initCanvas() {
@@ -33,6 +34,12 @@ function handleCanvasClick(e: MouseEvent) {
   // If a drag event just occurred, do not create new points.
   if (isDraggingGlobal) {
     isDraggingGlobal = false;
+    return;
+  }
+
+  if(hi_seg != -1){
+    controlpoints[hi_seg * 3].rev = !controlpoints[hi_seg * 3].rev
+    computeBezierWaypoints()
     return;
   }
 
@@ -74,8 +81,17 @@ function handleMouseDown(e: MouseEvent) {
   }
 }
 
-function handleMouseMove(e: MouseEvent) {
+let canrun = true;
 
+async function paws(){
+  await new Promise(resolve => setTimeout(resolve, 1));
+  canrun = true
+}
+
+function handleMouseMove(e: MouseEvent) {
+  if(!canrun){return}
+  canrun = false;
+  paws()
 
   const rect = canvas.getBoundingClientRect();
   let newCanvasX = e.clientX - rect.left;
@@ -89,10 +105,12 @@ function handleMouseMove(e: MouseEvent) {
   const newFieldX = canvasToFieldX(newCanvasX);
   const newFieldY = canvasToFieldY(newCanvasY);
 
-  findsegment(newFieldX,newFieldY);
+  resetsegment();
 
-  
-  if (!activeDragPoint) return;
+
+  if (!activeDragPoint){
+    findsegment(newFieldX,newFieldY);
+  return;}
 
  
 

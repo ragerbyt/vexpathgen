@@ -25,6 +25,8 @@ export function computeBezierWaypoints() {
     const sectpts = section(controlpoints, seg);
     const count = seg === numSegments - 1 ? ptsPerSeg + remainder : ptsPerSeg;
 
+
+
     for (let i = 0; i < count; i++) {
       const t = i / count;
       const wp: pathPoint = {
@@ -63,8 +65,9 @@ export function computeBezierWaypoints() {
   // Append exact final endpoint at t=1 of last segment
   {
     const sectpts = section(controlpoints, numSegments - 1);
+    const finalcontrol = controlpoints[controlpoints.length-1];
     const finalWP: pathPoint = {
-      x: 0, y: 0,
+      x: finalcontrol.x, y: finalcontrol.y,
       velocity: 0,
       curvature: 0,
       angularVelocity: 0,
@@ -72,43 +75,34 @@ export function computeBezierWaypoints() {
       accel: 0,
       time: 0,
       orientation: 0,
-      rev: sectpts[0].rev!,
+      rev: controlpoints[controlpoints.length-4].rev!,
     };
-    for (let j = 0; j < 4; j++) {
-      const coeff = binomialCoefficient(3, j)
-        * Math.pow(1 - 1, 3 - j) * Math.pow(1, j);
-      finalWP.x += coeff * sectpts[j].x;
-      finalWP.y += coeff * sectpts[j].y;
-    }
 
     let dist = calcdistance(pathpoints[pathpoints.length - 1], finalWP);
     totaldist += dist;
     finalWP.dist = totaldist;
 
-    const finalcontrol = controlpoints[controlpoints.length - 1];
+    const onebefore = controlpoints[controlpoints.length-4]
 
-    if(finalcontrol.rev){finalWP.orientation = Math.atan2(-finalcontrol.angley!, -finalcontrol.anglex!);}
+    if(onebefore.rev){finalWP.orientation = Math.atan2(-finalcontrol.angley!, -finalcontrol.anglex!);}
     else{                finalWP.orientation = Math.atan2(finalcontrol.angley!, finalcontrol.anglex!);}
 
     pathpoints.push(finalWP)
   }
 
   // --- Compute geometry-based curvature & orientation ---
-  for (let i = 0; i < pathpoints.length; i++) {
+  for (let i = 1; i < pathpoints.length-1; i++) {
     
-    if (i > 0 && i < pathpoints.length - 1) {
-      const result = calculate_Curvature_Orientation(
-        pathpoints[i - 1],
-        pathpoints[i],
-        pathpoints[i + 1]
-      );
-      const κ = result.curvature;
-      const o = result.orientation;
+    const result = calculate_Curvature_Orientation(
+      pathpoints[i - 1],
+      pathpoints[i],
+      pathpoints[i + 1]
+    );
+    const κ = result.curvature;
+    const o = result.orientation;
 
-      pathpoints[i].curvature   = κ;
-      pathpoints[i].orientation = o;
-    }
-
+    pathpoints[i].curvature   = κ;
+    pathpoints[i].orientation = o;
   }
 
   // Build left/right trajectory points
@@ -142,6 +136,7 @@ export function computeBezierWaypoints() {
     });
   }
 
+  console.log(pathpoints)
 
 
   // Start at i=1 so we can compare to the previous point
@@ -189,6 +184,7 @@ export function computeBezierWaypoints() {
   leftdt[leftdt.length - 1].vel = 0;
   rightdt[rightdt.length - 1].vel = 0;
 
+
   // --- Backward pass (decel) ---
   for (let i = pathpoints.length - 2; i >= 0; i--) {
     const dist   = pathpoints[i + 1].dist - pathpoints[i].dist;
@@ -217,7 +213,7 @@ export function computeBezierWaypoints() {
                      Math.abs(lf * computeMaxVelocity(lf * vL_nxt, MAX_ACCELERATION, lf * dL)),
                      Math.abs(leftdt[i].vel)) * lf;
 
-
+    console.log(lf * computeMaxVelocity(lf * vL_nxt, MAX_ACCELERATION, lf * dL))
 
  
     maxVR = Math.min(Math.abs(MAX_VELOCITY * rf),   
@@ -237,6 +233,7 @@ export function computeBezierWaypoints() {
 
   }
 
+  console.log(leftdt)
 
   //fwd pass
   for (let i = 1; i < pathpoints.length; i++) {
