@@ -314,19 +314,7 @@ run!.addEventListener("click", async () => {
         bot.y = pathpoints[i-1].y + (pathpoints[i+1].y - pathpoints[i-1].y) * 3/4;
         bot.o = pathpoints[i-1].orientation + (pathpoints[i+1].orientation - pathpoints[i-1].orientation) * 3/4;;
       }
-    }
-
-    let last = pathpoints.length-1
-
-
-    if(time >= pathpoints[last].time - 0.1){
-      bot.x = pathpoints[last].x;
-      bot.y = pathpoints[last].y;
-      bot.o = pathpoints[last].orientation;
-    }
-
-    
-
+    }    
     drawLine(octx,{x: time / pathpoints[pathpoints.length-1].time * 600, y: 0},{x: time / pathpoints[pathpoints.length-1].time * 600, y: octx.canvas.height},"red");
 
     

@@ -37,6 +37,7 @@ export let pathpoints: pathPoint[] = [];
 export let leftdt: Point[] = [];
 export let rightdt: Point[] = [];
 
+export const totalInterp = 1000;
 
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -91,6 +92,8 @@ export interface pathPoint {
     dist: number;
     time: number;
     orientation: number; // Orientation (heading) in degrees
+    rev: boolean;
+
 }
 
 export interface controlPoint {
@@ -103,6 +106,7 @@ export interface controlPoint {
     anglex?: number;
     angley?: number;
     size?: number;
+    rev?: boolean;
 }
 
 export interface Point{
@@ -110,4 +114,5 @@ export interface Point{
     y: number;
     vel: number;
     neg: boolean;
+    rev: boolean;
 }

@@ -5,6 +5,7 @@ let activeDragPoint: controlPoint | null = null;
 let selectedPoint: controlPoint | null = null;
 
 
+const state = true;
 
 //so if top = 20; left = 20 ;then top left is chopped off.
 
@@ -13,6 +14,7 @@ const pointdisplay = document.getElementById("point-coordinates")!
 
 import { computeBezierWaypoints } from "./curve";
 import { canvas,controlpoints } from "./globals";
+import { findsegment } from "./handling";
 
 document.addEventListener("DOMContentLoaded", initCanvas);
 
@@ -73,7 +75,7 @@ function handleMouseDown(e: MouseEvent) {
 }
 
 function handleMouseMove(e: MouseEvent) {
-  if (!activeDragPoint) return;
+
 
   const rect = canvas.getBoundingClientRect();
   let newCanvasX = e.clientX - rect.left;
@@ -86,6 +88,13 @@ function handleMouseMove(e: MouseEvent) {
   // Convert new canvas coordinates to field coordinates
   const newFieldX = canvasToFieldX(newCanvasX);
   const newFieldY = canvasToFieldY(newCanvasY);
+
+  findsegment(newFieldX,newFieldY);
+
+  
+  if (!activeDragPoint) return;
+
+ 
 
   updateDrag(activeDragPoint, newFieldX, newFieldY);
   redrawPoints();
@@ -127,6 +136,7 @@ function createPointSet(fieldX: number, fieldY: number) {
       anglex: 1,
       angley: 0,
       size: 8,
+      rev: state
     };
     controlpoints.push(mainPoint);
     redrawPoints();
@@ -169,6 +179,8 @@ function createPointSet(fieldX: number, fieldY: number) {
     anglex: 1,
     angley: 0,
     size: 8,
+    rev: state
+
   };
   controlpoints.push(mainPoint);
 

@@ -2,20 +2,22 @@ import { left, MAX_ACCELERATION, MAX_VELOCITY, right } from "./globals";
 import { pathPoint, controlPoint, Point } from "./globals";
 import { pathpoints, controlpoints, bot, leftdt, rightdt } from "./globals";
 import { plot } from "./plot";
+import { totalInterp} from "./globals"; 
 
 export let leftVel : number[] = []
 export let rightVel : number[] = []
+
+export let numSegments = 0;
 
 export function computeBezierWaypoints() {
   // Clear any existing waypoints
   pathpoints.splice(0, pathpoints.length);
   if (controlpoints.length === 0) return;
 
-  const numSegments = (controlpoints.length - 1) / 3;
   let totaldist = 0;
+  numSegments = (controlpoints.length - 1) / 3;
 
   // --- Uniform per-segment interpolation ---
-  const totalInterp = 1000;
   const ptsPerSeg = Math.floor(totalInterp / numSegments);
   const remainder = totalInterp - ptsPerSeg * numSegments;
 
@@ -34,6 +36,7 @@ export function computeBezierWaypoints() {
         accel: 0,
         time: 0,
         orientation: 0,
+        rev: sectpts[0].rev!,
       };
       // Bézier point
       for (let j = 0; j < 4; j++) {
@@ -48,7 +51,8 @@ export function computeBezierWaypoints() {
 
       }else{
         const first = controlpoints[0];
-        wp.orientation = Math.atan2(first.angley!, first.anglex!);
+        if(first.rev){wp.orientation = Math.atan2(-first.angley!, -first.anglex!);}
+        else{         wp.orientation = Math.atan2(first.angley!, first.anglex!);}
       }
 
       wp.dist = totaldist;
@@ -68,6 +72,7 @@ export function computeBezierWaypoints() {
       accel: 0,
       time: 0,
       orientation: 0,
+      rev: sectpts[0].rev!,
     };
     for (let j = 0; j < 4; j++) {
       const coeff = binomialCoefficient(3, j)
@@ -81,7 +86,10 @@ export function computeBezierWaypoints() {
     finalWP.dist = totaldist;
 
     const finalcontrol = controlpoints[controlpoints.length - 1];
-    finalWP.orientation = Math.atan2(finalcontrol.angley!, finalcontrol.anglex!);
+
+    if(finalcontrol.rev){finalWP.orientation = Math.atan2(-finalcontrol.angley!, -finalcontrol.anglex!);}
+    else{                finalWP.orientation = Math.atan2(finalcontrol.angley!, finalcontrol.anglex!);}
+
     pathpoints.push(finalWP)
   }
 
@@ -115,11 +123,14 @@ export function computeBezierWaypoints() {
     const leftY = Math.cos(heading);
     const halfW = bot.trackwidth / 2;
 
+    const currstate = curr.rev;
+
     leftdt.push({
       x: curr.x + leftX * halfW,
       y: curr.y + leftY * halfW,
       vel: MAX_VELOCITY,
       neg: false,
+      rev: currstate,
     });
 
     rightdt.push({
@@ -127,6 +138,7 @@ export function computeBezierWaypoints() {
       y: curr.y - leftY * halfW,
       vel: MAX_VELOCITY,
       neg: false,
+      rev: currstate,
     });
   }
 
@@ -141,20 +153,22 @@ export function computeBezierWaypoints() {
 
 
     leftdt[i].neg = κCurr >  threshold;
+
     rightdt[i].neg = κCurr < -threshold;
 
+    let f = 1; if(leftdt[i].rev) f = -1;
 
     // once left is inner, reverse left; keep outer (right) forward
     if (leftdt[i].neg) {
-      leftdt[i].vel  = -MAX_VELOCITY;
+      leftdt[i].vel  = -MAX_VELOCITY * f;
     }else{
-      leftdt[i].vel  =  MAX_VELOCITY;
+      leftdt[i].vel  =  MAX_VELOCITY * f;
     }
     // once right is inner, reverse right; keep outer (left) forward
     if (rightdt[i].neg) {
-      rightdt[i].vel = -MAX_VELOCITY;
+      rightdt[i].vel = -MAX_VELOCITY * f;
     }else{
-      rightdt[i].vel =  MAX_VELOCITY;
+      rightdt[i].vel =  MAX_VELOCITY * f;
     }
 
     // on the frame where left becomes inner, zero left
@@ -179,13 +193,16 @@ export function computeBezierWaypoints() {
   for (let i = pathpoints.length - 2; i >= 0; i--) {
     const dist   = pathpoints[i + 1].dist - pathpoints[i].dist;
 
-    let lf = 1;
-    if(leftdt[i].neg == true) lf = -1;
+    let f = 1; if(leftdt[i].rev) f = -1;
+
+
+    let lf = f;
+    if(leftdt[i].neg) lf = -lf;
     const dL = calcdistance(leftdt[i+1],leftdt[i]) * lf;
 
-    let rf = 1;
-    if(rightdt[i].neg == true) rf = -1;
 
+    let rf = f;
+    if(rightdt[i].neg) rf = -rf;
     const dR = calcdistance(rightdt[i+1],rightdt[i]) * rf;
     
     const vL_nxt = leftdt[i + 1].vel;
@@ -194,25 +211,20 @@ export function computeBezierWaypoints() {
 
     let maxVL = 0;
     let maxVR = 0;
-    if(dL < 0){
-      maxVL = Math.max(-MAX_VELOCITY,-computeMaxVelocity(-vL_nxt, MAX_ACCELERATION, -dL));
-      maxVL = Math.max(maxVL,leftdt[i].vel);
-    }else{
-      maxVL = Math.min(MAX_VELOCITY,computeMaxVelocity(vL_nxt, MAX_ACCELERATION, dL));
-      maxVL = Math.min(maxVL,leftdt[i].vel);
-
-    }
-
-    if(dR < 0){
-      maxVR = Math.max(-MAX_VELOCITY,-computeMaxVelocity(-vR_nxt, MAX_ACCELERATION, -dR));
-      maxVR = Math.max(maxVR,rightdt[i].vel);
 
 
-    }else{
-      maxVR = Math.min(MAX_VELOCITY,computeMaxVelocity(vR_nxt, MAX_ACCELERATION, dR));
-      maxVR = Math.min(maxVR,rightdt[i].vel);
-    }
+    maxVL = Math.min(Math.abs(MAX_VELOCITY * lf),   
+                     Math.abs(lf * computeMaxVelocity(lf * vL_nxt, MAX_ACCELERATION, lf * dL)),
+                     Math.abs(leftdt[i].vel)) * lf;
 
+
+
+ 
+    maxVR = Math.min(Math.abs(MAX_VELOCITY * rf),   
+                     Math.abs(rf * computeMaxVelocity(rf * vR_nxt, MAX_ACCELERATION, rf * dR)),
+                     Math.abs(rightdt[i].vel)) * rf;
+
+    
 
     const maxVC_from_L = maxVL * (dist / dL);
     const maxVC_from_R = maxVR * (dist / dR);
@@ -220,8 +232,9 @@ export function computeBezierWaypoints() {
     const signC        = Math.sign((maxVL + maxVR) / 2);
     const maxVC        = signC * vc_mag;
 
-    leftdt[i].vel  = maxVC * (dL / dist);
-    rightdt[i].vel = maxVC * (dR / dist);
+    leftdt[i].vel  = maxVC * (dL / dist) * f;
+    rightdt[i].vel = maxVC * (dR / dist) * f;
+
   }
 
 
@@ -229,14 +242,15 @@ export function computeBezierWaypoints() {
   for (let i = 1; i < pathpoints.length; i++) {
     const dist = pathpoints[i].dist - pathpoints[i-1].dist;
 
+    let f = 1; if(leftdt[i].rev) f = -1;
 
-    let lf = 1;
-    if(leftdt[i].neg == true) lf = -1;
+
+    let lf = f;
+    if(leftdt[i].neg) lf = -lf;
     const dL = calcdistance(leftdt[i-1],leftdt[i]) * lf;
 
-
-    let rf = 1;
-    if(rightdt[i].neg == true) rf = -1;
+    let rf = f;
+    if(rightdt[i].neg) rf = -rf;
     const dR = calcdistance(rightdt[i-1],rightdt[i]) * rf;
     
     const vL_prev = leftdt[i - 1].vel;
@@ -245,26 +259,17 @@ export function computeBezierWaypoints() {
 
     let maxVL = 0;
     let maxVR = 0;
-    if(dL < 0){
-      maxVL = Math.max(-MAX_VELOCITY,-computeMaxVelocity(-vL_prev, MAX_ACCELERATION, -dL));
-      maxVL = Math.max(maxVL,leftdt[i].vel);
 
-    }else{
-      maxVL = Math.min(MAX_VELOCITY,computeMaxVelocity(vL_prev, MAX_ACCELERATION, dL));
-      maxVL = Math.min(maxVL,leftdt[i].vel);
+    maxVL = Math.min(Math.abs(MAX_VELOCITY * lf),   
+                     Math.abs(lf * computeMaxVelocity(lf * vL_prev, MAX_ACCELERATION, lf * dL)),
+                     Math.abs(leftdt[i].vel)) * lf;
 
-    }
 
-    if(dR < 0){
-      maxVR = Math.max(-MAX_VELOCITY,-computeMaxVelocity(-vR_prev, MAX_ACCELERATION, -dR));
-      maxVR = Math.max(maxVR,rightdt[i].vel);
 
-    }else{
-      maxVR = Math.min(MAX_VELOCITY,computeMaxVelocity(vR_prev, MAX_ACCELERATION, dR));
-      maxVR = Math.min(maxVR,rightdt[i].vel);
-
-    }
-
+ 
+    maxVR = Math.min(Math.abs(MAX_VELOCITY * rf),   
+                     Math.abs(rf * computeMaxVelocity(rf * vR_prev, MAX_ACCELERATION, rf * dR)),
+                     Math.abs(rightdt[i].vel)) * rf;
 
     const maxVC_from_L = maxVL * (dist / dL);
     const maxVC_from_R = maxVR * (dist / dR);
@@ -272,8 +277,8 @@ export function computeBezierWaypoints() {
     const signC        = Math.sign((maxVL + maxVR) / 2);
     const maxVC        = signC * vc_mag;
 
-    leftdt[i].vel  = maxVC * (dL / dist);
-    rightdt[i].vel = maxVC * (dR / dist);
+    leftdt[i].vel  = maxVC * (dL / dist) * f;
+    rightdt[i].vel = maxVC * (dR / dist) * f;
   }
 
 
@@ -291,16 +296,25 @@ export function computeBezierWaypoints() {
   pathpoints[0].time  = 0;
   pathpoints[0].accel = 0;
   for (let i = 1; i < pathpoints.length; i++) {
+
+    
+    let f = 1; if(leftdt[i].rev) f = -1;
+
+
     const ds  = calcdistance(pathpoints[i], pathpoints[i - 1]);
     const avg = (pathpoints[i].velocity + pathpoints[i - 1].velocity) / 2;
     if (avg != 0){
-      cumtime += ds / avg;
+      cumtime += ds / Math.abs(avg);
     }else{
       cumtime += 0.0000001;
     };
     pathpoints[i].time  = cumtime;
     pathpoints[i].accel = (pathpoints[i].velocity - pathpoints[i - 1].velocity)
-                        / (ds / avg);
+                        / (ds / avg) * f;
+
+    if(pathpoints[i].accel > MAX_ACCELERATION + 1){
+      console.log("uh")
+    }
   }
 
   
@@ -371,6 +385,8 @@ function calculate_Curvature_Orientation(
   curr: pathPoint,
   next: pathPoint
 ): { curvature: number; orientation: number } {
+  
+  
   const v1 = { x: curr.x - prev.x, y: curr.y - prev.y };
   const v2 = { x: next.x - curr.x, y: next.y - curr.y };
   const m1 = Math.hypot(v1.x, v1.y),
@@ -383,7 +399,14 @@ function calculate_Curvature_Orientation(
   const curvature  = dθ / m1;
 
   const avgDir     = { x: (v1.x + v2.x) / 2, y: (v1.y + v2.y) / 2 };
+
+  if(curr.rev){
+    avgDir.x = - avgDir.x;
+    avgDir.y = -avgDir.y;
+  }
+
   const orientation = Math.atan2(avgDir.y, avgDir.x);
+
 
   return { curvature, orientation };
 }

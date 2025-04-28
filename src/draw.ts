@@ -83,8 +83,9 @@ document.getElementById("togglePoints")?.addEventListener("click", () => {
 });
 
 function velocityToColor(velocity: number): string {
-  const minVel = -5;
-  const maxVel = MAX_VELOCITY * 1.2;
+  velocity = Math.abs(velocity)
+  const minVel = 0;
+  const maxVel = MAX_VELOCITY;
   let norm = (velocity - minVel) / (maxVel - minVel);
   norm = Math.max(0, Math.min(1, norm));
   const r = Math.round(255 * (1 - norm));
