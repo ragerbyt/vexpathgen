@@ -153,12 +153,18 @@ input[type="text"]::placeholder {
 }
 
 /* Graph Styling */
+#graphs-container-container {
+  width: 100%;
+  border-radius: 8px;
+  padding: 1rem;
+  background-color: rgba(255, 255, 255, 0.05);
+}
+
 #graphs-container {
   position: relative;
   width: 100%;
   height: 200px;
-  border-radius: 8px;
-  background-color: rgba(255, 255, 255, 0.05);
+  margin-bottom: 10px;
 }
 
 #graph,
@@ -167,7 +173,7 @@ input[type="text"]::placeholder {
   top: 10%;
   left: 10%;
   width: 85%;
-  height: 70%;
+  height: 80%;
   background-color: transparent;
 
   /* Remove real border */
@@ -219,20 +225,20 @@ input[type="text"]::placeholder {
 
 /* Time label at the bottom */
 #unit-label {
-  bottom: 10%;
+  bottom: 0;
   left: 50%;
   transform: translateX(0%);
 }
 
 /* Time Start and End Labels */
 #start-time-label {
-  bottom: 10%;
+  bottom: 0;
   left: 10%;
   transform: translateX(0%);
 }
 
 #end-time-label {
-  bottom: 10%;
+  bottom: 0;
   right: 5%;
   transform: translateX(0%);
 }
@@ -252,6 +258,21 @@ input[type="text"]::placeholder {
 #velocity-zero-label {
   bottom: 20%;
   left: 7%;
+}
+
+#graph-key {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  color: white;
+  gap: 1rem;
+  margin-left: 10%;
+}
+
+#graph-key > div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 /* Canvas Styling */
@@ -415,6 +436,13 @@ input:checked + .slider:before {
 .file-upload-button span {
   font-weight: bold;
   font-size: 1rem;
+}
+
+.circle {
+  display: block;
+  height: 15px;
+  width: 15px;
+  border-radius: 9999px;
 }
 
 @media (max-width: 800px) {

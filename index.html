@@ -53,25 +53,45 @@
           </div>
         </div>
 
-        <div id="graphs-container">
-          <canvas id="graph" width="600" height="200"></canvas>
-          <canvas id="overlay" width="600" height="200"></canvas>
-          <div id="currtime-label" class="graph-label">0.0s</div>
-          <div id="currvel-label" class="graph-label">0 in/s</div>
+        <div id="graphs-container-container">
+          <div id="graphs-container">
+            <canvas id="graph" width="600" height="200"></canvas>
+            <canvas id="overlay" width="600" height="200"></canvas>
+            <div id="currtime-label" class="graph-label">0.0s</div>
+            <div id="currvel-label" class="graph-label">0 in/s</div>
 
-          <!-- Time Label for the Bottom -->
-          <div id="unit-label" class="graph-label">TIME (S)</div>
-          <div id="velocity-label" class="graph-label">Vel<br />(in/s)</div>
+            <!-- Time Label for the Bottom -->
+            <div id="unit-label" class="graph-label">TIME (S)</div>
+            <div id="velocity-label" class="graph-label">Vel<br />(in/s)</div>
 
-          <!-- Time Start and End Labels -->
-          <div id="start-time-label" class="graph-label">0.00</div>
-          <div id="end-time-label" class="graph-label">0.00</div>
+            <!-- Time Start and End Labels -->
+            <div id="start-time-label" class="graph-label">0.00</div>
+            <div id="end-time-label" class="graph-label">0.00</div>
 
-          <!-- Velocity Markings -->
-          <div id="velocity-max-label" class="graph-label">60</div>
-          <!-- For max velocity -->
-          <div id="velocity-zero-label" class="graph-label">0</div>
-          <!-- For velocity zero -->
+            <!-- Velocity Markings -->
+            <div id="velocity-max-label" class="graph-label">60</div>
+            <!-- For max velocity -->
+            <div id="velocity-zero-label" class="graph-label">0</div>
+            <!-- For velocity zero -->
+          </div>
+          <div id="graph-key">
+            <div>
+              <span class="circle" style="background-color: white"></span>
+              <span>Velocity</span>
+            </div>
+            <div>
+              <span class="circle" style="background-color: red"></span>
+              <span>Left wheel velocity</span>
+            </div>
+            <div>
+              <span class="circle" style="background-color: blue"></span>
+              <span>Right wheel velocity</span>
+            </div>
+            <div>
+              <span class="circle" style="background-color: green"></span>
+              <span>Acceleration</span>
+            </div>
+          </div>
         </div>
 
         <div id="graphcustom">
