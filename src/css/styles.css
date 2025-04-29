@@ -2,6 +2,10 @@
   box-sizing: border-box;
 }
 
+:root {
+  font-size: 15px;
+}
+
 /* General Body Styling */
 body {
   margin: 0;
@@ -24,11 +28,11 @@ body {
   border-radius: 12px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
   width: 95%;
+  max-height: 98%;
   aspect-ratio: 2 / 1;
   border: 2px solid white;
   box-sizing: border-box;
 }
-
 
 /* Sidebar Styling */
 #sidebar {
@@ -56,6 +60,12 @@ body {
   gap: 12px;
 }
 
+#togglePoints,
+#clear,
+#sidepath {
+  margin-top: 3px;
+}
+
 /* Bot Config Row */
 #botconfig {
   display: flex;
@@ -75,7 +85,7 @@ body {
 
 .field label {
   color: #ffffff;
-  font-size: 16px;
+  font-size: 1rem;
   width: 60%;
   text-align: center;
 }
@@ -83,11 +93,16 @@ body {
 .field input {
   width: 40%;
   padding: 10px;
-  font-size: 16px;
+  font-size: 1rem;
   border-radius: 8px;
   box-sizing: border-box;
   background-color: rgba(255, 255, 255, 0.1);
+  border: 1px solid #777777;
   color: #ffffff;
+}
+
+.field input:focus {
+  outline: 1px solid #ffffff;
 }
 
 /* Hide number spinner arrows */
@@ -99,13 +114,13 @@ input[type="number"]::-webkit-inner-spin-button {
 
 /* Buttons Styling */
 button {
-  padding: 12px 18px;
+  padding: 0.75rem 1.2rem;
   background-color: #4ca3ec;
   color: #ffffff;
   border: none;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 1rem;
   transition: background-color 0.3s ease-in-out, transform 0.2s ease-in-out;
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
   width: fit-content;
@@ -122,8 +137,8 @@ button:active {
 
 /* Input Field Styling */
 input[type="text"] {
-  padding: 12px;
-  font-size: 16px;
+  padding: 0.75rem;
+  font-size: 1rem;
   border: 2px solid #ffffff;
   border-radius: 8px;
   width: 100%;
@@ -144,10 +159,10 @@ input[type="text"]::placeholder {
   height: 200px;
   border-radius: 8px;
   background-color: rgba(255, 255, 255, 0.05);
-
 }
 
-#graph, #overlay {
+#graph,
+#overlay {
   position: absolute;
   top: 10%;
   left: 10%;
@@ -160,20 +175,31 @@ input[type="text"]::placeholder {
   border: none;
 
   /* Fake border with custom dotted/dashed look */
-  background-image:
-  repeating-linear-gradient(to right, white 0px, white 6px, transparent 6px, transparent 12px), /* bottom */
-  repeating-linear-gradient(to bottom, white 0px, white 6px, transparent 6px, transparent 12px); /* left */
+  background-image: repeating-linear-gradient(
+      to right,
+      white 0px,
+      white 6px,
+      transparent 6px,
+      transparent 12px
+    ),
+    /* bottom */
+      repeating-linear-gradient(
+        to bottom,
+        white 0px,
+        white 6px,
+        transparent 6px,
+        transparent 12px
+      ); /* left */
 
   background-position: bottom left, top left;
   background-repeat: no-repeat;
   background-size: 100% 2px, 2px 100%;
-
 }
 
 /* Labels */
 .graph-label {
   position: absolute;
-  font-size: 16px;
+  font-size: 1rem;
   font-weight: bold;
   color: #ffffff;
   text-align: center;
@@ -191,14 +217,11 @@ input[type="text"]::placeholder {
   transform: translateX(0%);
 }
 
-
-
 /* Time label at the bottom */
 #unit-label {
   bottom: 10%;
   left: 50%;
   transform: translateX(0%);
-
 }
 
 /* Time Start and End Labels */
@@ -215,7 +238,7 @@ input[type="text"]::placeholder {
 }
 
 #velocity-label {
-  top:30%;
+  top: 30%;
   left: 2%;
 }
 
@@ -242,13 +265,12 @@ canvas {
   aspect-ratio: 1 / 1; /* Keeps canvas square */
 }
 
-
 /* Floating mouse/point coordinate overlays (kept absolutely positioned) */
 .info-box {
-  font-size: 15px;
+  font-size: 1rem;
   color: #ffffff;
   background: rgba(255, 255, 255, 0.1);
-  padding: 10px 15px;
+  padding: 0.75rem 1.2rem;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0, 0, 0, 0.4);
   pointer-events: none;
@@ -286,12 +308,11 @@ canvas {
   gap: 12px;
 }
 
-#import{
+#import {
   position: relative;
   left: 10;
-  right:10;
+  right: 10;
 }
-
 
 .switch {
   position: relative;
@@ -316,8 +337,8 @@ canvas {
   right: 0;
   bottom: 0;
   background-color: #ccc;
-  -webkit-transition: .4s;
-  transition: .4s;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
 }
 
 .slider:before {
@@ -328,16 +349,16 @@ canvas {
   left: 4px;
   bottom: 4px;
   background-color: white;
-  -webkit-transition: .4s;
-  transition: .4s;
+  -webkit-transition: 0.4s;
+  transition: 0.4s;
 }
 
 input:checked + .slider {
-  background-color: #2196F3;
+  background-color: #2196f3;
 }
 
 input:focus + .slider {
-  box-shadow: 0 0 1px #2196F3;
+  box-shadow: 0 0 1px #2196f3;
 }
 
 input:checked + .slider:before {
@@ -363,7 +384,7 @@ input:checked + .slider:before {
   border: 2px solid #ffffff;
   border-radius: 8px;
   cursor: pointer;
-  font-size: 15px;
+  font-size: 1rem;
   transition: background-color 0.3s ease-in-out, transform 0.2s ease-in-out;
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
   width: fit-content;
@@ -393,5 +414,26 @@ input:checked + .slider:before {
 
 .file-upload-button span {
   font-weight: bold;
-  font-size: 15px;
+  font-size: 1rem;
+}
+
+@media (max-width: 800px) {
+  :root {
+    font-size: 13px;
+  }
+}
+
+@media (max-aspect-ratio: 1/1) {
+  body {
+    overflow-y: auto;
+    height: auto;
+  }
+  #screen {
+    flex-direction: column;
+    aspect-ratio: auto;
+  }
+
+  #path {
+    width: 100%;
+  }
 }

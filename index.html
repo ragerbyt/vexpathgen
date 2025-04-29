@@ -1,112 +1,100 @@
 <!DOCTYPE html>
 <html lang="en">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Vex Path Gen</title>
-</head>
-<body>
-  <div id= "screen">
-    <canvas id="path"></canvas>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vex Path Gen</title>
+  </head>
+  <body>
+    <div id="screen">
+      <canvas id="path"></canvas>
 
-    
-
-    <div id="sidebar">
-      <div id="info">
-        <div class="info-box" id="mouse-coordinates"></div>
-        <div class="info-box" id="point-coordinates"></div>
-
-      </div>
-
-      <div id="menu">
-        <div>
-          <button id="togglePoints">Toggle Points</button>
-          <button id="clear">Clear Points</button>
-          <button id="sidepath">Toggle wheel paths</button>
+      <div id="sidebar">
+        <div id="info">
+          <div class="info-box" id="mouse-coordinates"></div>
+          <div class="info-box" id="point-coordinates"></div>
         </div>
 
+        <div id="menu">
+          <div>
+            <button id="togglePoints">Toggle Points</button>
+            <button id="clear">Clear Points</button>
+            <button id="sidepath">Toggle wheel paths</button>
+          </div>
 
-        <label class="switch">
-          <input type="checkbox">
-          <span class="slider round"></span>
-        </label>
-  
-        <div id="botconfig">
-          <div class="field">
-            <label for="botlen">Bot width:</label>
-            <input type="number" id="botwidth" value="16" />
+          <label class="switch">
+            <input type="checkbox" />
+            <span class="slider round"></span>
+          </label>
+
+          <div id="botconfig">
+            <div class="field">
+              <label for="botlen">Bot width:</label>
+              <input type="number" id="botwidth" value="16" />
+            </div>
+            <div class="field">
+              <label for="botwidth">Bot length:</label>
+              <input type="number" id="botlen" value="16" />
+            </div>
+            <div class="field">
+              <label for="trackwidth">Track width:</label>
+              <input type="number" id="botlen" value="10" />
+            </div>
           </div>
-          <div class="field">
-            <label for="botwidth">Bot length:</label>
-            <input type="number" id="botlen" value="16" />
+          <div id="botconfig">
+            <div class="field">
+              <label for="maxaccel">Max Acceleration:</label>
+              <input type="number" id="maxaccel" value="50" />
+            </div>
+            <div class="field">
+              <label for="maxvel">Max Velocity:</label>
+              <input type="number" id="maxvel" value="50" />
+            </div>
           </div>
-          <div class="field">
-            <label for="trackwidth">Track width:</label>
-            <input type="number" id="botlen" value="10" />
-          </div>
-          
         </div>
-        <div id="botconfig">
-          <div class="field">
-            <label for="maxaccel">Max Acceleration:</label>
-            <input type="number" id="maxaccel" value="50" />
-          </div>
-          <div class="field">
-            <label for="maxvel">Max Velocity:</label>
-            <input type="number" id="maxvel" value="50" />
-          </div>
+
+        <div id="graphs-container">
+          <canvas id="graph" width="600" height="200"></canvas>
+          <canvas id="overlay" width="600" height="200"></canvas>
+          <div id="currtime-label" class="graph-label">0.0s</div>
+          <div id="currvel-label" class="graph-label">0 in/s</div>
+
+          <!-- Time Label for the Bottom -->
+          <div id="unit-label" class="graph-label">TIME (S)</div>
+          <div id="velocity-label" class="graph-label">Vel<br />(in/s)</div>
+
+          <!-- Time Start and End Labels -->
+          <div id="start-time-label" class="graph-label">0.00</div>
+          <div id="end-time-label" class="graph-label">0.00</div>
+
+          <!-- Velocity Markings -->
+          <div id="velocity-max-label" class="graph-label">60</div>
+          <!-- For max velocity -->
+          <div id="velocity-zero-label" class="graph-label">0</div>
+          <!-- For velocity zero -->
         </div>
-        
+
+        <div id="graphcustom">
+          <button id="run">run</button>
+          <button id="dist">dist graph</button>
+          <button id="time">time graph</button>
+        </div>
+
+        <div id="saving">
+          <input
+            type="text"
+            id="pathNameInput"
+            placeholder="Enter path name (e.g., redside)"
+          />
+          <button id="saveCpp">Save C++ File</button>
+
+          <input type="file" id="import" accept=".cpp" hidden />
+          <label for="import" class="file-upload-button">Import C++ File</label>
+        </div>
       </div>
-  
-  
-      <div id="graphs-container">
-
-
-        <canvas id="graph" width="600" height="200"></canvas>
-        <canvas id="overlay" width="600" height="200"></canvas>
-        <div id="currtime-label" class="graph-label">0.0s</div>
-        <div id="currvel-label" class="graph-label">0 in/s</div>
-
-        <!-- Time Label for the Bottom -->
-        <div id="unit-label" class="graph-label">TIME (S)</div>
-        <div id="velocity-label" class="graph-label">Vel<br>(in/s)</div>
-
-        <!-- Time Start and End Labels -->
-        <div id="start-time-label" class="graph-label">0.00</div>
-        <div id="end-time-label" class="graph-label">0.00</div>
-    
-        <!-- Velocity Markings -->
-        <div id="velocity-max-label" class="graph-label">60</div> <!-- For max velocity -->
-        <div id="velocity-zero-label" class="graph-label">0</div> <!-- For velocity zero -->
-
-        
-
-      </div>
-
-      <div id = "graphcustom">
-        <button id="run">run</button>
-        <button id="dist">dist graph</button>
-        <button id="time">time graph</button>
-      </div>
-
-      <div id="saving">
-        <input type="text" id="pathNameInput" placeholder="Enter path name (e.g., redside)" />
-        <button id="saveCpp">Save C++ File</button>
-
-
-        <input type="file" id="import" accept=".cpp" hidden />
-        <label for="import" class="file-upload-button">Import C++ File</label>
-
-
-      </div>
-    
-    
     </div>
-  </div>
-  
-  
-  <!-- Entrypoint -->
-  <script src="src/index.ts" type="module"></script>
-</body>
+
+    <!-- Entrypoint -->
+    <script src="src/index.ts" type="module"></script>
+  </body>
 </html>
