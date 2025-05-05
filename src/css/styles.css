@@ -15,6 +15,7 @@ body {
   align-items: center;
   background-color: #212236;
   font-family: ui-sans-serif, system-ui, sans-serif;
+  color: #ffffff;
 }
 
 /* Screen Layout Styling */
@@ -84,7 +85,6 @@ body {
 }
 
 .field label {
-  color: #ffffff;
   font-size: 1rem;
   width: 60%;
   text-align: center;
@@ -116,7 +116,7 @@ input[type="number"]::-webkit-inner-spin-button {
 button {
   padding: 0.75rem 1.2rem;
   background-color: #4ca3ec;
-  color: #ffffff;
+
   border: none;
   border-radius: 8px;
   cursor: pointer;
@@ -124,6 +124,7 @@ button {
   transition: background-color 0.3s ease-in-out, transform 0.2s ease-in-out;
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
   width: fit-content;
+  color: #ffffff;
 }
 
 button:hover {
@@ -144,7 +145,6 @@ input[type="text"] {
   width: 100%;
   box-sizing: border-box;
   background-color: rgba(255, 255, 255, 0.1);
-  color: #ffffff;
 }
 
 input[type="text"]::placeholder {
@@ -207,7 +207,7 @@ input[type="text"]::placeholder {
   position: absolute;
   font-size: 1rem;
   font-weight: bold;
-  color: #ffffff;
+
   text-align: center;
 }
 
@@ -281,15 +281,27 @@ canvas {
 }
 
 /* Ensure path canvas is square */
-#path {
+#path-container {
   height: min(100%, 50vw); /* 50% of the viewport width */
-  aspect-ratio: 1 / 1; /* Keeps canvas square */
+  display: flex;
+  gap: 1rem;
+}
+
+#path {
+  aspect-ratio: 1/1;
+  height: 100%;
+}
+
+#toolbar {
+  padding: 1rem;
+  border-radius: 8px;
+  background-color: rgba(255, 255, 255, 0.1);
 }
 
 /* Floating mouse/point coordinate overlays (kept absolutely positioned) */
 .info-box {
   font-size: 1rem;
-  color: #ffffff;
+
   background: rgba(255, 255, 255, 0.1);
   padding: 0.75rem 1.2rem;
   border-radius: 8px;
@@ -401,7 +413,7 @@ input:checked + .slider:before {
 .file-upload-button {
   padding: 12px 18px;
   background-color: #4ca3ec; /* Similar to your button color */
-  color: #ffffff;
+
   border: 2px solid #ffffff;
   border-radius: 8px;
   cursor: pointer;
@@ -461,7 +473,7 @@ input:checked + .slider:before {
     aspect-ratio: auto;
   }
 
-  #path {
+  #path-container {
     width: 100%;
   }
 }
