@@ -9,7 +9,16 @@
   <body>
     <div id="screen">
       <div id="path-container">
-        <div id="toolbar">toolbar</div>
+        <div id="toolbar">
+          <div class="icon"></div>
+          <div class="icon"></div>
+          <div class="icon"></div>
+          <div class="icon"></div>
+          <div class="icon"></div>
+          <div class="icon"></div>
+          <div class="icon"></div>
+          <div class="icon"></div>
+        </div>
         <canvas id="path"></canvas>
       </div>
 
@@ -105,11 +114,7 @@
         </div>
 
         <div id="saving">
-          <input
-            type="text"
-            id="pathNameInput"
-            placeholder="Enter path name (e.g., redside)"
-          />
+          <input type="text" id="pathNameInput" placeholder="Enter path name (e.g., redside)" />
           <button id="saveCpp">Save C++ File</button>
 
           <input type="file" id="import" accept=".cpp" hidden />
