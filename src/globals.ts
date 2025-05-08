@@ -30,9 +30,10 @@ export const bot = {
 };
     
 export let STATE = "Waypoints"
-
+export let MODE = "Line"
 
 export let controlpoints: controlPoint[] = [];
+export let sections: section[] = [];
 export let pathpoints: pathPoint[] = [];
 export let leftdt: Point[] = [];
 export let rightdt: Point[] = [];
@@ -94,6 +95,13 @@ export interface pathPoint {
     orientation: number; // Orientation (heading) in degrees
     rev: boolean;
 
+    t: number;
+
+    leftdist: number; //from prev to curr point distance
+    rightdist: number;
+
+    leftvel: number; //vel at point
+    rightvel: number;
 }
 
 export interface controlPoint {
@@ -116,3 +124,22 @@ export interface Point{
     neg: boolean;
     rev: boolean;
 }
+
+export interface section{
+    start: number;
+    end: number; //INCLUSIve
+    type: "bezier" | "line";
+    rev: boolean
+    startangle: number,
+    endangle: number
+
+    startx: number
+    starty: number
+    endx: number
+    endy: number
+}
+
+pause(100)
+    async function pause(time: number){
+      await new Promise(resolve => setTimeout(resolve, time));
+    }

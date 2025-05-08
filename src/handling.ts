@@ -1,8 +1,8 @@
 //dik
 import { pathpoints,totalInterp } from "./globals";
-import { numSegments } from "./curve";
+import { numSegments, totalSeg } from "./curve";
 
-const radius = 4;
+const radius = 2;
 export let hi_seg = -1; //highlighted segment
 export let start_hi = -1; 
 export let hi_len = -1;
@@ -13,6 +13,8 @@ export function resetsegment(){
     start_hi = -1;
     hi_len = -1;
 }
+
+import { ptsPerSeg } from "./curve";
 
 export function findsegment(fieldx: number, fieldY: number){
   
@@ -31,16 +33,16 @@ export function findsegment(fieldx: number, fieldY: number){
         
         if(dist > radius) continue;
 
-        let pps = Math.floor(totalInterp/numSegments)
+        let pps = ptsPerSeg
 
-        let index = i - 1;
+        let index = i;
 
         let seg = Math.floor(index/pps);
 
 
         if(seg >= numSegments){
             seg = numSegments - 1;
-            hi_len = 1000 - seg*pps;
+            hi_len = totalSeg - seg*pps;
         }else{
             hi_len = pps
         }

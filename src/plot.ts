@@ -43,8 +43,14 @@ export function plot() {
   const maxAccel = MAX_ACCELERATION;
   const minAccel = -MAX_ACCELERATION;
 
+  const maxAngVel = 5;
+  const minAngVel = -5;
+
   const velocityData: { x: number; y: number }[] = [];
   const accelData: {x: number; y: number}[] = [];
+  const leftVelocityData: { x: number; y: number }[] = [];
+  const rightVelocityData: { x: number; y: number }[] = [];
+  const AngularVelData: {x: number; y: number}[] = [];
 
   if(GRAPHMODE == "time"){
     for (let i = 0; i < pathpoints.length; i++) {
@@ -58,6 +64,19 @@ export function plot() {
       const normAccel = (pathpoints[i].accel - minAccel) / (maxAccel - minAccel);
       const yAccel = height - (normAccel * height);
       accelData.push({ x: xPos, y: yAccel });
+
+      const normLeft = (leftdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
+      const yLeft = height - (normLeft * height);
+      leftVelocityData.push({ x: xPos, y: yLeft });
+
+      const normRight = (rightdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
+      const yRight = height - (normRight * height);
+      rightVelocityData.push({ x: xPos, y: yRight });
+
+      const normCurve = (pathpoints[i].angularVelocity - minAngVel) / (maxAngVel - minAngVel);
+      const yCurve = height - (normCurve * height);
+      AngularVelData.push({x: xPos, y: yCurve})
+
     }
   }else{
     for (let i = 0; i < pathpoints.length; i++) {
@@ -71,18 +90,7 @@ export function plot() {
       const normAccel = (pathpoints[i].accel - minAccel) / (maxAccel - minAccel);
       const yAccel = height - (normAccel * height);
       accelData.push({ x: xPos, y: yAccel });
-    }
-  }
-
-  const leftVelocityData: { x: number; y: number }[] = [];
-  const rightVelocityData: { x: number; y: number }[] = [];
-
-
-  if (GRAPHMODE == "time") {
-    for (let i = 0; i < pathpoints.length; i++) {
-      const timeRatio = pathpoints[i].time / pathpoints[pathpoints.length - 1].time;
-      const xPos = timeRatio * width;
-
+      
       const normLeft = (leftdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
       const yLeft = height - (normLeft * height);
       leftVelocityData.push({ x: xPos, y: yLeft });
@@ -90,24 +98,13 @@ export function plot() {
       const normRight = (rightdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
       const yRight = height - (normRight * height);
       rightVelocityData.push({ x: xPos, y: yRight });
-    }
-  } else {
-    for (let i = 0; i < pathpoints.length; i++) {
-      const distRatio = pathpoints[i].dist / pathpoints[pathpoints.length - 1].dist;
-      const xPos = distRatio * width;
 
-      const normLeft = (leftdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
-      const yLeft = height - (normLeft * height);
-      leftVelocityData.push({ x: xPos, y: yLeft });
-
-      const normRight = (rightdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
-      const yRight = height - (normRight * height);
-      rightVelocityData.push({ x: xPos, y: yRight });
+      const normCurve = (pathpoints[i].angularVelocity - minAngVel) / (maxAngVel - minAngVel);
+      const yCurve = height - (normCurve * height);
+      AngularVelData.push({x: xPos, y: yCurve})
     }
   }
 
-  // Normalize and scale velocity
-  
 
   // Draw velocity curve
   drawPath(ctx, velocityData, "white");   // center velocity
@@ -115,7 +112,8 @@ export function plot() {
 
   drawPath(ctx, leftVelocityData, "red"); // left wheel
   drawPath(ctx, rightVelocityData, "blue"); // right wheel
-  
+  drawPath(ctx, AngularVelData, "black"); // right wheel
+
   // Get the time values
   const startTime = pathpoints[0].time.toFixed(2);
   let end;
@@ -213,11 +211,6 @@ function handleMouseMove(e: MouseEvent) {
       bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
       bot.o = pathpoints[i - 1].orientation + Normalize((pathpoints[i].orientation - pathpoints[i - 1].orientation)) * frac;
 
-      if((pathpoints[i].time - pathpoints[i-1].time) < 0.000001){
-        bot.x = pathpoints[i-1].x + (pathpoints[i+1].x - pathpoints[i-1].x) * 3/4;
-        bot.y = pathpoints[i-1].y + (pathpoints[i+1].y - pathpoints[i-1].y) * 3/4;
-        bot.o = pathpoints[i-1].orientation + Normalize((pathpoints[i+1].orientation - pathpoints[i-1].orientation)) * 3/4;;
-      }
 
       if (velocityDisplayMode === "center") {
         displayedVel = pathpoints[i - 1].velocity + (pathpoints[i].velocity - pathpoints[i - 1].velocity) * frac;
@@ -311,11 +304,6 @@ run!.addEventListener("click", async () => {
       bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
       bot.o = pathpoints[i-1].orientation + Normalize((pathpoints[i].orientation - pathpoints[i-1].orientation)) * frac;
 
-      if((pathpoints[i].time - pathpoints[i-1].time) < 0.000001){
-        bot.x = pathpoints[i-1].x + (pathpoints[i+1].x - pathpoints[i-1].x) * 3/4;
-        bot.y = pathpoints[i-1].y + (pathpoints[i+1].y - pathpoints[i-1].y) * 3/4;
-        bot.o = pathpoints[i-1].orientation + Normalize((pathpoints[i+1].orientation - pathpoints[i-1].orientation)) * 3/4;;
-      }
     }    
     drawLine(octx,{x: time / pathpoints[pathpoints.length-1].time * 600, y: 0},{x: time / pathpoints[pathpoints.length-1].time * 600, y: octx.canvas.height},"red");
 
@@ -344,7 +332,7 @@ document.getElementById("time")?.addEventListener("click", () => {
   plot(); 
 });
 
-function Normalize(n1: number){
+export function Normalize(n1: number){
   if(n1 > Math.PI/2){
     n1 -= Math.PI
   }

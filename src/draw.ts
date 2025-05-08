@@ -31,8 +31,6 @@ export function redrawCanvas() {
     return;
   }
 
-  
-
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
   ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
 
@@ -44,12 +42,9 @@ export function redrawCanvas() {
     return;
   }
 
-  for (let i = 0; i < controlpoints.length; i += 3) {
+  for (let i = 0; i < controlpoints.length-1; i++) {
     if (!drawpoints) break;
-    if (controlpoints[i - 1]) {
-      drawLine(ctx, controlpoints[i - 1], controlpoints[i], "white", 2);
-    }
-    if (controlpoints[i + 1]) {
+    if (controlpoints[i + 1].isMain != controlpoints[i].isMain) {
       drawLine(ctx, controlpoints[i + 1], controlpoints[i], "white", 2);
     }
   }
@@ -101,16 +96,12 @@ function velocityToColor(velocity: number): string {
 let sidetrack = false;
 
 function drawPath(ctx: CanvasRenderingContext2D) {
-
-  
   if(start_hi != -1){
-
     for(let i = start_hi; i < hi_len + start_hi; i++){
+      console.log(start_hi)
       drawLine(ctx, pathpoints[i], pathpoints[i+1], "yellow", 8); 
     }
-
   } 
-
 
   for (let i = 1; i < pathpoints.length; i++) {
     const avgVelocity = (pathpoints[i - 1].velocity + pathpoints[i].velocity) / 2;

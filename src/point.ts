@@ -13,7 +13,7 @@ const state = false;
 const pointdisplay = document.getElementById("point-coordinates")!
 
 import { computeBezierWaypoints } from "./curve";
-import { canvas,controlpoints } from "./globals";
+import { canvas,controlpoints, sections } from "./globals";
 import { findsegment, hi_seg } from "./handling";
 
 import { resetsegment } from "./handling";
@@ -89,9 +89,9 @@ async function paws(){
 }
 
 function handleMouseMove(e: MouseEvent) {
-  if(!canrun){return}
-  canrun = false;
-  paws()
+  // if(!canrun){return}
+  // canrun = false;
+  // paws()
 
   const rect = canvas.getBoundingClientRect();
   let newCanvasX = e.clientX - rect.left;
@@ -107,15 +107,20 @@ function handleMouseMove(e: MouseEvent) {
 
   resetsegment();
 
+  const point = getPointAtPosition(newFieldX, newFieldY)
 
   if (!activeDragPoint){
-    findsegment(newFieldX,newFieldY);
-  return;}
+    if(point == null){
+      //findsegment(newFieldX,newFieldY);
+    }
+  }else{
+    updateDrag(activeDragPoint, newFieldX, newFieldY);
+    redrawPoints();
+  }
 
  
 
-  updateDrag(activeDragPoint, newFieldX, newFieldY);
-  redrawPoints();
+
 }
 
 function handleMouseUp() {
@@ -161,49 +166,15 @@ function createPointSet(fieldX: number, fieldY: number) {
     return;
   }
 
-  let idx = controlpoints.length - 1;
-  let prevx = controlpoints[idx].x;
-  let prevy = controlpoints[idx].y;
-  let offset = 40 * 144 / canvas.width; // now in field units (0-144 range)
+  insertbezier(fieldX,fieldY)
+  
 
-  // Create first 2 control points
-  const controlPoint1: controlPoint = {
-    x: prevx + offset * controlpoints[idx].anglex!,
-    y: prevy + offset * controlpoints[idx].angley!,
-    index: controlpoints.length,
-    color: "blue",
-    dist: offset,
-    size: 6,
-  };
-  controlpoints.push(controlPoint1);
-
-  const controlPoint2: controlPoint = {
-    x: fieldX - offset,
-    y: fieldY,
-    index: controlpoints.length,
-    color: "blue",
-    dist: -offset,
-    size: 6,
-  };
-  controlpoints.push(controlPoint2);
-
-  const mainPoint: controlPoint = {
-    x: fieldX,
-    y: fieldY,
-    index: controlpoints.length,
-    color: "red",
-    dist: 0,
-    isMain: true,
-    anglex: 1,
-    angley: 0,
-    size: 8,
-    rev: state
-
-  };
-  controlpoints.push(mainPoint);
+  console.log(controlpoints)
+  console.log(sections)
 
   dispatchPathGeneration();
   redrawPoints();
+
 }
 
 function updateDrag(controlPoint: controlPoint, newX: number, newY: number) {
@@ -219,8 +190,10 @@ function updateDrag(controlPoint: controlPoint, newX: number, newY: number) {
     for (let i = -1; i <= 1; i++) {
       const groupPointIndex = index + i;
       if (groupPointIndex >= 0 && groupPointIndex < controlpoints.length) {
-        controlpoints[groupPointIndex].x -= deltaX;
-        controlpoints[groupPointIndex].y -= deltaY;
+        if(controlpoints[groupPointIndex].isMain != true || i == 0){
+          controlpoints[groupPointIndex].x -= deltaX;
+          controlpoints[groupPointIndex].y -= deltaY;
+        }
       }
     }
   } else {
@@ -236,11 +209,15 @@ function updateDrag(controlPoint: controlPoint, newX: number, newY: number) {
     for (let i = -1; i <= 1; i++) {
       const controlPointIndex = groupStartIndex + i;
       if (controlPointIndex >= 0 && controlPointIndex < controlpoints.length) {
-        updateControlPosition(mainPoint, controlpoints[controlPointIndex]);
+        if(controlpoints[controlPointIndex].isMain != true){
+          updateControlPosition(mainPoint, controlpoints[controlPointIndex]);
+
+        }
       }
     }
   }
 
+  updatesections();
   dispatchPathGeneration();
 }
 
@@ -299,4 +276,112 @@ function canvasToFieldY(y: number): number {
 }
 
 
+function insertbezier(fieldX: number, fieldY: number){
 
+  let idx = controlpoints.length - 1;
+  let prevx = controlpoints[idx].x;
+  let prevy = controlpoints[idx].y;
+  let offset = 100 * 144 / canvas.width; // now in field units (0-144 range)
+
+  // Create first 2 control points
+  const controlPoint1: controlPoint = {
+    x: prevx + offset * controlpoints[idx].anglex!,
+    y: prevy + offset * controlpoints[idx].angley!,
+    index: controlpoints.length,
+    color: "blue",
+    dist: offset,
+    size: 6,
+  };
+  controlpoints.push(controlPoint1);
+
+  const controlPoint2: controlPoint = {
+    x: fieldX - offset,
+    y: fieldY,
+    index: controlpoints.length,
+    color: "blue",
+    dist: -offset,
+    size: 6,
+  };
+  controlpoints.push(controlPoint2);
+
+  const mainPoint: controlPoint = {
+    x: fieldX,
+    y: fieldY,
+    index: controlpoints.length,
+    color: "red",
+    dist: 0,
+    isMain: true,
+    anglex: 1,
+    angley: 0,
+    size: 8,
+    rev: state
+
+  };
+  controlpoints.push(mainPoint);
+
+  pushSection(idx, idx+ 3, "bezier", false);
+
+}
+
+function insertline(fieldX: number, fieldY: number){
+
+  let idx = controlpoints.length - 1;
+
+  const mainPoint: controlPoint = {
+    x: fieldX,
+    y: fieldY,
+    index: controlpoints.length,
+    color: "red",
+    dist: 0,
+    isMain: true,
+    anglex: 1,
+    angley: 0,
+    size: 8,
+    rev: state
+  };
+  controlpoints.push(mainPoint);
+
+  pushSection(idx, idx+ 1, "line", false);
+
+}
+
+function pushSection(start: number, end: number, type: "bezier" | "line", rev: boolean){
+  sections.push(
+  { start: start,
+    end: end,
+    type: type,
+    rev: rev,
+
+    startangle: Math.atan2(controlpoints[start + 1].y - controlpoints[start].y, controlpoints[start + 1].x - controlpoints[start].x),
+    endangle: Math.atan2(controlpoints[end].y - controlpoints[end-1].y, controlpoints[end].x - controlpoints[end-1].x),
+
+    startx: controlpoints[start].x,
+    starty: controlpoints[start].y,
+    endx: controlpoints[end].x,
+    endy: controlpoints[end].y,
+  });
+}
+
+function updatesections(){
+  for(let i = 0; i < sections.length; i++){
+    let start = sections[i].start;
+    let end = sections[i].end
+    let type = sections[i].type;
+    let rev= sections[i].rev
+    
+    sections[i] = 
+    { start: start,
+      end: end,
+      type: type,
+      rev: rev,
+  
+      startangle: Math.atan2(controlpoints[start + 1].y - controlpoints[start].y, controlpoints[start + 1].x - controlpoints[start].x),
+      endangle: Math.atan2(controlpoints[end].y - controlpoints[end-1].y, controlpoints[end].x - controlpoints[end-1].x),
+  
+      startx: controlpoints[start].x,
+      starty: controlpoints[start].y,
+      endx: controlpoints[end].x,
+      endy: controlpoints[end].y,
+    }
+  }
+}
