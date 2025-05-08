@@ -30,7 +30,6 @@ export const bot = {
 };
     
 export let STATE = "Waypoints"
-export let MODE = "Line"
 
 export let controlpoints: controlPoint[] = [];
 export let sections: section[] = [];
@@ -47,6 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const len = document.getElementById("botlen") as HTMLInputElement;
     const width = document.getElementById("botwidth") as HTMLInputElement;
     const trackw = document.getElementById("trackwidth") as HTMLInputElement;
+    
 
     maxaccelInput.addEventListener("input", () => {
         MAX_ACCELERATION = Number(maxaccelInput.value);

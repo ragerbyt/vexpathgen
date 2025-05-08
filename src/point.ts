@@ -17,6 +17,7 @@ import { canvas,controlpoints, sections } from "./globals";
 import { findsegment, hi_seg } from "./handling";
 
 import { resetsegment } from "./handling";
+import { MODE } from "./sidebar";
 document.addEventListener("DOMContentLoaded", initCanvas);
 
 function initCanvas() {
@@ -166,7 +167,12 @@ function createPointSet(fieldX: number, fieldY: number) {
     return;
   }
 
-  insertbezier(fieldX,fieldY)
+  if(MODE == "Line"){
+    insertline(fieldX,fieldY)
+  }else if(MODE == "Bezier"){
+    insertbezier(fieldX,fieldY)
+  }
+
   
 
   console.log(controlpoints)
