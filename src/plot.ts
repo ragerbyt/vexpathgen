@@ -200,26 +200,28 @@ function handleMouseMove(e: MouseEvent) {
   let displayedVel = 0;
 
   if (GRAPHMODE === "time") {
-    time = newCanvasX / rect.width * pathpoints[last].time;
+    time = (newCanvasX / rect.width) * pathpoints[last].time;
 
-    for (let i = 1; i < pathpoints.length; i++) {
-      if (time < pathpoints[i].time) continue;
+for (let i = 1; i < pathpoints.length; i++) {
+  if (time < pathpoints[i].time) {
+    const frac = (time - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
 
-      const frac = (time - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
+    bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
+    bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
+    bot.o = pathpoints[i - 1].orientation + Normalize(pathpoints[i].orientation - pathpoints[i - 1].orientation) * frac;
 
-      bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
-      bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
-      bot.o = pathpoints[i - 1].orientation + Normalize((pathpoints[i].orientation - pathpoints[i - 1].orientation)) * frac;
-
-
-      if (velocityDisplayMode === "center") {
-        displayedVel = pathpoints[i - 1].velocity + (pathpoints[i].velocity - pathpoints[i - 1].velocity) * frac;
-      } else if (velocityDisplayMode === "left") {
-        displayedVel = leftdt[i - 1].vel + (leftdt[i].vel - leftdt[i - 1].vel) * frac;
-      } else if (velocityDisplayMode === "right") {
-        displayedVel = rightdt[i - 1].vel + (rightdt[i].vel - rightdt[i - 1].vel) * frac;
-      }
+    if (velocityDisplayMode === "center") {
+      displayedVel = pathpoints[i - 1].velocity + (pathpoints[i].velocity - pathpoints[i - 1].velocity) * frac;
+    } else if (velocityDisplayMode === "left") {
+      displayedVel = leftdt[i - 1].vel + (leftdt[i].vel - leftdt[i - 1].vel) * frac;
+    } else if (velocityDisplayMode === "right") {
+      displayedVel = rightdt[i - 1].vel + (rightdt[i].vel - rightdt[i - 1].vel) * frac;
     }
+
+    break;
+  }
+}
+
 
     currtime.style.display = "block";
     currtime.innerText = `${time.toFixed(2)}s`;
@@ -281,46 +283,50 @@ container.addEventListener("click", () => {
 const run = document.getElementById("run");
 
 run!.addEventListener("click", async () => {
-
-  let time = 0;
+  const startTime = performance.now(); // Time in milliseconds
   disable = true;
+  let i = 1;
+
   console.log("run");
 
-  while (time <  pathpoints[pathpoints.length-1].time){
+  while (true) {
+    const now = performance.now();
+    const time = (now - startTime) / 1000; // Convert to seconds
+
+    if (time >= pathpoints[pathpoints.length - 1].time) break;
 
     octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
 
     currtime.style.display = "block";
+    currtime.innerText = `${time.toFixed(2)}s`;
 
-    currtime.innerText = `${time.toFixed(2)}s`
+    for (; i < pathpoints.length; i++) {
+      if (time < pathpoints[i].time) {
+        const frac = (time - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
 
-    for(let i = 1; i < pathpoints.length; i++){
-      if(time < pathpoints[i].time){continue};
-      let frac = (time - pathpoints[i-1].time)/(pathpoints[i].time - pathpoints[i-1].time);
+        bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
+        bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
+        bot.o = pathpoints[i - 1].orientation + Normalize(pathpoints[i].orientation - pathpoints[i - 1].orientation) * frac;
 
-      
-  
-      bot.x = pathpoints[i-1].x + (pathpoints[i].x - pathpoints[i-1].x) * frac;
-      bot.y = pathpoints[i-1].y + (pathpoints[i].y - pathpoints[i-1].y) * frac;
-      bot.o = pathpoints[i-1].orientation + Normalize((pathpoints[i].orientation - pathpoints[i-1].orientation)) * frac;
+        break;
+      }
+    }
 
-    }    
-    drawLine(octx,{x: time / pathpoints[pathpoints.length-1].time * 600, y: 0},{x: time / pathpoints[pathpoints.length-1].time * 600, y: octx.canvas.height},"red");
+    drawLine(
+      octx,
+      { x: (time / pathpoints[pathpoints.length - 1].time) * 600, y: 0 },
+      { x: (time / pathpoints[pathpoints.length - 1].time) * 600, y: octx.canvas.height },
+      "red"
+    );
 
-    
-    time += 0.005;
-
-    
     redrawCanvas();
-    await new Promise(resolve => setTimeout(resolve, 5));
-
+    await new Promise(resolve => setTimeout(resolve, 5)); // Sleep just to yield, not to control time
   }
 
   await new Promise(resolve => setTimeout(resolve, 200));
-
   disable = false;
+});
 
-})
 
 document.getElementById("dist")?.addEventListener("click", () => {
   GRAPHMODE = "dist";

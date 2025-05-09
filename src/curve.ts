@@ -40,7 +40,6 @@ export function computeBezierWaypoints() {
     // on the frame where left becomes inner, zero left
     if((Math.sign(pathpoints[i].rightdist) != Math.sign(pathpoints[i+1].rightdist))){
       rightdt[i].vel = 0;
-      console.log(i)
     }
     
     if(Math.sign(pathpoints[i].leftdist) != Math.sign(pathpoints[i+1].leftdist)){
@@ -114,8 +113,6 @@ export function computeBezierWaypoints() {
 
 
     if(leftdt[i].vel == 0 && rightdt[i].vel == 0){continue;}
-
-    const dist = pathpoints[i].dist - pathpoints[i-1].dist;
 
     let f = 1; if(leftdt[i].rev) f = -1;
 
@@ -238,7 +235,7 @@ function createWaypoints(){
     const currsection = sections[seg];
     const segtype = currsection.type
 
-    const sectpts = isolate(controlpoints, currsection.start, currsection.end);
+    const sectpts = isolate(controlpoints, currsection.startcontrol, currsection.endcontrol);
     const count = ptsPerSeg-1;
 
 
@@ -268,7 +265,19 @@ function createWaypoints(){
     pathpoints[i].y == pathpoints[i+1].y &&
     pathpoints[i].orientation == pathpoints[i+1].orientation
     ){
+
+      for(let seg = 0; seg < sections.length; seg++){
+        if(sections[seg].startpath! >= i){
+          sections[seg].startpath!--;
+        }
+
+        if(sections[seg].endpath! >= i){
+          sections[seg].endpath!--;
+
+        }
+      }
       pathpoints.splice(i,1)
+
     }
   }
 
@@ -421,7 +430,7 @@ function isolate(controlpoints: controlPoint[], start: number, end: number): con
     .map(p => ({ ...p }));
   if (seg.length < 4) return seg;
   const [p0, p1, p2, p3] = seg;
-  const f = 2;
+  const f = 1;
   p1.x = p0.x + f * (p1.x - p0.x);
   p1.y = p0.y + f * (p1.y - p0.y);
   p2.x = p3.x + f * (p2.x - p3.x);
@@ -431,7 +440,9 @@ function isolate(controlpoints: controlPoint[], start: number, end: number): con
 
 
 function fillbezier(sectpts: controlPoint[], currsection: section, count: number){
-  
+
+  currsection.startpath = pathpoints.length;
+      
     for (let i = 0; i <= count; i++) {
       const t = i / count;
       const wp = createpathpoint()
@@ -466,10 +477,14 @@ function fillbezier(sectpts: controlPoint[], currsection: section, count: number
       pathpoints.push(wp);
 
     }
+
+    currsection.endpath = pathpoints.length-1;
 }
 
 
 function fillline(sectpts: controlPoint[], currsection: section, count: number){
+
+  currsection.startpath = pathpoints.length;
 
   for (let i = 0; i <= count; i++) {
     const t = i / count;
@@ -491,21 +506,34 @@ function fillline(sectpts: controlPoint[], currsection: section, count: number){
 
     pathpoints.push(wp)
   }
+
+  currsection.endpath = pathpoints.length-1;
+
 } 
 
 function fillturn(x: number, y: number, startangle: number, endangle: number, count: number, rev : boolean){
+  function NormalizeAngle(angle: number): number {
+    while (angle > Math.PI) angle -= 2 * Math.PI;
+    while (angle < -Math.PI) angle += 2 * Math.PI;
+    return angle;
+  }
+
+  let angleError = NormalizeAngle(endangle - startangle);
+
   for (let i = 0; i <= count; i++) {
     const t = (i+1) / (count+2);
-    const wp = createpathpoint()
+    const wp = createpathpoint()    
   
     wp.x = x
     wp.y = y
     
-    wp.orientation = startangle + t * (endangle - startangle);
+    wp.orientation = startangle + t * angleError;
 
     if(rev){
       wp.orientation += PI;
     }
+    wp.orientation = NormalizeAngle(wp.orientation); // Ensure it's still in [-π, π]
+
     wp.dist = pathpoints[pathpoints.length-1].dist
     pathpoints.push(wp)
   }

@@ -112,7 +112,7 @@ function handleMouseMove(e: MouseEvent) {
 
   if (!activeDragPoint){
     if(point == null){
-      //findsegment(newFieldX,newFieldY);
+      findsegment(newFieldX,newFieldY);
     }
   }else{
     updateDrag(activeDragPoint, newFieldX, newFieldY);
@@ -353,8 +353,8 @@ function insertline(fieldX: number, fieldY: number){
 
 function pushSection(start: number, end: number, type: "bezier" | "line", rev: boolean){
   sections.push(
-  { start: start,
-    end: end,
+  { startcontrol: start,
+    endcontrol: end,
     type: type,
     rev: rev,
 
@@ -370,14 +370,14 @@ function pushSection(start: number, end: number, type: "bezier" | "line", rev: b
 
 function updatesections(){
   for(let i = 0; i < sections.length; i++){
-    let start = sections[i].start;
-    let end = sections[i].end
+    let start = sections[i].startcontrol;
+    let end = sections[i].endcontrol
     let type = sections[i].type;
     let rev= sections[i].rev
     
     sections[i] = 
-    { start: start,
-      end: end,
+    { startcontrol: start,
+      endcontrol: end,
       type: type,
       rev: rev,
   

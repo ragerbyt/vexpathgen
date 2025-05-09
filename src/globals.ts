@@ -126,8 +126,12 @@ export interface Point{
 }
 
 export interface section{
-    start: number;
-    end: number; //INCLUSIve
+    startcontrol: number;
+    endcontrol: number; //INCLUSIve
+
+    startpath?: number;
+    endpath?: number
+
     type: "bezier" | "line";
     rev: boolean
     startangle: number,
