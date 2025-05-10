@@ -87,7 +87,6 @@ export interface pathPoint {
     x: number;         // x-coordinate in inches
     y: number;         // y-coordinate in inches
     velocity: number;  // Linear velocity (inches/s)
-    curvature: number; // The curvature (radians per inch)
     angularVelocity: number; // Angular velocity (rad/s)
     accel: number;
     dist: number;
@@ -95,7 +94,6 @@ export interface pathPoint {
     orientation: number; // Orientation (heading) in degrees
     rev: boolean;
 
-    t: number;
 
     leftdist: number; //from prev to curr point distance
     rightdist: number;

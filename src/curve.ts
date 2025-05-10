@@ -59,7 +59,6 @@ export function computeBezierWaypoints() {
   for (let i = pathpoints.length - 2; i >= 0; i--) {
 
     if(leftdt[i].vel == 0 && rightdt[i].vel == 0){continue;}
-    const dist   = pathpoints[i + 1].dist - pathpoints[i].dist;
 
     let f = 1; if(leftdt[i].rev) f = -1;
 
@@ -248,11 +247,13 @@ function createWaypoints(){
       const curr = sections[seg]
       const nxt = sections[seg+1]
 
-      if(curr.endangle - nxt.startangle != 0){
-        fillturn(curr.endx,curr.endy,curr.endangle,nxt.startangle,10,false);
-      }
- 
+      
+      const EPSILON = 1e-8;
 
+      if (Math.abs(curr.endangle - nxt.startangle) > EPSILON) {
+        fillturn(curr.endx, curr.endy, curr.endangle, nxt.startangle, 10, false);
+      }
+      
     }
   }
 
@@ -329,27 +330,6 @@ function createWaypoints(){
     });
   }
 
-}
-
-function bezierSecondDerivative(pts: controlPoint[], t: number): { ddx: number, ddy: number } {
-  const ddx = 6 * (1 - t) * (pts[2].x - 2 * pts[1].x + pts[0].x)
-            + 6 * t * (pts[3].x - 2 * pts[2].x + pts[1].x);
-
-  const ddy = 6 * (1 - t) * (pts[2].y - 2 * pts[1].y + pts[0].y)
-            + 6 * t * (pts[3].y - 2 * pts[2].y + pts[1].y);
-
-  return { ddx, ddy };
-}
-
-// Function to calculate the curvature at a point
-function calculateCurvature(pts: controlPoint[], t: number): number {
-  const { dx, dy } = bezierDerivative(pts, t);
-  const { ddx, ddy } = bezierSecondDerivative(pts, t);
-  
-  const numerator = Math.abs(dx * ddy - dy * ddx);
-  const denominator = Math.pow(dx * dx + dy * dy, 1.5);
-  
-  return numerator / denominator;
 }
 
 function getWheelDistances(
@@ -459,7 +439,6 @@ function fillbezier(sectpts: controlPoint[], currsection: section, count: number
       }
       const { dx, dy } = bezierDerivative(sectpts, t);
       wp.orientation = Math.atan2(dy, dx);
-      wp.curvature = calculateCurvature(sectpts, t);
 
       if(i == 0){
         const first = sectpts[0];
@@ -548,7 +527,6 @@ function createpathpoint(){
   const wp: pathPoint = {
     x: 0, y: 0,
     velocity: MAX_VELOCITY,
-    curvature: 0,
     angularVelocity: 0,
     dist: 0,
     accel: 0,
@@ -559,7 +537,6 @@ function createpathpoint(){
     rightdist: 0,
     leftvel: 0,
     rightvel: 0,
-    t: 0,
   };
 
   return wp
