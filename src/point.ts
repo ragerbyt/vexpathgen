@@ -18,6 +18,7 @@ import { findsegment, hi_seg } from "./handling";
 
 import { resetsegment } from "./handling";
 import { MODE } from "./sidebar";
+import { PI } from "chart.js/helpers";
 document.addEventListener("DOMContentLoaded", initCanvas);
 
 function initCanvas() {
@@ -39,7 +40,11 @@ function handleCanvasClick(e: MouseEvent) {
   }
 
   if(hi_seg != -1){
-    controlpoints[hi_seg * 3].rev = !controlpoints[hi_seg * 3].rev
+    sections[hi_seg].rev = !sections[hi_seg].rev
+    sections[hi_seg].startangle += PI;
+    sections[hi_seg].endangle += PI;
+    
+
     computeBezierWaypoints()
     return;
   }
@@ -388,6 +393,13 @@ function updatesections(){
       starty: controlpoints[start].y,
       endx: controlpoints[end].x,
       endy: controlpoints[end].y,
+    }
+
+    if(sections[i].rev){
+      sections[i].startangle += PI;
+      sections[i].endangle += PI;
+      
+
     }
   }
 }

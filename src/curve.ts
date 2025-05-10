@@ -224,7 +224,6 @@ function createWaypoints(){
   pathpoints.splice(0, pathpoints.length);
   if (controlpoints.length <= 1) return;
 
-  let totaldist = 0;
   numSegments = sections.length
 
   // const ptsPerSeg = Math.floor(totalInterp / numSegments);
@@ -365,6 +364,7 @@ function getWheelDistances(
   const dx = x1 - x0;
   const dy = y1 - y0;
 
+  // Forward movement along robot's initial orientation
   const forward = Math.cos(theta0) * dx + Math.sin(theta0) * dy;
   const strafe  = -Math.sin(theta0) * dx + Math.cos(theta0) * dy;
 
@@ -372,10 +372,12 @@ function getWheelDistances(
   let leftDist = 0, rightDist = 0;
 
   if (Math.abs(dtheta) < EPS) {
-    // straight
-    leftDist = rightDist = Math.hypot(dx, dy);
+    // Straight motion
+    const dist = Math.hypot(dx, dy);
+    const dir = Math.sign(forward); // Determine direction based on orientation
+    leftDist = rightDist = dist * dir;
   } else if (Math.abs(forward) < EPS && Math.abs(strafe) < EPS) {
-    // pure rotation
+    // Pure in-place rotation
     leftDist = -dtheta * (trackWidth / 2);
     rightDist = dtheta * (trackWidth / 2);
   } else {
@@ -386,6 +388,7 @@ function getWheelDistances(
 
   return { leftDist, rightDist };
 }
+
 
 
 
@@ -499,6 +502,10 @@ function fillline(sectpts: controlPoint[], currsection: section, count: number){
     const dy = sectpts[1].y - sectpts[0].y;    
     wp.orientation = Math.atan2(dy, dx);
 
+    if(currsection.rev){
+      wp.orientation = wp.orientation + PI;
+    }
+
     if (pathpoints.length > 0) {
       let dist = calcdistance(pathpoints[pathpoints.length - 1], wp);
       wp.dist = pathpoints[pathpoints.length-1].dist + dist;
@@ -520,6 +527,7 @@ function fillturn(x: number, y: number, startangle: number, endangle: number, co
 
   let angleError = NormalizeAngle(endangle - startangle);
 
+
   for (let i = 0; i <= count; i++) {
     const t = (i+1) / (count+2);
     const wp = createpathpoint()    
@@ -529,9 +537,6 @@ function fillturn(x: number, y: number, startangle: number, endangle: number, co
     
     wp.orientation = startangle + t * angleError;
 
-    if(rev){
-      wp.orientation += PI;
-    }
     wp.orientation = NormalizeAngle(wp.orientation); // Ensure it's still in [-π, π]
 
     wp.dist = pathpoints[pathpoints.length-1].dist
