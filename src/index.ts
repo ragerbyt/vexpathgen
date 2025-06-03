@@ -6,9 +6,25 @@ import "./css/styles.css";
 import "./ui";
 import "./sidebar"
 
-import { pathpoints } from "./globals";
+import { graph, pathpoints,overlay } from "./globals";
 
 let fileHandle: FileSystemFileHandle | undefined; // Store the file handle for re-use
+
+const cursor = document.getElementById("cursorDot")!;
+
+document.addEventListener("mousemove", (e) => {
+    cursor.style.left = `${e.clientX}px`;
+    cursor.style.top = `${e.clientY}px`;
+});
+
+overlay.addEventListener('mouseenter', () => {
+    cursor.style.display = 'none';
+    console.log("Ye")
+});
+
+overlay.addEventListener('mouseleave', () => {
+    cursor.style.display = '';
+});
 
 document.addEventListener("DOMContentLoaded", () => {
     const saveCppButton = document.getElementById("saveCpp") as HTMLButtonElement;

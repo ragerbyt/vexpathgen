@@ -1,5 +1,5 @@
 import { Point } from "chart.js";
-import { leftdt, pathpoints, rightdt } from "./globals";
+import {  pathpoints } from "./globals";
 import { canvas, MAX_VELOCITY, top, left, bottom, right, ctx, background } from "./globals";
 import { controlpoints, pathPoint, controlPoint } from "./globals";
 
@@ -112,13 +112,11 @@ function drawPath(ctx: CanvasRenderingContext2D) {
 
   if (!sidetrack) return;
 
-  for (let i = 1; i < leftdt.length; i++) {
-    drawLine(ctx, leftdt[i - 1], leftdt[i], "red", 1);
+  for (let i = 1; i < pathpoints.length; i++) {
+    drawLeftRight(ctx, pathpoints[i - 1], pathpoints[i]);
   }
 
-  for (let i = 1; i < rightdt.length; i++) {
-    drawLine(ctx, rightdt[i - 1], rightdt[i], "blue", 1);
-  }
+
 }
 
 document.getElementById("sidepath")?.addEventListener("click", () => {
@@ -144,6 +142,50 @@ function drawLine(
   ctx.globalAlpha = 1; // Fully opaque
   ctx.globalCompositeOperation = "source-over"; // Default compositing mode
   ctx.strokeStyle = color;
+  ctx.lineWidth = thickness;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+  ctx.restore(); // Restore the previous canvas state
+}
+
+function drawLeftRight(
+  ctx: CanvasRenderingContext2D,
+  start: pathPoint,
+  end: pathPoint,
+) {
+
+  const thickness = 1;
+
+  let startX = (start.leftx / 144) * canvas.width;
+  let startY = ((144 - start.lefty) / 144) * canvas.height;
+  let endX = (end.leftx / 144) * canvas.width;
+  let endY = ((144 - end.lefty) / 144) * canvas.height;
+
+  ctx.save(); // Save the current canvas state
+  ctx.globalAlpha = 1; // Fully opaque
+  ctx.globalCompositeOperation = "source-over"; // Default compositing mode
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = thickness;
+  ctx.setLineDash([]);
+  ctx.beginPath();
+  ctx.moveTo(startX, startY);
+  ctx.lineTo(endX, endY);
+  ctx.stroke();
+  ctx.restore(); // Restore the previous canvas state
+
+  startX = (start.rightx / 144) * canvas.width;
+  startY = ((144 - start.righty) / 144) * canvas.height;
+  endX = (end.rightx / 144) * canvas.width;
+  endY = ((144 - end.righty) / 144) * canvas.height;
+
+
+  ctx.save(); // Save the current canvas state
+  ctx.globalAlpha = 1; // Fully opaque
+  ctx.globalCompositeOperation = "source-over"; // Default compositing mode
+  ctx.strokeStyle = "blue";
   ctx.lineWidth = thickness;
   ctx.setLineDash([]);
   ctx.beginPath();

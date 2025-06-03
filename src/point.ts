@@ -14,11 +14,12 @@ const pointdisplay = document.getElementById("point-coordinates")!
 
 import { computeBezierWaypoints } from "./curve";
 import { canvas,controlpoints, sections } from "./globals";
-import { findsegment, hi_seg } from "./handling";
+import { deselectSegment, hi_seg, selectSegment } from "./handling";
 
 import { resetsegment } from "./handling";
 import { MODE } from "./sidebar";
-import { PI } from "chart.js/helpers";
+import { color, PI } from "chart.js/helpers";
+import { Normalize } from "./plot";
 document.addEventListener("DOMContentLoaded", initCanvas);
 
 function initCanvas() {
@@ -38,17 +39,6 @@ function handleCanvasClick(e: MouseEvent) {
     isDraggingGlobal = false;
     return;
   }
-
-  if(hi_seg != -1){
-    sections[hi_seg].rev = !sections[hi_seg].rev
-    sections[hi_seg].startangle += PI;
-    sections[hi_seg].endangle += PI;
-    
-
-    computeBezierWaypoints()
-    return;
-  }
-
 
   const rect = canvas.getBoundingClientRect();
   const clickX = e.clientX - rect.left;
@@ -111,20 +101,14 @@ function handleMouseMove(e: MouseEvent) {
   const newFieldX = canvasToFieldX(newCanvasX);
   const newFieldY = canvasToFieldY(newCanvasY);
 
-  resetsegment();
+
 
   const point = getPointAtPosition(newFieldX, newFieldY)
 
-  if (!activeDragPoint){
-    if(point == null){
-      findsegment(newFieldX,newFieldY);
-    }
-  }else{
+  if (activeDragPoint){
     updateDrag(activeDragPoint, newFieldX, newFieldY);
     redrawPoints();
   }
-
- 
 
 
 }
@@ -153,7 +137,14 @@ function getPointAtPosition(fieldX: number, fieldY: number): controlPoint | null
   return null;
 }
 
+const segcontainer = document.getElementById("segment-config")
+const exampleseg = document.getElementById("exampleseg")!
+
+const selectedSegments : Boolean[] = []; // key: idx, value: true/false
+
 function createPointSet(fieldX: number, fieldY: number) {
+
+
   if (controlpoints.length === 0) {
     const mainPoint: controlPoint = {
       x: fieldX,
@@ -179,6 +170,40 @@ function createPointSet(fieldX: number, fieldY: number) {
   }
 
   
+  const newSeg = exampleseg.cloneNode(true) as HTMLDivElement;
+  newSeg.id = "segment" + sections.length;
+  newSeg.hidden = false;
+
+  const idx = sections.length - 1
+
+
+  const label = newSeg.querySelector("label");
+  label!.textContent = "Segment" + sections.length;
+
+  
+
+  const button = newSeg.querySelector("button");
+  button?.addEventListener("click", () =>{
+    sections[idx].rev = !sections[hi_seg].rev
+    updatesections();
+    computeBezierWaypoints()
+  })
+
+
+
+  newSeg.addEventListener("mouseenter", () => {
+    newSeg.style.backgroundColor = "lightgrey";
+    selectSegment(idx);
+      
+  });
+  
+  
+  newSeg.addEventListener("mouseleave", () => {
+    deselectSegment(idx);
+    newSeg.style.backgroundColor = "grey";
+  });
+
+  segcontainer?.append(newSeg);
 
   console.log(controlpoints)
   console.log(sections)
@@ -398,8 +423,6 @@ function updatesections(){
     if(sections[i].rev){
       sections[i].startangle += PI;
       sections[i].endangle += PI;
-      
-
     }
   }
 }

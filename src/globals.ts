@@ -2,6 +2,7 @@ export const canvas = document.getElementById("path") as HTMLCanvasElement;
 export const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 
 export const graph = document.getElementById("graph") as HTMLCanvasElement;
+export const overlay = document.getElementById("overlay") as HTMLCanvasElement;
 
 import vexfield from './assets/vexfield.png';
 import { computeBezierWaypoints } from './curve';
@@ -34,8 +35,7 @@ export let STATE = "Waypoints"
 export let controlpoints: controlPoint[] = [];
 export let sections: section[] = [];
 export let pathpoints: pathPoint[] = [];
-export let leftdt: Point[] = [];
-export let rightdt: Point[] = [];
+
 
 export const totalInterp = 1000;
 
@@ -96,9 +96,13 @@ export interface pathPoint {
 
 
     leftdist: number; //from prev to curr point distance
-    rightdist: number;
+    leftx: number;
+    lefty: number;
+    leftvel: number;
 
-    leftvel: number; //vel at point
+    rightdist: number
+    rightx: number
+    righty: number
     rightvel: number;
 }
 
@@ -115,13 +119,6 @@ export interface controlPoint {
     rev?: boolean;
 }
 
-export interface Point{
-    x: number;
-    y: number;
-    vel: number;
-    neg: boolean;
-    rev: boolean;
-}
 
 export interface section{
     startcontrol: number;

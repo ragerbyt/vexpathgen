@@ -16,7 +16,23 @@ body {
   background-color: #212236;
   font-family: ui-sans-serif, system-ui, sans-serif;
   color: #ffffff;
+  cursor: none
 }
+
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 16px;
+  height: 16px;
+  background-color: black;
+  border: 3px solid white;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 10000;
+  transform: translate(-50%, -50%);
+}
+
 
 /* Screen Layout Styling */
 #screen {
@@ -125,6 +141,7 @@ button {
   box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
   width: fit-content;
   color: #ffffff;
+  cursor: none
 }
 
 button:hover {
@@ -167,14 +184,16 @@ input[type="text"]::placeholder {
   margin-bottom: 10px;
 }
 
+
 #graph,
 #overlay {
+  cursor: none;
   position: absolute;
   top: 10%;
   left: 10%;
   width: 85%;
   height: 80%;
-  background-color: transparent;
+  background-color: "transparent";
 
   /* Remove real border */
   border-radius: 0;
@@ -200,6 +219,10 @@ input[type="text"]::placeholder {
   background-position: bottom left, top left;
   background-repeat: no-repeat;
   background-size: 100% 2px, 2px 100%;
+}
+
+#graph{
+  background-color: #323234;
 }
 
 /* Labels */
@@ -497,4 +520,22 @@ input:checked + .slider:before {
   #toolbar {
     flex-direction: row;
   }
+}
+
+#segment-config{
+  width: 100%;
+  padding: 15px;
+  border-radius: 10px;
+  background-color: rgba(255, 255, 255, 0.05);
+  overflow-y: auto;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.segment{
+  flex-direction: row;
+  background-color: grey;
+  border-radius: 5px;
 }

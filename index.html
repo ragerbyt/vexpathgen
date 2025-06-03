@@ -7,6 +7,10 @@
     <link rel="icon" href="src/assets/icon.png" type="image/x-icon" />
   </head>
   <body>
+
+    <div class="cursor-dot" id="cursorDot"></div>
+
+
     <div id="screen">
       <div id="path-container">
         <div id="toolbar">
@@ -66,6 +70,12 @@
             </div>
           </div>
         </div>
+      <div id="segment-config">
+        <div id = "exampleseg" class="segment" hidden = true>
+          <label>Segment 1</label>
+          <button>reverse direction</button>
+        </div>
+      </div>
 
         <div id="graphs-container-container">
           <div id="graphs-container">
@@ -102,8 +112,8 @@
               <span>Right wheel velocity</span>
             </div>
             <div>
-              <span class="circle" style="background-color: green"></span>
-              <span>Acceleration</span>
+              <span class="circle" style="background-color: black"></span>
+              <span>Angular Velocity</span>
             </div>
           </div>
         </div>

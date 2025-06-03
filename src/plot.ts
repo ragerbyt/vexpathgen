@@ -5,7 +5,10 @@ export let GRAPHMODE = "time"
 import { leftVel, rightVel } from "./curve"; // Assuming they're exported there
 
 import { redrawCanvas } from "./draw";
-import {graph, leftdt, MAX_ACCELERATION, MAX_VELOCITY,pathpoints, rightdt } from "./globals";
+import {graph, MAX_ACCELERATION, MAX_VELOCITY,pathpoints } from "./globals";
+
+let startime = 0; 
+let endtime = 0;
 
 // Redraw graph grid, axes, and labels
 function redraw(ctx: CanvasRenderingContext2D) {
@@ -14,15 +17,49 @@ function redraw(ctx: CanvasRenderingContext2D) {
 
   ctx.clearRect(0, 0, width, height);
 
-  // Draw dotted horizontal midline (zero velocity)
-  ctx.beginPath();
+  // Draw dotted horizontal grid lines to divide into 4 sections
   ctx.setLineDash([5, 5]); // Dotted pattern: 5px dash, 5px gap
-  ctx.moveTo(0, height / 2);
-  ctx.lineTo(width, height / 2);
-  ctx.strokeStyle = "#888"; // Gray color for the midline
+  ctx.strokeStyle = "#555"; // Gray color for the grid lines
   ctx.lineWidth = 1;
-  ctx.stroke();
+
+  for (let i = 1; i < 4; i++) {
+    if(i == 2){
+      ctx.setLineDash([5, 5]); // Dotted pattern: 5px dash, 5px gap
+      ctx.strokeStyle = "#888"; // Gray color for the grid lines
+    }
+    const y = (i / 4) * height;
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(width, y);
+    ctx.stroke();
+    if(i == 2){
+      ctx.setLineDash([5, 5]); // Dotted pattern: 5px dash, 5px gap
+      ctx.strokeStyle = "#555"; // Gray color for the grid lines
+    }
+  }
+
   ctx.setLineDash([]); // Reset to solid for future drawing
+
+  if (GRAPHMODE === "time" && pathpoints.length > 1) {
+    const totalTime = pathpoints[pathpoints.length - 1].time;
+    const interval = 1; // seconds
+    const width = ctx.canvas.width;
+
+
+    ctx.setLineDash([5, 5]); // Dotted pattern: 5px dash, 5px gap
+    ctx.strokeStyle = "#  "; // Gray color for the grid lines
+
+    for (let t = 0; t <= totalTime; t += interval) {
+      const x = (t / totalTime) * width;
+      ctx.beginPath();
+      ctx.moveTo(x, 0);
+      ctx.lineTo(x, ctx.canvas.height);
+      ctx.stroke();
+    }
+
+    ctx.setLineDash([]);
+  }
+
 }
 
 const startTimeLabel = document.getElementById("start-time-label") as HTMLDivElement;
@@ -65,11 +102,11 @@ export function plot() {
       const yAccel = height - (normAccel * height);
       accelData.push({ x: xPos, y: yAccel });
 
-      const normLeft = (leftdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
+      const normLeft = (pathpoints[i].leftvel - minVelocity) / (maxVelocity - minVelocity);
       const yLeft = height - (normLeft * height);
       leftVelocityData.push({ x: xPos, y: yLeft });
 
-      const normRight = (rightdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
+      const normRight = (pathpoints[i].rightvel - minVelocity) / (maxVelocity - minVelocity);
       const yRight = height - (normRight * height);
       rightVelocityData.push({ x: xPos, y: yRight });
 
@@ -91,11 +128,11 @@ export function plot() {
       const yAccel = height - (normAccel * height);
       accelData.push({ x: xPos, y: yAccel });
       
-      const normLeft = (leftdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
+      const normLeft = (pathpoints[i].leftvel - minVelocity) / (maxVelocity - minVelocity);
       const yLeft = height - (normLeft * height);
       leftVelocityData.push({ x: xPos, y: yLeft });
 
-      const normRight = (rightdt[i].vel - minVelocity) / (maxVelocity - minVelocity);
+      const normRight = (pathpoints[i].rightvel - minVelocity) / (maxVelocity - minVelocity);
       const yRight = height - (normRight * height);
       rightVelocityData.push({ x: xPos, y: yRight });
 
@@ -108,7 +145,7 @@ export function plot() {
 
   // Draw velocity curve
   drawPath(ctx, velocityData, "white");   // center velocity
-  drawPath(ctx, accelData, "green");   // center velocity
+  //drawPath(ctx, accelData, "green");   // center velocity
 
   drawPath(ctx, leftVelocityData, "red"); // left wheel
   drawPath(ctx, rightVelocityData, "blue"); // right wheel
@@ -193,6 +230,7 @@ function handleMouseMove(e: MouseEvent) {
   if (newCanvasY < 0 || newCanvasY > rect.height) return;
 
   drawLine(octx, { x: newCanvasX * 600 / rect.width, y: 0 }, { x: newCanvasX * 600 / rect.width, y: octx.canvas.height }, "red");
+  drawLine(octx, { x: 0, y: newCanvasY * 200 / rect.height }, { x: octx.canvas.width, y: newCanvasY * 200 / rect.height }, "red");
 
   let last = pathpoints.length - 1;
 
@@ -202,25 +240,25 @@ function handleMouseMove(e: MouseEvent) {
   if (GRAPHMODE === "time") {
     time = (newCanvasX / rect.width) * pathpoints[last].time;
 
-for (let i = 1; i < pathpoints.length; i++) {
-  if (time < pathpoints[i].time) {
-    const frac = (time - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
+  for (let i = 1; i < pathpoints.length; i++) {
+    if (time < pathpoints[i].time) {
+      const frac = (time - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
 
-    bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
-    bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
-    bot.o = pathpoints[i - 1].orientation + Normalize(pathpoints[i].orientation - pathpoints[i - 1].orientation) * frac;
+      bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
+      bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
+      bot.o = pathpoints[i - 1].orientation + Normalize(pathpoints[i].orientation - pathpoints[i - 1].orientation) * frac;
 
-    if (velocityDisplayMode === "center") {
-      displayedVel = pathpoints[i - 1].velocity + (pathpoints[i].velocity - pathpoints[i - 1].velocity) * frac;
-    } else if (velocityDisplayMode === "left") {
-      displayedVel = leftdt[i - 1].vel + (leftdt[i].vel - leftdt[i - 1].vel) * frac;
-    } else if (velocityDisplayMode === "right") {
-      displayedVel = rightdt[i - 1].vel + (rightdt[i].vel - rightdt[i - 1].vel) * frac;
+      if (velocityDisplayMode === "center") {
+        displayedVel = pathpoints[i - 1].velocity + (pathpoints[i].velocity - pathpoints[i - 1].velocity) * frac;
+      } else if (velocityDisplayMode === "left") {
+        displayedVel = pathpoints[i-1].leftvel + (pathpoints[i].leftvel - pathpoints[i-1].leftvel) * frac;
+      } else if (velocityDisplayMode === "right") {
+        displayedVel = pathpoints[i-1].rightvel + (pathpoints[i].rightvel - pathpoints[i-1].rightvel) * frac;
+      }
+
+      break;
     }
-
-    break;
   }
-}
 
 
     currtime.style.display = "block";
@@ -246,9 +284,9 @@ for (let i = 1; i < pathpoints.length; i++) {
         if (velocityDisplayMode === "center") {
           displayedVel = p1.velocity + (p2.velocity - p1.velocity) * frac;
         } else if (velocityDisplayMode === "left") {
-          displayedVel = leftdt[i - 1].vel + (leftdt[i].vel - leftdt[i - 1].vel) * frac;
+          displayedVel = pathpoints[i-1].leftvel + (pathpoints[i].leftvel - pathpoints[i-1].leftvel) * frac;
         } else if (velocityDisplayMode === "right") {
-          displayedVel = rightdt[i - 1].vel + (rightdt[i].vel - rightdt[i - 1].vel) * frac;
+          displayedVel = pathpoints[i-1].rightvel + (pathpoints[i].rightvel - pathpoints[i-1].rightvel) * frac;
         }
 
         break;
@@ -339,28 +377,27 @@ document.getElementById("time")?.addEventListener("click", () => {
 });
 
 export function Normalize(n1: number){
-  if(n1 > Math.PI/2){
-    n1 -= Math.PI
+  if(n1 > Math.PI){
+    n1 -= 2*Math.PI
   }
 
-  if(n1 < -Math.PI/2){
-    n1 += Math.PI
+  if(n1 < -Math.PI){
+    n1 += 2*Math.PI
   }
   
-  if(n1 > Math.PI/2){
-    n1 -= Math.PI
+  if(n1 > Math.PI){
+    n1 -= 2*Math.PI
   }
 
-  if(n1 < -Math.PI/2){
-    n1 += Math.PI
+  if(n1 < -Math.PI){
+    n1 += 2*Math.PI
   }
-  
-  if(n1 > Math.PI/2){
-    n1 -= Math.PI
+  if(n1 > Math.PI){
+    n1 -= 2*Math.PI
   }
 
-  if(n1 < -Math.PI/2){
-    n1 += Math.PI
+  if(n1 < -Math.PI){
+    n1 += 2*Math.PI
   }
   return n1
 
