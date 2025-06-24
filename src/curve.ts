@@ -19,14 +19,15 @@ function createWaypoints(){
 
   // const ptsPerSeg = Math.floor(totalInterp / numSegments);
   // const remainder = totalInterp - ptsPerSeg * numSegments;
-  totalSeg = 100 * numSegments
+  const count = 1000;
+
+  totalSeg = count * numSegments
   
   for (let seg = 0; seg < numSegments; seg++) {
     const currsection = sections[seg];
     const segtype = currsection.type
 
     const sectpts = isolate(controlpoints, currsection.startcontrol, currsection.endcontrol);
-    const count = ptsPerSeg-1;
 
 
     if(segtype == "bezier"){
@@ -73,7 +74,7 @@ function createWaypoints(){
     }
   }
 
-  console.log(pathpoints)
+  // console.log(pathpoints)
 
   for (let i = 0; i < pathpoints.length-1; i++) {
     const curr = pathpoints[i];
@@ -120,21 +121,18 @@ export function computeBezierWaypoints() {
   for (let i = 1; i < pathpoints.length; i++) {
     let f = 1; if(pathpoints[i-1].rev){ f = -1;}
 
-    // once left is inner, reverse left; keep outer (right) forward
     if (Math.sign(pathpoints[i-1].leftdist) == -1) {
       pathpoints[i].leftvel  = -MAX_VELOCITY * f;
     }else{
       pathpoints[i].leftvel  =  MAX_VELOCITY * f;
     }
-    // once right is  , reverse right; keep outer (left) forward
     if (Math.sign(pathpoints[i-1].rightdist) == -1) {
       pathpoints[i].rightvel = -MAX_VELOCITY * f;
     }else{
       pathpoints[i].rightvel =  MAX_VELOCITY * f;
     }
 
-    // on the frame where left becomes inner, zero left
-    if((Math.sign(pathpoints[i-1].rightdist) != Math.sign(pathpoints[i].rightdist) && pathpoints[i].rightdist != 0)){
+      if((Math.sign(pathpoints[i-1].rightdist) != Math.sign(pathpoints[i].rightdist) && pathpoints[i].rightdist != 0)){
       pathpoints[i].rightvel = 0;
     }
     
@@ -155,10 +153,13 @@ export function computeBezierWaypoints() {
 
 
   // --- Backward pass (decel) ---
+  forwardpass();
+
   backwardpass();
   //fwd pass
   forwardpass();
-  
+
+  backwardpass();
 
   // Recombine
   for (let i = 0; i < pathpoints.length; i++) {
@@ -178,43 +179,34 @@ export function computeBezierWaypoints() {
   for (let i = 1; i < pathpoints.length; i++) {
     let f = 1; if(pathpoints[i].rev) f = -1
 
-
-    const ds  = calcdistance(pathpoints[i], pathpoints[i - 1]);
-    const avg = (pathpoints[i].velocity + pathpoints[i - 1].velocity) / 2;
-
-    // console.log(leftdt[i-1].vel,pathpoints[i].leftvel, leftdt.length)
-
-
     const timeL = Math.abs(pathpoints[i-1].leftdist / ((pathpoints[i].leftvel + pathpoints[i-1].leftvel)/2))
-
     const timeR = Math.abs(pathpoints[i-1].rightdist / ((pathpoints[i].rightvel + pathpoints[i-1].rightvel)/2))
+
+    if(pathpoints[i-1].leftdist == 0 || pathpoints[i-1].rightdist == 0){
+      console.log("ye[")
+    }
 
     if(((pathpoints[i].leftvel + pathpoints[i-1].leftvel)/2) == 0){
       cumtime += timeR
-
     }else if(((pathpoints[i].rightvel + pathpoints[i-1].rightvel)/2) == 0){
       cumtime += timeL
     }else{
       cumtime += (timeL + timeR)/2
     }
 
-    // console.log(timeL, i)
-
+    console.log(timeR,timeL)
     
+    const ds  = calcdistance(pathpoints[i], pathpoints[i - 1]);
+    const avg = (pathpoints[i].velocity + pathpoints[i - 1].velocity) / 2;
 
-
-    //cumtime += ds / Math.abs(avg);
-
+    pathpoints[i].accel = (pathpoints[i].velocity - pathpoints[i - 1].velocity)
+                        / (cumtime - pathpoints[i].time) * f;
 
     pathpoints[i].time  = cumtime;
 
-    //console.log(pathpoints[i].dist)
-    //console.log(timeL,timeR)
-    pathpoints[i].accel = (pathpoints[i].velocity - pathpoints[i - 1].velocity)
-                        / (ds / avg) * f;
-
+    
     if(pathpoints[i].accel > MAX_ACCELERATION + 1){
-      //console.log("uh", i)
+      console.log("uh", i)
     }
 
     
@@ -257,10 +249,22 @@ function forwardpass(){
                      Math.abs(rf * computeMaxVelocity(rf * vR_prev, MAX_ACCELERATION, rf * dR)),
                      Math.abs(pathpoints[i].rightvel)) * rf;
 
-    const maxVC_from_L = maxVL / (dL / f); 
-    const maxVC_from_R = maxVR / (dR / f);
+    
 
-    const vc_mag = Math.min(Math.abs(maxVC_from_L), Math.abs(maxVC_from_R));
+    let maxVC_from_L = maxVL / (dL / f);
+
+    let maxVC_from_R = maxVR / (dR / f);
+
+    let vc_mag;
+
+    if(dL == 0){
+      vc_mag = maxVC_from_R;
+    }else if(dR == 0){
+      vc_mag = maxVC_from_L;
+    }else{
+      vc_mag = Math.min(Math.abs(maxVC_from_L), Math.abs(maxVC_from_R));
+    }
+
     const maxVC = f * vc_mag;
 
     pathpoints[i].leftvel  = maxVC * (dL / f);
@@ -302,9 +306,19 @@ function backwardpass(){
 
                     
 
-    // Use dL and dR only — no center dist
-    const maxVC_from_L = maxVL / (dL / f);  // cancel out f so you don't divide by zero
-    const maxVC_from_R = maxVR / (dR / f);
+    let maxVC_from_L;
+    if(dL == 0){
+      maxVC_from_L = 10000000000;
+    }else{
+      maxVC_from_L = maxVL / (dL / f);
+    }
+
+    let maxVC_from_R;
+    if(dR == 0){
+      maxVC_from_R = 10000000000;
+    }else{
+      maxVC_from_R =  maxVR / (dR / f)
+    }
 
     const vc_mag = Math.min(Math.abs(maxVC_from_L), Math.abs(maxVC_from_R));
     const maxVC = f * vc_mag;
@@ -350,9 +364,36 @@ function getWheelDistances(
     leftDist = -dtheta * (trackWidth / 2);
     rightDist = dtheta * (trackWidth / 2);
   } else {
-    const radius = forward / dtheta;
-    leftDist = (radius - trackWidth / 2) * dtheta;
-    rightDist = (radius + trackWidth / 2) * dtheta;
+    const halfTrack = trackWidth / 2;
+
+    // Left and right wheel positions at the initial state
+    const leftWheelStartX = x0 - halfTrack * Math.sin(theta0);
+    const leftWheelStartY = y0 + halfTrack * Math.cos(theta0);
+    const rightWheelStartX = x0 + halfTrack * Math.sin(theta0);
+    const rightWheelStartY = y0 - halfTrack * Math.cos(theta0);
+
+    // Left and right wheel positions at the final state
+    const leftWheelEndX = x1 - halfTrack * Math.sin(theta1);
+    const leftWheelEndY = y1 + halfTrack * Math.cos(theta1);
+    const rightWheelEndX = x1 + halfTrack * Math.sin(theta1);
+    const rightWheelEndY = y1 - halfTrack * Math.cos(theta1);
+
+    // Compute distances traveled by each wheel
+    leftDist = Math.hypot(leftWheelEndX - leftWheelStartX, leftWheelEndY - leftWheelStartY);
+    rightDist = Math.hypot(rightWheelEndX - rightWheelStartX, rightWheelEndY - rightWheelStartY);
+
+    // Determine direction for each wheel
+    const leftDir = Math.sign(
+      Math.cos(theta0) * (leftWheelEndX - leftWheelStartX) +
+      Math.sin(theta0) * (leftWheelEndY - leftWheelStartY)
+    );
+    const rightDir = Math.sign(
+      Math.cos(theta0) * (rightWheelEndX - rightWheelStartX) +
+      Math.sin(theta0) * (rightWheelEndY - rightWheelStartY)
+    );
+
+    leftDist *= leftDir;
+    rightDist *= rightDir;
   }
 
   return { leftDist, rightDist };
@@ -402,7 +443,7 @@ function isolate(controlpoints: controlPoint[], start: number, end: number): con
     .map(p => ({ ...p }));
   if (seg.length < 4) return seg;
   const [p0, p1, p2, p3] = seg;
-  const f = 1;
+  const f = 2;
   p1.x = p0.x + f * (p1.x - p0.x);
   p1.y = p0.y + f * (p1.y - p0.y);
   p2.x = p3.x + f * (p2.x - p3.x);

@@ -142,10 +142,14 @@ export function plot() {
     }
   }
 
+  const fullgraph = document.getElementById("fullgraph") as HTMLCanvasElement
+  const fullctx = fullgraph.getContext("2d") as CanvasRenderingContext2D  
 
   // Draw velocity curve
   drawPath(ctx, velocityData, "white");   // center velocity
-  //drawPath(ctx, accelData, "green");   // center velocity
+  drawPath(fullctx, velocityData, "white");   // center velocity
+
+
 
   drawPath(ctx, leftVelocityData, "red"); // left wheel
   drawPath(ctx, rightVelocityData, "blue"); // right wheel

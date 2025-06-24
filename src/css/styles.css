@@ -37,7 +37,7 @@ body {
 /* Screen Layout Styling */
 #screen {
   display: flex;
-  flex-direction: row;
+  flex-direction: column;
   gap: 1rem;
   align-items: flex-start;
   padding: 1rem;
@@ -49,12 +49,24 @@ body {
   aspect-ratio: 2 / 1;
   border: 2px solid white;
   box-sizing: border-box;
+  overflow: auto;
+}
+
+#top {
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  background: transparent;
+  width: 100%;
+  max-height: 100%;
+  box-sizing: border-box;
 }
 
 /* Sidebar Styling */
 #sidebar {
   flex: 1;
-  gap: 1rem;
+  padding: 1rem;
   height: 100%;
   overflow-y: auto;
   padding-right: 5px;
@@ -504,8 +516,13 @@ input:checked + .slider:before {
     height: auto;
   }
   #screen {
+    flex-direction: row;
+    aspect-ratio: auto;
+  }
+  #top {
     flex-direction: column;
     aspect-ratio: auto;
+
   }
 
   #path-container {
@@ -538,4 +555,48 @@ input:checked + .slider:before {
   flex-direction: row;
   background-color: grey;
   border-radius: 5px;
+}
+
+#fullgraph-container {
+  border: 2px white;
+  position: relative;
+  width: 100%;
+  height: 200px;
+  margin-bottom: 10px;
+}
+
+#fullgraph,
+#fulloverlay {
+  cursor: none;
+  
+  top: 10%;
+  left: 10%;
+  width: 85%;
+  height: 80%;
+  background-color: "transparent";
+
+  /* Remove real border */
+  border-radius: 0;
+  border: none;
+
+  /* Fake border with custom dotted/dashed look */
+  background-image: repeating-linear-gradient(
+      to right,
+      white 0px,
+      white 6px,
+      transparent 6px,
+      transparent 12px
+    ),
+    /* bottom */
+      repeating-linear-gradient(
+        to bottom,
+        white 0px,
+        white 6px,
+        transparent 6px,
+        transparent 12px
+      ); /* left */
+
+  background-position: bottom left, top left;
+  background-repeat: no-repeat;
+  background-size: 100% 2px, 2px 100%;
 }

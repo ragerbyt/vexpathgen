@@ -19,7 +19,6 @@ document.addEventListener("mousemove", (e) => {
 
 overlay.addEventListener('mouseenter', () => {
     cursor.style.display = 'none';
-    console.log("Ye")
 });
 
 overlay.addEventListener('mouseleave', () => {

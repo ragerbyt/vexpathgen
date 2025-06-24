@@ -12,126 +12,137 @@
 
 
     <div id="screen">
-      <div id="path-container">
-        <div id="toolbar">
-          <div id= "Mode">Mode Selected: Bezier</div>
-          <div class="icon" id="PlaceBezier">Bezier</div>
-          <div class="icon" id="PlaceLine">Line</div>
-          <div class="icon"></div>
-          <div class="icon"></div>
-          <div class="icon"></div>
-          <div class="icon"></div>
-          <div class="icon"></div>
-          <div class="icon"></div>
+      <div id= "top">
+
+        <div id="path-container">
+          <div id="toolbar">
+            <div id= "Mode">Mode Selected: Bezier</div>
+            <div class="icon" id="PlaceBezier">Bezier</div>
+            <div class="icon" id="PlaceLine">Line</div>
+            <div class="icon"></div>
+            <div class="icon"></div>
+            <div class="icon"></div>
+            <div class="icon"></div>
+            <div class="icon"></div>
+            <div class="icon"></div>
+          </div>
+          <canvas id="path"></canvas>
         </div>
-        <canvas id="path"></canvas>
+
+        <div id="sidebar">
+          <div id="info">
+            <div class="info-box" id="mouse-coordinates"></div>
+            <div class="info-box" id="point-coordinates"></div>
+          </div>
+
+          <div id="menu">
+            <div>
+              <button id="togglePoints">Toggle Points</button>
+              <button id="clear">Clear Points</button>
+              <button id="sidepath">Toggle wheel paths</button>
+            </div>
+
+            <label class="switch">
+              <input type="checkbox" />
+              <span class="slider round"></span>
+            </label>
+
+            <div id="botconfig">
+              <div class="field">
+                <label for="botlen">Bot width:</label>
+                <input type="number" id="botwidth" value="16" />
+              </div>
+              <div class="field">
+                <label for="botwidth">Bot length:</label>
+                <input type="number" id="botlen" value="16" />
+              </div>
+              <div class="field">
+                <label for="trackwidth">Track width:</label>
+                <input type="number" id="botlen" value="10" />
+              </div>
+            </div>
+            <div id="botconfig">
+              <div class="field">
+                <label for="maxaccel">Max Acceleration:</label>
+                <input type="number" id="maxaccel" value="50" />
+              </div>
+              <div class="field">
+                <label for="maxvel">Max Velocity:</label>
+                <input type="number" id="maxvel" value="50" />
+              </div>
+            </div>
+          </div>
+        <div id="segment-config">
+          <div id = "exampleseg" class="segment" hidden = true>
+            <label>Segment 1</label>
+            <button>reverse direction</button>
+            <button>show speed graph</button>
+          </div>
+        </div>
+
+          <div id="graphs-container-container">
+            <div id="graphs-container">
+              <canvas id="graph" width="600" height="200"></canvas>
+              <canvas id="overlay" width="600" height="200"></canvas>
+              <div id="currtime-label" class="graph-label">0.0s</div>
+              <div id="currvel-label" class="graph-label">0 in/s</div>
+
+              <!-- Time Label for the Bottom -->
+              <div id="unit-label" class="graph-label">TIME (S)</div>
+              <div id="velocity-label" class="graph-label">Vel<br />(in/s)</div>
+
+              <!-- Time Start and End Labels -->
+              <div id="start-time-label" class="graph-label">0.00</div>
+              <div id="end-time-label" class="graph-label">0.00</div>
+
+              <!-- Velocity Markings -->
+              <div id="velocity-max-label" class="graph-label">60</div>
+              <!-- For max velocity -->
+              <div id="velocity-zero-label" class="graph-label">0</div>
+              <!-- For velocity zero -->
+            </div>
+            <div id="graph-key">
+              <div>
+                <span class="circle" style="background-color: white"></span>
+                <span>Velocity</span>
+              </div>
+              <div>
+                <span class="circle" style="background-color: red"></span>
+                <span>Left wheel velocity</span>
+              </div>
+              <div>
+                <span class="circle" style="background-color: blue"></span>
+                <span>Right wheel velocity</span>
+              </div>
+              <div>
+                <span class="circle" style="background-color: black"></span>
+                <span>Angular Velocity</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="graphcustom">
+            <button id="run">run</button>
+            <button id="dist">dist graph</button>
+            <button id="time">time graph</button>
+          </div>
+
+          <div id="saving">
+            <input type="text" id="pathNameInput" placeholder="Enter path name (e.g., redside)" />
+            <button id="saveCpp">Save C++ File</button>
+
+            <input type="file" id="import" accept=".cpp" hidden />
+            <label for="import" class="file-upload-button">Import C++ File</label>
+          </div>
+        </div>
+      </div> 
+
+      <div id= "fullgraph-container">
+        <canvas id="fullgraph" width="1000" height="200"></canvas>
+        <canvas id="fulloverlay" width="1000" height="200"></canvas>
+
       </div>
 
-      <div id="sidebar">
-        <div id="info">
-          <div class="info-box" id="mouse-coordinates"></div>
-          <div class="info-box" id="point-coordinates"></div>
-        </div>
-
-        <div id="menu">
-          <div>
-            <button id="togglePoints">Toggle Points</button>
-            <button id="clear">Clear Points</button>
-            <button id="sidepath">Toggle wheel paths</button>
-          </div>
-
-          <label class="switch">
-            <input type="checkbox" />
-            <span class="slider round"></span>
-          </label>
-
-          <div id="botconfig">
-            <div class="field">
-              <label for="botlen">Bot width:</label>
-              <input type="number" id="botwidth" value="16" />
-            </div>
-            <div class="field">
-              <label for="botwidth">Bot length:</label>
-              <input type="number" id="botlen" value="16" />
-            </div>
-            <div class="field">
-              <label for="trackwidth">Track width:</label>
-              <input type="number" id="botlen" value="10" />
-            </div>
-          </div>
-          <div id="botconfig">
-            <div class="field">
-              <label for="maxaccel">Max Acceleration:</label>
-              <input type="number" id="maxaccel" value="50" />
-            </div>
-            <div class="field">
-              <label for="maxvel">Max Velocity:</label>
-              <input type="number" id="maxvel" value="50" />
-            </div>
-          </div>
-        </div>
-      <div id="segment-config">
-        <div id = "exampleseg" class="segment" hidden = true>
-          <label>Segment 1</label>
-          <button>reverse direction</button>
-        </div>
-      </div>
-
-        <div id="graphs-container-container">
-          <div id="graphs-container">
-            <canvas id="graph" width="600" height="200"></canvas>
-            <canvas id="overlay" width="600" height="200"></canvas>
-            <div id="currtime-label" class="graph-label">0.0s</div>
-            <div id="currvel-label" class="graph-label">0 in/s</div>
-
-            <!-- Time Label for the Bottom -->
-            <div id="unit-label" class="graph-label">TIME (S)</div>
-            <div id="velocity-label" class="graph-label">Vel<br />(in/s)</div>
-
-            <!-- Time Start and End Labels -->
-            <div id="start-time-label" class="graph-label">0.00</div>
-            <div id="end-time-label" class="graph-label">0.00</div>
-
-            <!-- Velocity Markings -->
-            <div id="velocity-max-label" class="graph-label">60</div>
-            <!-- For max velocity -->
-            <div id="velocity-zero-label" class="graph-label">0</div>
-            <!-- For velocity zero -->
-          </div>
-          <div id="graph-key">
-            <div>
-              <span class="circle" style="background-color: white"></span>
-              <span>Velocity</span>
-            </div>
-            <div>
-              <span class="circle" style="background-color: red"></span>
-              <span>Left wheel velocity</span>
-            </div>
-            <div>
-              <span class="circle" style="background-color: blue"></span>
-              <span>Right wheel velocity</span>
-            </div>
-            <div>
-              <span class="circle" style="background-color: black"></span>
-              <span>Angular Velocity</span>
-            </div>
-          </div>
-        </div>
-
-        <div id="graphcustom">
-          <button id="run">run</button>
-          <button id="dist">dist graph</button>
-          <button id="time">time graph</button>
-        </div>
-
-        <div id="saving">
-          <input type="text" id="pathNameInput" placeholder="Enter path name (e.g., redside)" />
-          <button id="saveCpp">Save C++ File</button>
-
-          <input type="file" id="import" accept=".cpp" hidden />
-          <label for="import" class="file-upload-button">Import C++ File</label>
-        </div>
-      </div>
     </div>
 
     <!-- Entrypoint -->
