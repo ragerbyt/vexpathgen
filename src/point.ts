@@ -30,6 +30,8 @@ function initCanvas() {
 
   // Initial render of the canvas
   redrawPoints();
+  // createPointSet(100,100)
+  // createPointSet(120,120)
 }
 
 

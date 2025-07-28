@@ -243,6 +243,7 @@ function handleMouseMove(e: MouseEvent) {
 
   if (GRAPHMODE === "time") {
     time = (newCanvasX / rect.width) * pathpoints[last].time;
+    let finali = 0;
 
   for (let i = 1; i < pathpoints.length; i++) {
     if (time < pathpoints[i].time) {
@@ -259,14 +260,14 @@ function handleMouseMove(e: MouseEvent) {
       } else if (velocityDisplayMode === "right") {
         displayedVel = pathpoints[i-1].rightvel + (pathpoints[i].rightvel - pathpoints[i-1].rightvel) * frac;
       }
-
+      finali = i
       break;
     }
   }
 
 
     currtime.style.display = "block";
-    currtime.innerText = `${time.toFixed(2)}s`;
+    currtime.innerText = `i:${finali}`;
 
   } else {
     const dist = newCanvasX / rect.width * pathpoints[last].dist;
@@ -342,7 +343,7 @@ run!.addEventListener("click", async () => {
     currtime.style.display = "block";
     currtime.innerText = `${time.toFixed(2)}s`;
 
-    for (; i < pathpoints.length; i++) {
+    for (let i  = 0; i < pathpoints.length; i++) {
       if (time < pathpoints[i].time) {
         const frac = (time - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
 
