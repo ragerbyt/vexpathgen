@@ -76,40 +76,22 @@ function createWaypoints(){
 
   // console.log(pathpoints)
 
-  for (let i = 0; i < pathpoints.length-1; i++) {
-    const curr = pathpoints[i];
-    const nxt = pathpoints[i+1];
+  for (let i = 0; i < pathpoints.length; i++) {
+    const p = pathpoints[i];
+    const w = bot.trackwidth;
 
-    const { leftDist, rightDist } = getWheelDistances(
-      curr.x, curr.y, curr.orientation,
-      nxt.x, nxt.y, nxt.orientation,
-      bot.trackwidth
+    const denomL = Math.abs(1 - p.curvature * w / 2);
+    const denomR = Math.abs(1 + p.curvature * w / 2);
+
+    const vCurvMax = Math.min(
+      MAX_VELOCITY / Math.max(denomL, 1e-6),
+      MAX_VELOCITY / Math.max(denomR, 1e-6)
     );
 
-    curr.leftdist = leftDist;
-    curr.rightdist = rightDist;    
+    p.velocity = Math.min(p.velocity, vCurvMax);
   }
 
 
-
-
-
-  for (let i = 0; i < pathpoints.length; i++) {
-    const curr = pathpoints[i];
-    const heading = curr.orientation;
-
-    const leftX = -Math.sin(heading);
-    const leftY = Math.cos(heading);
-    const halfW = bot.trackwidth / 2;
-
-    curr.leftx = curr.x + leftX * halfW
-    curr.lefty = curr.y + leftY * halfW
-    curr.leftvel = MAX_VELOCITY
-    
-    curr.rightx = curr.x - leftX * halfW
-    curr.righty = curr.y - leftY * halfW
-    curr.rightvel = MAX_VELOCITY
-  }
 
 }
 
@@ -119,93 +101,41 @@ export function computeBezierWaypoints() {
   
 
   for (let i = 1; i < pathpoints.length; i++) {
-    let f = 1; if(pathpoints[i-1].rev){ f = -1;}
-
-    if (Math.sign(pathpoints[i-1].leftdist) == -1) {
-      pathpoints[i].leftvel  = -MAX_VELOCITY * f;
-    }else{
-      pathpoints[i].leftvel  =  MAX_VELOCITY * f;
-    }
-    if (Math.sign(pathpoints[i-1].rightdist) == -1) {
-      pathpoints[i].rightvel = -MAX_VELOCITY * f;
-    }else{
-      pathpoints[i].rightvel =  MAX_VELOCITY * f;
-    }
-
-    if((Math.sign(pathpoints[i-1].rightdist) != Math.sign(pathpoints[i].rightdist) && pathpoints[i].rightdist != 0)){
-      pathpoints[i].rightvel = 0;
-    }
-    
-    if(Math.sign(pathpoints[i-1].leftdist) != Math.sign(pathpoints[i].leftdist) && pathpoints[i].leftdist != 0){
-      pathpoints[i].leftvel = 0;
-    }
+    const ds = calcdistance(pathpoints[i], pathpoints[i - 1]);
+    pathpoints[i].curvaturePrime =
+      ds > 1e-6
+        ? (pathpoints[i].curvature - pathpoints[i - 1].curvature) / ds
+        : 0;
   }
 
-  
-  
-
-  // zero endpoints
-  pathpoints[0].leftvel = 0;
-  pathpoints[pathpoints.length-1].leftvel = 0;
 
 
-  pathpoints[0].rightvel = 0;
-  pathpoints[pathpoints.length-1].rightvel = 0;
-
-  //console.log("\n\n New Set")
-
-  for(let i = 0; i < pathpoints.length; i++){
-    if(pathpoints[i].leftvel == 50 && pathpoints[i].rightvel == 50) continue
-//    console.log(i,pathpoints[i].leftvel,pathpoints[i].rightvel)
-  } 
+  pathpoints[0].velocity = 0;
+  pathpoints[pathpoints.length-1].velocity = 0;
 
 
   // --- Backward pass (decel) ---
   backwardpass();
   forwardpass();
 
-    // console.log("\n\n After Pass")
-
-    // for(let i = 0; i < pathpoints.length; i++){
-    //   console.log(i,pathpoints[i].leftvel,pathpoints[i].rightvel)
-    // } 
-
-  // Recombine
   for (let i = 0; i < pathpoints.length; i++) {
-    const vL = pathpoints[i].leftvel, vR = pathpoints[i].rightvel;
-    const vc = (vL + vR) / 2;
-    const ω  = (vR - vL) / bot.trackwidth;
-    pathpoints[i].velocity        = vc;
-    pathpoints[i].angularVelocity = ω;
-    //console.log(vc)
+    const p = pathpoints[i];
+    const w = bot.trackwidth;
+
+    p.leftvel  = p.velocity * (1 - p.curvature * w / 2);
+    p.rightvel = p.velocity * (1 + p.curvature * w / 2);
   }
 
-  // --- Timestamp & accel compute ---
-  let rollingTime = 0;
-  pathpoints[0].time  = 0;
+  //--- Compute timestamps and cumulative distance ---
+  let totalTime = 0;
+  pathpoints[0].time = 0;
   pathpoints[0].accel = 0;
   for (let i = 1; i < pathpoints.length; i++) {
-    let f = 1; if(pathpoints[i].rev) f = -1
-
-    // const leftvel = ((pathpoints[i-1].leftvel)+(pathpoints[i].leftvel))/2;
-    // const rightvel = ((pathpoints[i-1].rightvel)+(pathpoints[i].rightvel))/2;
-
-    const leftvel = ((pathpoints[i].leftvel));
-    const rightvel = ((pathpoints[i].rightvel));
-
-    const timeL = safeTime(pathpoints[i].leftdist, leftvel);
-    const timeR = safeTime(pathpoints[i].rightdist, rightvel);
-    rollingTime += Math.max(timeL, timeR);
-    
-    
-    const ds  = calcdistance(pathpoints[i], pathpoints[i - 1]);
-    const avg = (pathpoints[i].velocity + pathpoints[i - 1].velocity) / 2;
-
-    pathpoints[i].accel = (pathpoints[i].velocity - pathpoints[i - 1].velocity)
-                        / (rollingTime - pathpoints[i].time) * f;
-    pathpoints[i].time = rollingTime;
-
-  
+    const distStep = calcdistance(pathpoints[i], pathpoints[i - 1]);
+    const averagevel = (pathpoints[i].velocity + pathpoints[i - 1].velocity) / 2;
+    totalTime += distStep / averagevel;
+    pathpoints[i].time = totalTime;
+    pathpoints[i].accel = (pathpoints[i].velocity - pathpoints[i - 1].velocity) / (distStep / averagevel);
   }
 
   if(pathpoints[pathpoints.length-1].time != Infinity){
@@ -214,145 +144,70 @@ export function computeBezierWaypoints() {
   
 }
 
-function forwardpass(){
-  for (let i = 1; i < pathpoints.length; i++) {
-    if(pathpoints[i].leftvel == 0 && pathpoints[i].rightvel == 0){continue;}
-
-    let f = 1; if(pathpoints[i].rev) f = -1;
-
-
-    let lf = f * sign(pathpoints[i-1].leftdist); 
-    const dL = pathpoints[i-1].leftdist * f;
-
-
-    let rf = f * sign(pathpoints[i-1].rightdist);
-    const dR = pathpoints[i-1].rightdist * f;
-
-    const vL_prev = pathpoints[i - 1].leftvel;
-    const vR_prev = pathpoints[i - 1].rightvel;
-
-
-    let maxVL = 0;
-    let maxVR = 0;
-
-    
-    
-    let leftAccel = MAX_ACCELERATION;
-    let rightAccel = MAX_ACCELERATION;
-
-    if(Math.abs(dL) > Math.abs(dR)){
-      rightAccel *= (Math.abs(dR) / Math.abs(dL));
-    }else{
-      leftAccel *= (Math.abs(dL) / Math.abs(dR));
-    }
-
-    maxVL = Math.min(Math.abs(MAX_VELOCITY * lf),   
-                     Math.abs(lf * computeMaxVelocity(lf * vL_prev, leftAccel, lf * dL)),
-                     Math.abs(pathpoints[i].leftvel)) * lf;
-
-
-    maxVR = Math.min(Math.abs(MAX_VELOCITY * rf),   
-                     Math.abs(rf * computeMaxVelocity(rf * vR_prev, rightAccel, rf * dR)),
-                     Math.abs(pathpoints[i].rightvel)) * rf;
-
-  
-    let maxVC_from_L = maxVL / (dL / f);
-
-    let maxVC_from_R = maxVR / (dR / f);
-
-    let vc_mag;
-
-    if(pathpoints[i].leftvel == 0){
-      vc_mag = maxVC_from_R;
-    }else if(pathpoints[i].rightvel == 0){
-      vc_mag = maxVC_from_L;
-    }else{
-    }
-
-    vc_mag = Math.min(Math.abs(maxVC_from_L), Math.abs(maxVC_from_R));
-
-
-    const maxVC = f * vc_mag;
-
-    pathpoints[i].leftvel  = maxVC * (dL / f);
-    pathpoints[i].rightvel = maxVC * (dR / f);
-
-    if(i == 182){
-      console.log(pathpoints[i-1].leftvel,pathpoints[i-1].rightvel,pathpoints[i-2].leftdist,pathpoints[i-2].rightdist)
-      console.log(pathpoints[i].leftvel,pathpoints[i].rightvel,pathpoints[i-1].leftdist,pathpoints[i-1].rightdist)
-    }
-  }
-}
-
 function backwardpass(){
   for (let i = pathpoints.length - 2; i >= 0; i--) {
+    const currentPoint = pathpoints[i];
+    const futureVelocity = pathpoints[i + 1].velocity;
+    const distStep = calcdistance(pathpoints[i], pathpoints[i + 1]);
 
-    if(pathpoints[i].leftvel == 0 && pathpoints[i].rightvel == 0){continue;}
-    let f = 1; if(pathpoints[i].rev) f = -1;
+    const k = currentPoint.curvature;
+    const dk = pathpoints[i + 1].curvaturePrime;           // look ahead
+    const w = bot.trackwidth;
+    const v = Math.min(
+      currentPoint.velocity,
+      futureVelocity // or prev velocity in forward pass
+    );
 
+    const wheelAccelLimit =
+      MAX_ACCELERATION -
+      (w / 2) * v * v * Math.abs(dk);
 
-    let lf = f * sign(pathpoints[i].leftdist); 
-    const dL = pathpoints[i].leftdist * f;
+    const accel =
+      Math.max(0,
+        wheelAccelLimit /
+        Math.max(Math.abs(1 - k*w/2), Math.abs(1 + k*w/2))
+      );
 
-
-    let rf = f * sign(pathpoints[i].rightdist);
-    const dR = pathpoints[i].rightdist * f;
-
-    
-    const vL_nxt = pathpoints[i + 1].leftvel;
-    const vR_nxt = pathpoints[i + 1].rightvel;
-
-
-    let maxVL = 0;
-    let maxVR = 0;
-
-
-    
-    let leftAccel = MAX_ACCELERATION;
-    let rightAccel = MAX_ACCELERATION;
-
-    if(Math.abs(dL) > Math.abs(dR)){
-      rightAccel *= (Math.abs(dR) / Math.abs(dL));
-    }else{
-      leftAccel *= (Math.abs(dL) / Math.abs(dR));
-    }
-
-    maxVL = Math.min(Math.abs(MAX_VELOCITY),   
-                     Math.abs(computeMaxVelocity(lf * vL_nxt, leftAccel, lf * dL)),
-                     Math.abs(pathpoints[i].leftvel)) * lf;
-
-
-
-    maxVR = Math.min(Math.abs(MAX_VELOCITY),   
-                     Math.abs(computeMaxVelocity(rf * vR_nxt, rightAccel, rf * dR)),
-                     Math.abs(pathpoints[i].rightvel)) * rf;
-
-                    
-    let maxVC_from_L = maxVL / (dL / f);
-
-    let maxVC_from_R = maxVR / (dR / f);
-
-    let vc_mag;
-
-      if(pathpoints[i].leftvel == 0){
-        vc_mag = maxVC_from_R;
-      }else if(pathpoints[i].rightvel == 0){
-        vc_mag = maxVC_from_L;
-      }else{
-      }
-
-    vc_mag = Math.min(Math.abs(maxVC_from_L), Math.abs(maxVC_from_R));
-
-
-    const maxVC = f * vc_mag;
-
-    pathpoints[i].leftvel  = maxVC * (dL / f);
-    pathpoints[i].rightvel = maxVC * (dR / f);
-
+    currentPoint.velocity = Math.min(
+      currentPoint.velocity,
+      computeMaxVelocity(futureVelocity, accel, distStep)
+    );
   }
-
-  
 }
+
+function forwardpass(){
+  for (let i = 1; i < pathpoints.length; i++) {
+    const currentPoint = pathpoints[i];
+    const prevPoint = pathpoints[i - 1];
+    const distStep = calcdistance(prevPoint, currentPoint);
+
+    const k = currentPoint.curvature;
+    const dk = pathpoints[i].curvaturePrime;               // current segment
+    const w = bot.trackwidth;
+    const v = Math.min(
+      currentPoint.velocity,
+      prevPoint.velocity // or prev velocity in forward pass
+    );
+
+    const wheelAccelLimit =
+      MAX_ACCELERATION -
+      (w / 2) * v * v * Math.abs(dk);
+
+    const accel =
+      Math.max(0,
+        wheelAccelLimit /
+        Math.max(Math.abs(1 - k*w/2), Math.abs(1 + k*w/2))
+      );
+
+
+    currentPoint.velocity = Math.min(
+      currentPoint.velocity,
+      computeMaxVelocity(prevPoint.velocity, accel, distStep)
+    );
+    currentPoint.angularVelocity = currentPoint.velocity * currentPoint.curvature;
+  }
+}
+
 
 export let totalSeg = 100 * numSegments
 export const ptsPerSeg = 100;
@@ -428,6 +283,35 @@ function bezierDerivative(pts: { x: number; y: number }[], t: number) {
   return { dx, dy };
 }
 
+function bezierSecondDerivative(
+  pts: { x: number; y: number }[],
+  t: number
+) {
+  const ddx =
+    6 * (1 - t) * (pts[2].x - 2 * pts[1].x + pts[0].x) +
+    6 * t       * (pts[3].x - 2 * pts[2].x + pts[1].x);
+
+  const ddy =
+    6 * (1 - t) * (pts[2].y - 2 * pts[1].y + pts[0].y) +
+    6 * t       * (pts[3].y - 2 * pts[2].y + pts[1].y);
+
+  return { ddx, ddy };
+}
+
+function bezierCurvature(
+  pts: { x: number; y: number }[],
+  t: number
+) {
+  const { dx, dy } = bezierDerivative(pts, t);
+  const { ddx, ddy } = bezierSecondDerivative(pts, t);
+
+  const numerator = Math.abs(dx * ddy - dy * ddx);
+  const denominator = Math.pow(dx * dx + dy * dy, 1.5);
+
+  if (denominator === 0) return 0;
+  return numerator / denominator;
+}
+
 
 function computeMaxVelocity(
   adjVelocity: number,
@@ -501,6 +385,8 @@ function fillbezier(sectpts: controlPoint[], currsection: section, count: number
       if(currsection.rev){
         wp.orientation = wp.orientation + PI;
       }
+
+      wp.curvature = bezierCurvature(sectpts, t);
       pathpoints.push(wp);
 
     }
@@ -579,6 +465,9 @@ function createpathpoint(){
     orientation: 0,
     rev: false,
 
+    curvature: 0,
+    curvaturePrime: 0,
+
     leftdist: 0, //from prev to curr point distance
     leftx: 0,
     lefty: 0,
@@ -594,9 +483,3 @@ function createpathpoint(){
 
 const V_MIN = 0.05 * MAX_VELOCITY;
 
-function safeTime(dist, vel) {
-  if (Math.abs(vel) < V_MIN) {
-    return Math.abs(dist) / V_MIN;
-  }
-  return Math.abs(dist / vel);
-}

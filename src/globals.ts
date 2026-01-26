@@ -12,8 +12,8 @@ background.src = vexfield;
 
 // Constants (all distances in inches)
 export const FIELD_WIDTH_INCHES = 144;
-export let MAX_VELOCITY = 50;         // Maximum velocity in inches per second
-export let MAX_ACCELERATION = 50;      // Maximum acceleration in inches per second squared
+export let MAX_VELOCITY = 80;         // Maximum velocity in inches per second
+export let MAX_ACCELERATION = 80;      // Maximum acceleration in inches per second squared
 
 export let top = 0;
 export let left = 0;
@@ -93,6 +93,9 @@ export interface pathPoint {
     time: number;
     orientation: number; // Orientation (heading) in degrees
     rev: boolean;
+
+    curvature: number;
+    curvaturePrime: number; //derivative of curvature
 
 
     leftdist: number; //from prev to curr point distance
