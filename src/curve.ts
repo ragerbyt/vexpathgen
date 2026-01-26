@@ -52,6 +52,7 @@ export function computeBezierWaypoints() {
       y: 0,
       velocity: MAX_VELOCITY,
       curvature: 0,
+      dkappa: 0,
       angularVelocity: 0,
       dist: targetDist,
       accel: 0,
@@ -85,6 +86,7 @@ export function computeBezierWaypoints() {
     y: 0,
     velocity: 0,
     curvature: 0,
+    dkappa: 0,
     angularVelocity: 0,
     dist: totaldist,
     accel: 0,
@@ -179,6 +181,8 @@ export function computeBezierWaypoints() {
 
   // --- Apply curvature constraints and update angular velocity ---
   for (let i = 0; i < pathpoints.length; i++) {
+
+
     let curvature = 0;
     if (i > 0 && i < pathpoints.length - 1) {
       curvature = calculateCurvature(pathpoints[i - 1], pathpoints[i], pathpoints[i + 1]);
@@ -189,8 +193,16 @@ export function computeBezierWaypoints() {
     const maxDriveTrainVel = Math.min(60 / leftFactor, 60 / rightFactor);
     pathpoints[i].velocity = Math.min(MAX_VELOCITY, maxDriveTrainVel);
 
+
     pathpoints[i].curvature = curvature;
     pathpoints[i].angularVelocity = pathpoints[i].velocity * curvature;
+
+    if(i > 1){
+      const ds = calcdistance(pathpoints[i - 1], pathpoints[i]);
+      if (ds > 1e-6) {
+        pathpoints[i].dkappa = (pathpoints[i].curvature - pathpoints[i - 1].curvature) / ds;
+      }
+    }
   }
 
   // --- Velocity smoothing passes (backward then forward) ---
@@ -202,9 +214,25 @@ export function computeBezierWaypoints() {
     const currentPoint = pathpoints[i];
     const futureVelocity = pathpoints[i + 1].velocity;
     const distStep = calcdistance(pathpoints[i], pathpoints[i + 1]);
+
+    const k = currentPoint.curvature;
+    const dk = pathpoints[i + 1].dkappa;           // look ahead
+    const w = TRACK_WIDTH;
+    const v = futureVelocity;
+
+    const wheelAccelLimit =
+      MAX_ACCELERATION -
+      (w / 2) * v * v * Math.abs(dk);
+
+    const accel =
+      Math.max(0,
+        wheelAccelLimit /
+        Math.max(Math.abs(1 - k*w/2), Math.abs(1 + k*w/2))
+      );
+
     currentPoint.velocity = Math.min(
       currentPoint.velocity,
-      computeMaxVelocity(futureVelocity, MAX_ACCELERATION, distStep)
+      computeMaxVelocity(futureVelocity, accel, distStep)
     );
   }
 
@@ -213,9 +241,26 @@ export function computeBezierWaypoints() {
     const currentPoint = pathpoints[i];
     const prevPoint = pathpoints[i - 1];
     const distStep = calcdistance(prevPoint, currentPoint);
+
+    const k = currentPoint.curvature;
+    const dk = pathpoints[i].dkappa;               // current segment
+    const w = TRACK_WIDTH;
+    const v = prevPoint.velocity;
+
+    const wheelAccelLimit =
+      MAX_ACCELERATION -
+      (w / 2) * v * v * Math.abs(dk);
+
+    const accel =
+      Math.max(0,
+        wheelAccelLimit /
+        Math.max(Math.abs(1 - k*w/2), Math.abs(1 + k*w/2))
+      );
+
+
     currentPoint.velocity = Math.min(
       currentPoint.velocity,
-      computeMaxVelocity(prevPoint.velocity, MAX_ACCELERATION, distStep)
+      computeMaxVelocity(prevPoint.velocity, accel, distStep)
     );
     currentPoint.angularVelocity = currentPoint.velocity * currentPoint.curvature;
   }

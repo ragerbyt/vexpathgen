@@ -80,6 +80,7 @@ export interface pathPoint {
     y: number;         // y-coordinate in inches
     velocity: number;  // Linear velocity (inches/s)
     curvature: number; // The curvature (radians per inch)
+    dkappa: number;    // The derivative of curvature (radians per inch^2)
     angularVelocity: number; // Angular velocity (rad/s)
     accel: number;
     dist: number;

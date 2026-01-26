@@ -89,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // Periodic auto-save (every 30 seconds)
-    setInterval(saveFile, 30000); // 30,000 ms = 30 seconds
+    //setInterval(saveFile, 30000); // 30,000 ms = 30 seconds
 
     // Optional: Manual save trigger (for immediate save)
     if (saveCppButton) {
