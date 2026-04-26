@@ -319,7 +319,7 @@ function insertbezier(fieldX: number, fieldY: number){
   let idx = controlpoints.length - 1;
   let prevx = controlpoints[idx].x;
   let prevy = controlpoints[idx].y;
-  let offset = 100 * 144 / canvas.width; // now in field units (0-144 range)
+  let offset = (100 / 3) * 144 / canvas.width; // now in field units (0-144 range)
 
   // Create first 2 control points
   const controlPoint1: controlPoint = {

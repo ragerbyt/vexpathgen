@@ -10,6 +10,21 @@ export let rightVel : number[] = []
 
 export let numSegments = 0;
 
+function getDiffDriveCurvatureDenom(curvature: number): number {
+  const w = bot.trackwidth;
+  return Math.max(1 + (w * Math.abs(curvature)) / 2, 1e-6);
+}
+
+function getCurvatureLimitedVelocity(curvature: number): number {
+  const w = bot.trackwidth;
+  return (2 * MAX_VELOCITY) / Math.max(2 + w * Math.abs(curvature), 1e-6);
+}
+
+function getCurvatureLimitedAcceleration(curvature: number): number {
+  const w = bot.trackwidth;
+  return (2 * MAX_ACCELERATION) / Math.max(2 + w * Math.abs(curvature), 1e-6);
+}
+
 function createWaypoints(){
   // Clear any existing waypoints
   pathpoints.splice(0, pathpoints.length);
@@ -41,9 +56,10 @@ function createWaypoints(){
       const nxt = sections[seg+1]
 
       
-      const EPSILON = 1e-8;
+      const EPSILON = 1e-4;
+      const angleDelta = Math.abs(_normalizeAngle(curr.endangle - nxt.startangle));
 
-      if (Math.abs(curr.endangle - nxt.startangle) > EPSILON) {
+      if (angleDelta > EPSILON) {
         fillturn(curr.endx, curr.endy, curr.endangle, nxt.startangle, 10, false);
       }
       
@@ -78,15 +94,7 @@ function createWaypoints(){
 
   for (let i = 0; i < pathpoints.length; i++) {
     const p = pathpoints[i];
-    const w = bot.trackwidth;
-
-    const denomL = Math.abs(1 - p.curvature * w / 2);
-    const denomR = Math.abs(1 + p.curvature * w / 2);
-
-    const vCurvMax = Math.min(
-      MAX_VELOCITY / Math.max(denomL, 1e-6),
-      MAX_VELOCITY / Math.max(denomR, 1e-6)
-    );
+    const vCurvMax = getCurvatureLimitedVelocity(p.curvature);
 
     p.velocity = Math.min(p.velocity, vCurvMax);
   }
@@ -98,15 +106,8 @@ function createWaypoints(){
 export function computeBezierWaypoints() {
 
   createWaypoints();
-  
-
-  for (let i = 1; i < pathpoints.length; i++) {
-    const ds = calcdistance(pathpoints[i], pathpoints[i - 1]);
-    pathpoints[i].curvaturePrime =
-      ds > 1e-6
-        ? (pathpoints[i].curvature - pathpoints[i - 1].curvature) / ds
-        : 0;
-  }
+  smoothCurvatureAtSectionSeams();
+  computeStableCurvaturePrime();
 
 
 
@@ -117,6 +118,7 @@ export function computeBezierWaypoints() {
   // --- Backward pass (decel) ---
   backwardpass();
   forwardpass();
+  enforceWheelAccelerationLimits();
 
   for (let i = 0; i < pathpoints.length; i++) {
     const p = pathpoints[i];
@@ -128,20 +130,115 @@ export function computeBezierWaypoints() {
 
   //--- Compute timestamps and cumulative distance ---
   let totalTime = 0;
+  const EPS = 1e-9;
   pathpoints[0].time = 0;
   pathpoints[0].accel = 0;
   for (let i = 1; i < pathpoints.length; i++) {
     const distStep = calcdistance(pathpoints[i], pathpoints[i - 1]);
     const averagevel = (pathpoints[i].velocity + pathpoints[i - 1].velocity) / 2;
-    totalTime += distStep / averagevel;
+    const dt = (distStep > EPS && Math.abs(averagevel) > EPS)
+      ? distStep / Math.abs(averagevel)
+      : 0;
+
+    totalTime += dt;
     pathpoints[i].time = totalTime;
-    pathpoints[i].accel = (pathpoints[i].velocity - pathpoints[i - 1].velocity) / (distStep / averagevel);
+    pathpoints[i].accel = dt > EPS
+      ? (pathpoints[i].velocity - pathpoints[i - 1].velocity) / dt
+      : 0;
   }
 
   if(pathpoints[pathpoints.length-1].time != Infinity){
     plot();
   }
   
+}
+
+function smoothCurvatureAtSectionSeams() {
+  if (sections.length < 2 || pathpoints.length < 3) return;
+
+  for (let seg = 0; seg < sections.length - 1; seg++) {
+    const seam = sections[seg].endpath;
+    if (seam === undefined) continue;
+    if (seam <= 0 || seam >= pathpoints.length - 1) continue;
+
+    const headingJump = Math.abs(_normalizeAngle(sections[seg].endangle - sections[seg + 1].startangle));
+    if (headingJump > 0.2) continue;
+
+    const kPrev = pathpoints[seam - 1].curvature;
+    const kSeam = pathpoints[seam].curvature;
+    const kNext = pathpoints[seam + 1].curvature;
+
+    const signFlip = kPrev * kNext < 0;
+    const spikeLike = Math.abs(kSeam) > 1.05 * Math.max(Math.abs(kPrev), Math.abs(kNext), 1e-6);
+
+    if (signFlip || spikeLike) {
+      // Force omega taper through the seam instead of flipping abruptly.
+      pathpoints[seam].curvature = 0;
+      pathpoints[seam - 1].curvature *= 0.35;
+      pathpoints[seam + 1].curvature *= 0.35;
+
+      if (seam - 2 >= 0) {
+        pathpoints[seam - 2].curvature = 0.55 * pathpoints[seam - 2].curvature + 0.45 * pathpoints[seam - 1].curvature;
+      }
+      if (seam + 2 < pathpoints.length) {
+        pathpoints[seam + 2].curvature = 0.55 * pathpoints[seam + 2].curvature + 0.45 * pathpoints[seam + 1].curvature;
+      }
+      if (seam - 3 >= 0) {
+        pathpoints[seam - 3].curvature = 0.75 * pathpoints[seam - 3].curvature + 0.25 * pathpoints[seam - 2].curvature;
+      }
+      if (seam + 3 < pathpoints.length) {
+        pathpoints[seam + 3].curvature = 0.75 * pathpoints[seam + 3].curvature + 0.25 * pathpoints[seam + 2].curvature;
+      }
+    }
+  }
+}
+
+function computeStableCurvaturePrime() {
+  const n = pathpoints.length;
+  if (n === 0) return;
+  if (n === 1) {
+    pathpoints[0].curvaturePrime = 0;
+    return;
+  }
+
+  // Smooth curvature first to reduce seam noise between adjacent segments.
+  const smoothK: number[] = new Array(n).fill(0);
+  const weights = [1, 2, 3, 2, 1];
+  for (let i = 0; i < n; i++) {
+    let num = 0;
+    let den = 0;
+    for (let j = -2; j <= 2; j++) {
+      const idx = Math.max(0, Math.min(n - 1, i + j));
+      const w = weights[j + 2];
+      num += pathpoints[idx].curvature * w;
+      den += w;
+    }
+    smoothK[i] = den > 0 ? num / den : pathpoints[i].curvature;
+  }
+
+  pathpoints[0].curvaturePrime = 0;
+  for (let i = 1; i < n - 1; i++) {
+    const ds = calcdistance(pathpoints[i - 1], pathpoints[i]) + calcdistance(pathpoints[i], pathpoints[i + 1]);
+    pathpoints[i].curvaturePrime = ds > 1e-6 ? (smoothK[i + 1] - smoothK[i - 1]) / ds : 0;
+  }
+  pathpoints[n - 1].curvaturePrime = pathpoints[n - 2].curvaturePrime;
+}
+
+function clamp01(value: number): number {
+  return Math.max(0, Math.min(1, value));
+}
+
+function getAdaptiveStraightCurvatureThreshold(speed: number): number {
+  const speedRatio = clamp01(speed / Math.max(MAX_VELOCITY, 1e-6));
+  // At higher speeds, suppress tiny curvature noise more aggressively.
+  return 0.008 + 0.02 * speedRatio;
+}
+
+function getEffectiveCurvaturePrime(k: number, dkRaw: number, speed: number): number {
+  const absK = Math.abs(k);
+  const threshold = getAdaptiveStraightCurvatureThreshold(speed);
+  const blend = clamp01(absK / threshold);
+  return dkRaw * blend;
 }
 
 function backwardpass(){
@@ -151,22 +248,24 @@ function backwardpass(){
     const distStep = calcdistance(pathpoints[i], pathpoints[i + 1]);
 
     const k = currentPoint.curvature;
-    const dk = pathpoints[i + 1].curvaturePrime;           // look ahead
+    const dkRaw = pathpoints[i + 1].curvaturePrime;        // look ahead
     const w = bot.trackwidth;
     const v = Math.min(
       currentPoint.velocity,
       futureVelocity // or prev velocity in forward pass
     );
 
+    const denom = getDiffDriveCurvatureDenom(k);
+    const dk = getEffectiveCurvaturePrime(k, dkRaw, v);
+    const accelCurvatureCap = getCurvatureLimitedAcceleration(k);
     const wheelAccelLimit =
       MAX_ACCELERATION -
       (w / 2) * v * v * Math.abs(dk);
 
-    const accel =
-      Math.max(0,
-        wheelAccelLimit /
-        Math.max(Math.abs(1 - k*w/2), Math.abs(1 + k*w/2))
-      );
+    const accel = Math.min(
+      accelCurvatureCap,
+      Math.max(0, wheelAccelLimit / denom)
+    );
 
     currentPoint.velocity = Math.min(
       currentPoint.velocity,
@@ -182,22 +281,24 @@ function forwardpass(){
     const distStep = calcdistance(prevPoint, currentPoint);
 
     const k = currentPoint.curvature;
-    const dk = pathpoints[i].curvaturePrime;               // current segment
+    const dkRaw = pathpoints[i].curvaturePrime;            // current segment
     const w = bot.trackwidth;
     const v = Math.min(
       currentPoint.velocity,
       prevPoint.velocity // or prev velocity in forward pass
     );
 
+    const denom = getDiffDriveCurvatureDenom(k);
+    const dk = getEffectiveCurvaturePrime(k, dkRaw, v);
+    const accelCurvatureCap = getCurvatureLimitedAcceleration(k);
     const wheelAccelLimit =
       MAX_ACCELERATION -
       (w / 2) * v * v * Math.abs(dk);
 
-    const accel =
-      Math.max(0,
-        wheelAccelLimit /
-        Math.max(Math.abs(1 - k*w/2), Math.abs(1 + k*w/2))
-      );
+    const accel = Math.min(
+      accelCurvatureCap,
+      Math.max(0, wheelAccelLimit / denom)
+    );
 
 
     currentPoint.velocity = Math.min(
@@ -205,6 +306,101 @@ function forwardpass(){
       computeMaxVelocity(prevPoint.velocity, accel, distStep)
     );
     currentPoint.angularVelocity = currentPoint.velocity * currentPoint.curvature;
+  }
+}
+
+function getLeftGain(curvature: number): number {
+  return 1 - curvature * bot.trackwidth / 2;
+}
+
+function getRightGain(curvature: number): number {
+  return 1 + curvature * bot.trackwidth / 2;
+}
+
+function getWheelStepDistance(ds: number, gainA: number, gainB: number): number {
+  return ds * Math.max((Math.abs(gainA) + Math.abs(gainB)) / 2, 1e-6);
+}
+
+function maxLinearVelocityFromWheelState(
+  neighborWheelVelocity: number,
+  wheelStepDistance: number,
+  currentGain: number
+): number {
+  const EPS = 1e-9;
+  const maxAbsWheelVelocity = Math.sqrt(
+    Math.max(0, neighborWheelVelocity * neighborWheelVelocity + 2 * MAX_ACCELERATION * wheelStepDistance)
+  );
+  if (Math.abs(currentGain) < EPS) return Infinity;
+  return maxAbsWheelVelocity / Math.abs(currentGain);
+}
+
+function enforceWheelAccelerationLimits() {
+  if (pathpoints.length < 2) return;
+
+  const MAX_ITERS = 6;
+  const TOL = 1e-4;
+  const EPS = 1e-9;
+
+  for (let iter = 0; iter < MAX_ITERS; iter++) {
+    const before = pathpoints.map(p => p.velocity);
+
+    // Forward sweep
+    for (let i = 1; i < pathpoints.length; i++) {
+      const prev = pathpoints[i - 1];
+      const curr = pathpoints[i];
+      const ds = calcdistance(prev, curr);
+      if (ds <= EPS) continue;
+
+      const gLPrev = getLeftGain(prev.curvature);
+      const gLCurr = getLeftGain(curr.curvature);
+      const gRPrev = getRightGain(prev.curvature);
+      const gRCurr = getRightGain(curr.curvature);
+
+      const leftStepDist = getWheelStepDistance(ds, gLPrev, gLCurr);
+      const rightStepDist = getWheelStepDistance(ds, gRPrev, gRCurr);
+
+      const leftBound = maxLinearVelocityFromWheelState(prev.velocity * gLPrev, leftStepDist, gLCurr);
+      const rightBound = maxLinearVelocityFromWheelState(prev.velocity * gRPrev, rightStepDist, gRCurr);
+
+      curr.velocity = Math.min(
+        curr.velocity,
+        getCurvatureLimitedVelocity(curr.curvature),
+        leftBound,
+        rightBound
+      );
+    }
+
+    // Backward sweep
+    for (let i = pathpoints.length - 2; i >= 0; i--) {
+      const curr = pathpoints[i];
+      const next = pathpoints[i + 1];
+      const ds = calcdistance(curr, next);
+      if (ds <= EPS) continue;
+
+      const gLCurr = getLeftGain(curr.curvature);
+      const gLNext = getLeftGain(next.curvature);
+      const gRCurr = getRightGain(curr.curvature);
+      const gRNext = getRightGain(next.curvature);
+
+      const leftStepDist = getWheelStepDistance(ds, gLCurr, gLNext);
+      const rightStepDist = getWheelStepDistance(ds, gRCurr, gRNext);
+
+      const leftBound = maxLinearVelocityFromWheelState(next.velocity * gLNext, leftStepDist, gLCurr);
+      const rightBound = maxLinearVelocityFromWheelState(next.velocity * gRNext, rightStepDist, gRCurr);
+
+      curr.velocity = Math.min(
+        curr.velocity,
+        getCurvatureLimitedVelocity(curr.curvature),
+        leftBound,
+        rightBound
+      );
+    }
+
+    let maxDelta = 0;
+    for (let i = 0; i < pathpoints.length; i++) {
+      maxDelta = Math.max(maxDelta, Math.abs(pathpoints[i].velocity - before[i]));
+    }
+    if (maxDelta < TOL) break;
   }
 }
 
@@ -273,13 +469,32 @@ function getWheelDistances(
 
 
 // --- Helpers ---
+function bernstein(n: number, i: number, t: number): number {
+  return binomialCoefficient(n, i) * Math.pow(1 - t, n - i) * Math.pow(t, i);
+}
+
+function toSixPointBezier(pts: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (pts.length >= 6) return pts.slice(0, 6);
+  if (pts.length === 4) {
+    const [p0, p1, p2, p3] = pts;
+    return [p0, p1, p1, p2, p2, p3];
+  }
+  return pts;
+}
+
 function bezierDerivative(pts: { x: number; y: number }[], t: number) {
-  const dx = 3 * (1 - t) ** 2 * (pts[1].x - pts[0].x)
-           + 6 * (1 - t) * t * (pts[2].x - pts[1].x)
-           + 3 * t ** 2 * (pts[3].x - pts[2].x);
-  const dy = 3 * (1 - t) ** 2 * (pts[1].y - pts[0].y)
-           + 6 * (1 - t) * t * (pts[2].y - pts[1].y)
-           + 3 * t ** 2 * (pts[3].y - pts[2].y);
+  const n = pts.length - 1;
+  if (n <= 0) return { dx: 0, dy: 0 };
+
+  let dx = 0;
+  let dy = 0;
+  for (let i = 0; i <= n - 1; i++) {
+    const b = bernstein(n - 1, i, t);
+    dx += (pts[i + 1].x - pts[i].x) * b;
+    dy += (pts[i + 1].y - pts[i].y) * b;
+  }
+  dx *= n;
+  dy *= n;
   return { dx, dy };
 }
 
@@ -287,13 +502,18 @@ function bezierSecondDerivative(
   pts: { x: number; y: number }[],
   t: number
 ) {
-  const ddx =
-    6 * (1 - t) * (pts[2].x - 2 * pts[1].x + pts[0].x) +
-    6 * t       * (pts[3].x - 2 * pts[2].x + pts[1].x);
+  const n = pts.length - 1;
+  if (n <= 1) return { ddx: 0, ddy: 0 };
 
-  const ddy =
-    6 * (1 - t) * (pts[2].y - 2 * pts[1].y + pts[0].y) +
-    6 * t       * (pts[3].y - 2 * pts[2].y + pts[1].y);
+  let ddx = 0;
+  let ddy = 0;
+  for (let i = 0; i <= n - 2; i++) {
+    const b = bernstein(n - 2, i, t);
+    ddx += (pts[i + 2].x - 2 * pts[i + 1].x + pts[i].x) * b;
+    ddy += (pts[i + 2].y - 2 * pts[i + 1].y + pts[i].y) * b;
+  }
+  ddx *= n * (n - 1);
+  ddy *= n * (n - 1);
 
   return { ddx, ddy };
 }
@@ -305,7 +525,7 @@ function bezierCurvature(
   const { dx, dy } = bezierDerivative(pts, t);
   const { ddx, ddy } = bezierSecondDerivative(pts, t);
 
-  const numerator = Math.abs(dx * ddy - dy * ddx);
+  const numerator = dx * ddy - dy * ddx;
   const denominator = Math.pow(dx * dx + dy * dy, 1.5);
 
   if (denominator === 0) return 0;
@@ -342,7 +562,9 @@ function isolate(controlpoints: controlPoint[], start: number, end: number): con
     .map(p => ({ ...p }));
   if (seg.length < 4) return seg;
   const [p0, p1, p2, p3] = seg;
-  const f = 2;
+  // UI handles stay where user placed them, but solver uses a scaled handle distance.
+  // f < 1 pulls solver handles inward; f > 1 pushes them outward.
+  const f = 1.25;
   p1.x = p0.x + f * (p1.x - p0.x);
   p1.y = p0.y + f * (p1.y - p0.y);
   p2.x = p3.x + f * (p2.x - p3.x);
@@ -352,21 +574,23 @@ function isolate(controlpoints: controlPoint[], start: number, end: number): con
 
 
 function fillbezier(sectpts: controlPoint[], currsection: section, count: number){
+  const bezierPts = toSixPointBezier(sectpts);
+  const degree = bezierPts.length - 1;
 
-  currsection.startpath = pathpoints.length;
+  currsection.startpath = pathpoints.length === 0 ? 0 : pathpoints.length - 1;
+  const startI = pathpoints.length === 0 ? 0 : 1;
       
-    for (let i = 0; i <= count; i++) {
+    for (let i = startI; i <= count; i++) {
       const t = i / count;
       const wp = createpathpoint()
 
       // Bézier point
-      for (let j = 0; j < 4; j++) {
-        const coeff = binomialCoefficient(3, j)
-        * Math.pow(1 - t, 3 - j) * Math.pow(t, j);
-        wp.x += coeff * sectpts[j].x;
-        wp.y += coeff * sectpts[j].y;
+      for (let j = 0; j < bezierPts.length; j++) {
+        const coeff = bernstein(degree, j, t);
+        wp.x += coeff * bezierPts[j].x;
+        wp.y += coeff * bezierPts[j].y;
       }
-      const { dx, dy } = bezierDerivative(sectpts, t);
+      const { dx, dy } = bezierDerivative(bezierPts, t);
       wp.orientation = Math.atan2(dy, dx);
 
       if(i == 0){
@@ -386,7 +610,7 @@ function fillbezier(sectpts: controlPoint[], currsection: section, count: number
         wp.orientation = wp.orientation + PI;
       }
 
-      wp.curvature = bezierCurvature(sectpts, t);
+      wp.curvature = bezierCurvature(bezierPts, t);
       pathpoints.push(wp);
 
     }
@@ -397,9 +621,10 @@ function fillbezier(sectpts: controlPoint[], currsection: section, count: number
 
 function fillline(sectpts: controlPoint[], currsection: section, count: number){
 
-  currsection.startpath = pathpoints.length;
+  currsection.startpath = pathpoints.length === 0 ? 0 : pathpoints.length - 1;
+  const startI = pathpoints.length === 0 ? 0 : 1;
 
-  for (let i = 0; i <= count; i++) {
+  for (let i = startI; i <= count; i++) {
     const t = i / count;
     const wp = createpathpoint()
   
