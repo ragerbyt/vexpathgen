@@ -275,6 +275,7 @@ export function plot() {
 
   velocityMaxLabel.textContent = `${maxVelocity.toFixed(0)}`; // Example max velocity
   velocityZeroLabel.textContent = "0";
+  renderLockedGraphProbe();
   
 }
 
@@ -308,9 +309,15 @@ let disable = false;
 let velocityDisplayMode: "center" | "left" | "right" = "center";
 const currVelocity = document.getElementById("currvel-label") as HTMLDivElement;
 
-function handleMouseMove(e: MouseEvent) {
-  if (disable || isPanningGraph) return;
+type LockedGraphProbe = {
+  mode: GraphMode;
+  domainValue: number;
+  yRatio: number;
+};
 
+let lockedGraphProbe: LockedGraphProbe | null = null;
+
+function clearGraphProbeDisplay() {
   octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
   bot.x = -1;
   bot.y = -1;
@@ -318,53 +325,63 @@ function handleMouseMove(e: MouseEvent) {
   redrawCanvas();
   currtime.style.display = "none";
   currVelocity.style.display = "none";
+}
 
+function renderProbeAt(domainValue: number, yRatio: number, rect: DOMRect) {
   if (!pathpoints || pathpoints.length === 0) return;
 
-  const rect = graph.getBoundingClientRect();
-  let newCanvasX = e.clientX - rect.left;
-  let newCanvasY = e.clientY - rect.top;
+  const mode = GRAPHMODE as GraphMode;
+  const xPx = domainToX(domainValue, rect.width, mode);
+  const yPx = clamp(yRatio, 0, 1) * rect.height;
 
-  if (newCanvasX < 0 || newCanvasX > rect.width) return;
-  if (newCanvasY < 0 || newCanvasY > rect.height) return;
+  octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
 
-  drawLine(octx, { x: newCanvasX * octx.canvas.width / rect.width, y: 0 }, { x: newCanvasX * octx.canvas.width / rect.width, y: octx.canvas.height }, "red");
-  drawLine(octx, { x: 0, y: newCanvasY * octx.canvas.height / rect.height }, { x: octx.canvas.width, y: newCanvasY * octx.canvas.height / rect.height }, "red");
+  if (xPx >= 0 && xPx <= rect.width) {
+    drawLine(
+      octx,
+      { x: (xPx * octx.canvas.width) / Math.max(rect.width, 1), y: 0 },
+      { x: (xPx * octx.canvas.width) / Math.max(rect.width, 1), y: octx.canvas.height },
+      "red"
+    );
+  }
+  drawLine(
+    octx,
+    { x: 0, y: (yPx * octx.canvas.height) / Math.max(rect.height, 1) },
+    { x: octx.canvas.width, y: (yPx * octx.canvas.height) / Math.max(rect.height, 1) },
+    "red"
+  );
 
-  let last = pathpoints.length - 1;
+  bot.x = -1;
+  bot.y = -1;
+  bot.o = -1;
 
   let time = 0;
   let displayedVel = 0;
 
-  const mode = GRAPHMODE as GraphMode;
-  const domainValue = xToDomain(newCanvasX, rect.width, mode);
-
   if (GRAPHMODE === "time") {
     time = domainValue;
 
-  for (let i = 1; i < pathpoints.length; i++) {
-    if (time < pathpoints[i].time) {
-      const frac = (time - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
+    for (let i = 1; i < pathpoints.length; i++) {
+      if (time < pathpoints[i].time) {
+        const frac = (time - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
 
-      bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
-      bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
-      bot.o = pathpoints[i - 1].orientation + Normalize(pathpoints[i].orientation - pathpoints[i - 1].orientation) * frac;
+        bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
+        bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
+        bot.o = pathpoints[i - 1].orientation + Normalize(pathpoints[i].orientation - pathpoints[i - 1].orientation) * frac;
 
-      if (velocityDisplayMode === "center") {
-        displayedVel = pathpoints[i - 1].velocity + (pathpoints[i].velocity - pathpoints[i - 1].velocity) * frac;
-      } else if (velocityDisplayMode === "left") {
-        displayedVel = pathpoints[i-1].leftvel + (pathpoints[i].leftvel - pathpoints[i-1].leftvel) * frac;
-      } else if (velocityDisplayMode === "right") {
-        displayedVel = pathpoints[i-1].rightvel + (pathpoints[i].rightvel - pathpoints[i-1].rightvel) * frac;
+        if (velocityDisplayMode === "center") {
+          displayedVel = pathpoints[i - 1].velocity + (pathpoints[i].velocity - pathpoints[i - 1].velocity) * frac;
+        } else if (velocityDisplayMode === "left") {
+          displayedVel = pathpoints[i - 1].leftvel + (pathpoints[i].leftvel - pathpoints[i - 1].leftvel) * frac;
+        } else if (velocityDisplayMode === "right") {
+          displayedVel = pathpoints[i - 1].rightvel + (pathpoints[i].rightvel - pathpoints[i - 1].rightvel) * frac;
+        }
+        break;
       }
-      break;
     }
-  }
-
 
     currtime.style.display = "block";
     currtime.innerText = `${time.toFixed(2)}s`;
-
   } else {
     const dist = domainValue;
 
@@ -378,16 +395,15 @@ function handleMouseMove(e: MouseEvent) {
         bot.x = p1.x + (p2.x - p1.x) * frac;
         bot.y = p1.y + (p2.y - p1.y) * frac;
         bot.o = p1.orientation + Normalize((p2.orientation - p1.orientation)) * frac;
-        
 
         time = p1.time + (p2.time - p1.time) * frac;
 
         if (velocityDisplayMode === "center") {
           displayedVel = p1.velocity + (p2.velocity - p1.velocity) * frac;
         } else if (velocityDisplayMode === "left") {
-          displayedVel = pathpoints[i-1].leftvel + (pathpoints[i].leftvel - pathpoints[i-1].leftvel) * frac;
+          displayedVel = pathpoints[i - 1].leftvel + (pathpoints[i].leftvel - pathpoints[i - 1].leftvel) * frac;
         } else if (velocityDisplayMode === "right") {
-          displayedVel = pathpoints[i-1].rightvel + (pathpoints[i].rightvel - pathpoints[i-1].rightvel) * frac;
+          displayedVel = pathpoints[i - 1].rightvel + (pathpoints[i].rightvel - pathpoints[i - 1].rightvel) * frac;
         }
 
         break;
@@ -398,12 +414,67 @@ function handleMouseMove(e: MouseEvent) {
     currtime.innerText = `${time.toFixed(2)}s`;
   }
 
-   
-
   currVelocity.style.display = "block";
   currVelocity.innerText = `${displayedVel.toFixed(1)} in/s`;
 
   redrawCanvas();
+}
+
+function renderLockedGraphProbe() {
+  if (!lockedGraphProbe || disable || isPanningGraph) return;
+  if (lockedGraphProbe.mode !== (GRAPHMODE as GraphMode)) {
+    lockedGraphProbe = null;
+    clearGraphProbeDisplay();
+    return;
+  }
+
+  const rect = graph.getBoundingClientRect();
+  renderProbeAt(lockedGraphProbe.domainValue, lockedGraphProbe.yRatio, rect);
+}
+
+function lockGraphProbeAtMouse(e: MouseEvent) {
+  if (disable || isPanningGraph || !pathpoints || pathpoints.length === 0) return;
+
+  if (lockedGraphProbe) {
+    lockedGraphProbe = null;
+    clearGraphProbeDisplay();
+    return;
+  }
+
+  const rect = graph.getBoundingClientRect();
+  const newCanvasX = e.clientX - rect.left;
+  const newCanvasY = e.clientY - rect.top;
+
+  if (newCanvasX < 0 || newCanvasX > rect.width) return;
+  if (newCanvasY < 0 || newCanvasY > rect.height) return;
+
+  const mode = GRAPHMODE as GraphMode;
+  lockedGraphProbe = {
+    mode,
+    domainValue: xToDomain(newCanvasX, rect.width, mode),
+    yRatio: clamp(newCanvasY / Math.max(rect.height, 1), 0, 1),
+  };
+  renderLockedGraphProbe();
+}
+
+function handleMouseMove(e: MouseEvent) {
+  if (disable || isPanningGraph || lockedGraphProbe) return;
+
+  clearGraphProbeDisplay();
+
+  if (!pathpoints || pathpoints.length === 0) return;
+
+  const rect = graph.getBoundingClientRect();
+  let newCanvasX = e.clientX - rect.left;
+  let newCanvasY = e.clientY - rect.top;
+
+  if (newCanvasX < 0 || newCanvasX > rect.width) return;
+  if (newCanvasY < 0 || newCanvasY > rect.height) return;
+
+  const mode = GRAPHMODE as GraphMode;
+  const domainValue = xToDomain(newCanvasX, rect.width, mode);
+  const yRatio = newCanvasY / Math.max(rect.height, 1);
+  renderProbeAt(domainValue, yRatio, rect);
 }
 
 const run = document.getElementById("run");
@@ -456,17 +527,21 @@ run!.addEventListener("click", async () => {
 
 document.getElementById("dist")?.addEventListener("click", () => {
   GRAPHMODE = "dist";
+  lockedGraphProbe = null;
   if (getDomainMax("dist") > 0 && (viewWindow.dist.end <= viewWindow.dist.start || viewWindow.dist.end === 1)) {
     resetViewDomain("dist");
   }
+  clearGraphProbeDisplay();
   plot(); 
 });
 
 document.getElementById("time")?.addEventListener("click", () => {
   GRAPHMODE = "time";
+  lockedGraphProbe = null;
   if (getDomainMax("time") > 0 && (viewWindow.time.end <= viewWindow.time.start || viewWindow.time.end === 1)) {
     resetViewDomain("time");
   }
+  clearGraphProbeDisplay();
   plot(); 
 });
 
@@ -536,9 +611,17 @@ function handleGraphWheel(e: WheelEvent) {
 
 graph.addEventListener("wheel", handleGraphWheel, { passive: false });
 overlay.addEventListener("wheel", handleGraphWheel, { passive: false });
+graph.addEventListener("click", lockGraphProbeAtMouse);
+overlay.addEventListener("click", lockGraphProbeAtMouse);
+
+document.addEventListener("keydown", (e: KeyboardEvent) => {
+  if (e.key !== "Escape") return;
+  lockedGraphProbe = null;
+  clearGraphProbeDisplay();
+});
 
 function startGraphPan(e: MouseEvent) {
-  if (e.button !== 0 || pathpoints.length < 2) return;
+  if (e.button !== 1 || pathpoints.length < 2) return;
 
   const mode = GRAPHMODE as GraphMode;
   const current = getViewDomain(mode);
@@ -559,11 +642,18 @@ function startGraphPan(e: MouseEvent) {
 
 graph.addEventListener("mousedown", startGraphPan);
 overlay.addEventListener("mousedown", startGraphPan);
+graph.addEventListener("auxclick", (e: MouseEvent) => {
+  if (e.button === 1) e.preventDefault();
+});
+overlay.addEventListener("auxclick", (e: MouseEvent) => {
+  if (e.button === 1) e.preventDefault();
+});
 
 document.addEventListener("mouseup", () => {
   isPanningGraph = false;
   graph.style.cursor = "none";
   overlay.style.cursor = "none";
+  renderLockedGraphProbe();
 });
 
 document.addEventListener("mousemove", (e: MouseEvent) => {
@@ -596,6 +686,7 @@ document.addEventListener("mousemove", (e: MouseEvent) => {
 
   setViewDomain(mode, start, end);
   plot();
+  renderLockedGraphProbe();
 });
 
 export function Normalize(n1: number){

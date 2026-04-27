@@ -1,6 +1,6 @@
 const coordDisplay = document.getElementById("mouse-coordinates");
 
-import { canvas, left, right, top, bottom } from "./globals";
+import { canvas, canvasToFieldX, canvasToFieldY } from "./globals";
 
 canvas.addEventListener("mousemove", displayMouseCoordinates);
 
@@ -13,11 +13,11 @@ function displayMouseCoordinates(e: MouseEvent) {
 
     // Get the mouse position relative to the canvas
     const mouseX = e.clientX - rect.left;
-    const mouseY = rect.bottom - e.clientY;
+    const mouseY = e.clientY - rect.top;
 
-    // Convert to field coordinates based on left, right, top, and bottom
-    const fieldX = (mouseX / canvas.width) * (right - left) + left;
-    const fieldY = (mouseY / canvas.height) * (bottom - top) + top;
+    // Convert to field coordinates based on the current viewport
+    const fieldX = canvasToFieldX(mouseX, rect.width);
+    const fieldY = canvasToFieldY(mouseY, rect.height);
 
     // Update the display with adjusted coordinates
     if (coordDisplay) {

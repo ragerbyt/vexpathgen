@@ -17,14 +17,6 @@ document.addEventListener("mousemove", (e) => {
     cursor.style.top = `${e.clientY}px`;
 });
 
-overlay.addEventListener('mouseenter', () => {
-    cursor.style.display = 'none';
-});
-
-overlay.addEventListener('mouseleave', () => {
-    cursor.style.display = '';
-});
-
 document.addEventListener("DOMContentLoaded", () => {
     const saveCppButton = document.getElementById("saveCpp") as HTMLButtonElement;
     const pathNameInput = document.getElementById("pathNameInput") as HTMLInputElement;

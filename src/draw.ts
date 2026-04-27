@@ -1,12 +1,33 @@
 import { Point } from "chart.js";
 import {  pathpoints } from "./globals";
-import { canvas, MAX_VELOCITY, top, left, bottom, right, ctx, background } from "./globals";
+import { canvas, MAX_VELOCITY, ctx, background } from "./globals";
 import { controlpoints, pathPoint, controlPoint } from "./globals";
+import { fieldToCanvasX, fieldToCanvasY, getFieldView } from "./globals";
+
+function drawFieldBackground() {
+  const view = getFieldView();
+  const sx = (view.left / 144) * background.naturalWidth;
+  const sy = ((144 - view.bottom) / 144) * background.naturalHeight;
+  const sWidth = ((view.right - view.left) / 144) * background.naturalWidth;
+  const sHeight = ((view.bottom - view.top) / 144) * background.naturalHeight;
+
+  ctx.drawImage(
+    background,
+    sx,
+    sy,
+    Math.max(1, sWidth),
+    Math.max(1, sHeight),
+    0,
+    0,
+    ctx.canvas.width,
+    ctx.canvas.height
+  );
+}
 
 function setupCanvas() {
   background.onload = () => {
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
+    drawFieldBackground();
   };
 
   document.addEventListener("drawpath", () => {
@@ -32,7 +53,7 @@ export function redrawCanvas() {
   }
 
   ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-  ctx.drawImage(background, 0, 0, ctx.canvas.width, ctx.canvas.height);
+  drawFieldBackground();
 
   if (pathpoints.length > 1) {
     drawPath(ctx);
@@ -54,8 +75,8 @@ export function redrawCanvas() {
     ctx.beginPath();
     const size = point.size || 5;
 
-    const canvasX = (point.x / 144) * canvas.width;
-    const canvasY = ((144 - point.y) / 144) * canvas.height;
+    const canvasX = fieldToCanvasX(point.x, canvas.width);
+    const canvasY = fieldToCanvasY(point.y, canvas.height);
 
     ctx.arc(canvasX, canvasY, size, 0, Math.PI * 2);
     ctx.fillStyle = point.color;
@@ -133,10 +154,10 @@ function drawLine(
 ) {
 
   
-  const startX = (start.x / 144) * canvas.width;
-  const startY = ((144 - start.y) / 144) * canvas.height;
-  const endX = (end.x / 144) * canvas.width;
-  const endY = ((144 - end.y) / 144) * canvas.height;
+  const startX = fieldToCanvasX(start.x, canvas.width);
+  const startY = fieldToCanvasY(start.y, canvas.height);
+  const endX = fieldToCanvasX(end.x, canvas.width);
+  const endY = fieldToCanvasY(end.y, canvas.height);
 
   ctx.save(); // Save the current canvas state
   ctx.globalAlpha = 1; // Fully opaque
@@ -159,10 +180,10 @@ function drawLeftRight(
 
   const thickness = 1;
 
-  let startX = (start.leftx / 144) * canvas.width;
-  let startY = ((144 - start.lefty) / 144) * canvas.height;
-  let endX = (end.leftx / 144) * canvas.width;
-  let endY = ((144 - end.lefty) / 144) * canvas.height;
+  let startX = fieldToCanvasX(start.leftx, canvas.width);
+  let startY = fieldToCanvasY(start.lefty, canvas.height);
+  let endX = fieldToCanvasX(end.leftx, canvas.width);
+  let endY = fieldToCanvasY(end.lefty, canvas.height);
 
   ctx.save(); // Save the current canvas state
   ctx.globalAlpha = 1; // Fully opaque
@@ -176,10 +197,10 @@ function drawLeftRight(
   ctx.stroke();
   ctx.restore(); // Restore the previous canvas state
 
-  startX = (start.rightx / 144) * canvas.width;
-  startY = ((144 - start.righty) / 144) * canvas.height;
-  endX = (end.rightx / 144) * canvas.width;
-  endY = ((144 - end.righty) / 144) * canvas.height;
+  startX = fieldToCanvasX(start.rightx, canvas.width);
+  startY = fieldToCanvasY(start.righty, canvas.height);
+  endX = fieldToCanvasX(end.rightx, canvas.width);
+  endY = fieldToCanvasY(end.righty, canvas.height);
 
 
   ctx.save(); // Save the current canvas state
@@ -200,11 +221,12 @@ import { end_hi, start_hi } from "./handling";
 
 function drawBot(ctx: CanvasRenderingContext2D) {
   const { x, y, o, width, length, trackwidth } = bot;
+  const view = getFieldView();
+  const scale = canvas.width / Math.max(view.right - view.left, 1e-9);
 
-  // convert robot‐coords (0–144) → canvas‐coords
-  const canvasX = (x / 144) * canvas.width;
-  const canvasY = ((144 - y) / 144) * canvas.height;
-  const scale   = canvas.width / 144;
+  // convert current field coordinates to screen coordinates
+  const canvasX = fieldToCanvasX(x, canvas.width);
+  const canvasY = fieldToCanvasY(y, canvas.height);
 
   // body dims in px
   const w = width  * scale;

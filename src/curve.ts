@@ -35,6 +35,7 @@ function createWaypoints(){
   // const ptsPerSeg = Math.floor(totalInterp / numSegments);
   // const remainder = totalInterp - ptsPerSeg * numSegments;
   const count = 1000;
+  let prevBezierPts: { x: number; y: number }[] | null = null;
 
   totalSeg = count * numSegments
   
@@ -45,10 +46,14 @@ function createWaypoints(){
     const sectpts = isolate(controlpoints, currsection.startcontrol, currsection.endcontrol);
 
 
-    if(segtype == "bezier"){
-      fillbezier(sectpts,  currsection, count)
+    if(segtype == "bezier" || segtype == "bezier3"){
+      prevBezierPts = fillbezier(sectpts, currsection, count, prevBezierPts)
+    }else if(segtype == "arc"){
+      fillarc(sectpts, currsection, count)
+      prevBezierPts = null;
     }else{
       fillline(sectpts,  currsection, count)
+      prevBezierPts = null;
     }
 
     if(seg != numSegments - 1){
@@ -59,8 +64,9 @@ function createWaypoints(){
       const EPSILON = 1e-4;
       const angleDelta = Math.abs(_normalizeAngle(curr.endangle - nxt.startangle));
 
-      if (angleDelta > EPSILON) {
-        fillturn(curr.endx, curr.endy, curr.endangle, nxt.startangle, 10, false);
+      if (angleDelta > EPSILON && pathpoints.length > 0) {
+        const seam = pathpoints[pathpoints.length - 1];
+        fillturn(seam.x, seam.y, seam.orientation, nxt.startangle, 12);
       }
       
     }
@@ -106,6 +112,10 @@ function createWaypoints(){
 export function computeBezierWaypoints() {
 
   createWaypoints();
+  if (pathpoints.length === 0) {
+    plot();
+    return;
+  }
   smoothCurvatureAtSectionSeams();
   computeStableCurvaturePrime();
 
@@ -477,13 +487,66 @@ function bernstein(n: number, i: number, t: number): number {
   return binomialCoefficient(n, i) * Math.pow(1 - t, n - i) * Math.pow(t, i);
 }
 
+function elevateBezierToDegree(pts: { x: number; y: number }[], targetDegree: number): { x: number; y: number }[] {
+  const n = pts.length - 1;
+  if (n < 1 || n >= targetDegree) return pts;
+
+  const elevated: { x: number; y: number }[] = [];
+  for (let i = 0; i <= targetDegree; i++) {
+    let x = 0;
+    let y = 0;
+
+    const jMin = Math.max(0, i - (targetDegree - n));
+    const jMax = Math.min(n, i);
+
+    for (let j = jMin; j <= jMax; j++) {
+      const w =
+        (binomialCoefficient(n, j) *
+          binomialCoefficient(targetDegree - n, i - j)) /
+        binomialCoefficient(targetDegree, i);
+      x += w * pts[j].x;
+      y += w * pts[j].y;
+    }
+
+    elevated.push({ x, y });
+  }
+
+  return elevated;
+}
+
 function toSixPointBezier(pts: { x: number; y: number }[]): { x: number; y: number }[] {
   if (pts.length >= 6) return pts.slice(0, 6);
-  if (pts.length === 4) {
-    const [p0, p1, p2, p3] = pts;
-    return [p0, p1, p1, p2, p2, p3];
-  }
+  if (pts.length >= 3) return elevateBezierToDegree(pts, 5);
   return pts;
+}
+
+function enforceC2FromPrevious(
+  currentPts: { x: number; y: number }[],
+  prevPts: { x: number; y: number }[] | null,
+): { x: number; y: number }[] {
+  if (!prevPts || currentPts.length < 6 || prevPts.length < 6) return currentPts;
+
+  const adjusted = currentPts.map((pt) => ({ ...pt }));
+  const p3 = prevPts[3];
+  const p4 = prevPts[4];
+  const p5 = prevPts[5];
+
+  adjusted[0] = { x: p5.x, y: p5.y };
+  adjusted[1] = {
+    x: 2 * p5.x - p4.x,
+    y: 2 * p5.y - p4.y,
+  };
+
+  const seamSecond = {
+    x: p5.x - 2 * p4.x + p3.x,
+    y: p5.y - 2 * p4.y + p3.y,
+  };
+  adjusted[2] = {
+    x: seamSecond.x + 2 * adjusted[1].x - adjusted[0].x,
+    y: seamSecond.y + 2 * adjusted[1].y - adjusted[0].y,
+  };
+
+  return adjusted;
 }
 
 function bezierDerivative(pts: { x: number; y: number }[], t: number) {
@@ -577,8 +640,14 @@ function isolate(controlpoints: controlPoint[], start: number, end: number): con
 }
 
 
-function fillbezier(sectpts: controlPoint[], currsection: section, count: number){
-  const bezierPts = toSixPointBezier(sectpts);
+function fillbezier(
+  sectpts: controlPoint[],
+  currsection: section,
+  count: number,
+  prevBezierPts: { x: number; y: number }[] | null,
+): { x: number; y: number }[] {
+  const baseBezierPts = toSixPointBezier(sectpts);
+  const bezierPts = enforceC2FromPrevious(baseBezierPts, prevBezierPts);
   const degree = bezierPts.length - 1;
 
   currsection.startpath = pathpoints.length === 0 ? 0 : pathpoints.length - 1;
@@ -601,7 +670,7 @@ function fillbezier(sectpts: controlPoint[], currsection: section, count: number
         const first = sectpts[0];
         wp.orientation = Math.atan2(first.angley!, first.anglex!);
       }else if(i == count){
-        const last = sectpts[3];
+        const last = sectpts[sectpts.length - 1];
         wp.orientation = Math.atan2(last.angley!, last.anglex!);
       }
 
@@ -620,6 +689,7 @@ function fillbezier(sectpts: controlPoint[], currsection: section, count: number
     }
 
     currsection.endpath = pathpoints.length-1;
+  return bezierPts;
 }
 
 
@@ -657,7 +727,98 @@ function fillline(sectpts: controlPoint[], currsection: section, count: number){
 
 } 
 
-function fillturn(x: number, y: number, startangle: number, endangle: number, count: number, rev : boolean){
+function normalizeAngleRad(angle: number): number {
+  while (angle > Math.PI) angle -= 2 * Math.PI;
+  while (angle < -Math.PI) angle += 2 * Math.PI;
+  return angle;
+}
+
+function ccwDelta(from: number, to: number): number {
+  let d = to - from;
+  while (d < 0) d += 2 * Math.PI;
+  while (d >= 2 * Math.PI) d -= 2 * Math.PI;
+  return d;
+}
+
+function fillarc(sectpts: controlPoint[], currsection: section, count: number) {
+  if (sectpts.length < 3) {
+    fillline([sectpts[0], sectpts[sectpts.length - 1]], currsection, count);
+    return;
+  }
+
+  const start = sectpts[0];
+  const mid = sectpts[1];
+  const end = sectpts[2];
+
+  const x1 = start.x;
+  const y1 = start.y;
+  const x2 = mid.x;
+  const y2 = mid.y;
+  const x3 = end.x;
+  const y3 = end.y;
+
+  const det = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
+  if (Math.abs(det) < 1e-6) {
+    fillline([start, end], currsection, count);
+    return;
+  }
+
+  const ux =
+    ((x1 * x1 + y1 * y1) * (y2 - y3) +
+      (x2 * x2 + y2 * y2) * (y3 - y1) +
+      (x3 * x3 + y3 * y3) * (y1 - y2)) /
+    det;
+  const uy =
+    ((x1 * x1 + y1 * y1) * (x3 - x2) +
+      (x2 * x2 + y2 * y2) * (x1 - x3) +
+      (x3 * x3 + y3 * y3) * (x2 - x1)) /
+    det;
+
+  const radius = Math.hypot(x1 - ux, y1 - uy);
+  if (radius < 1e-6) {
+    fillline([start, end], currsection, count);
+    return;
+  }
+
+  const a0 = Math.atan2(y1 - uy, x1 - ux);
+  const a1 = Math.atan2(y2 - uy, x2 - ux);
+  const a2 = Math.atan2(y3 - uy, x3 - ux);
+
+  const totalCCW = ccwDelta(a0, a2);
+  const midCCW = ccwDelta(a0, a1);
+  const isCCW = midCCW <= totalCCW + 1e-6;
+  const signedDelta = isCCW ? totalCCW : -(2 * Math.PI - totalCCW);
+  const signedCurvature = (isCCW ? 1 : -1) / radius;
+
+  currsection.startpath = pathpoints.length === 0 ? 0 : pathpoints.length - 1;
+  const startI = pathpoints.length === 0 ? 0 : 1;
+
+  for (let i = startI; i <= count; i++) {
+    const t = i / count;
+    const angle = a0 + t * signedDelta;
+    const wp = createpathpoint();
+
+    wp.x = ux + radius * Math.cos(angle);
+    wp.y = uy + radius * Math.sin(angle);
+    wp.orientation = normalizeAngleRad(angle + (isCCW ? Math.PI / 2 : -Math.PI / 2));
+
+    if (currsection.rev) {
+      wp.orientation += PI;
+    }
+
+    if (pathpoints.length > 0) {
+      const dist = calcdistance(pathpoints[pathpoints.length - 1], wp);
+      wp.dist = pathpoints[pathpoints.length - 1].dist + dist;
+    }
+
+    wp.curvature = signedCurvature;
+    pathpoints.push(wp);
+  }
+
+  currsection.endpath = pathpoints.length - 1;
+}
+
+function fillturn(x: number, y: number, startangle: number, endangle: number, count: number){
   function NormalizeAngle(angle: number): number {
     while (angle > Math.PI) angle -= 2 * Math.PI;
     while (angle < -Math.PI) angle += 2 * Math.PI;
