@@ -120,6 +120,10 @@ export function computeBezierWaypoints() {
   forwardpass();
   enforceWheelAccelerationLimits();
 
+    backwardpass();
+  forwardpass();
+  enforceWheelAccelerationLimits();
+
   for (let i = 0; i < pathpoints.length; i++) {
     const p = pathpoints[i];
     const w = bot.trackwidth;
