@@ -9,9 +9,11 @@ import {
   type ViewerFrame,
   type ViewerRobotState
 } from "./constants";
+import { drawFieldImage } from "../fieldRenderer";
+import { canvasToFieldX, canvasToFieldY, fieldToCanvasX, fieldToCanvasY, getFieldView, panFieldView, zoomFieldView } from "../globals";
+import { drawRobotOutline } from "../robotRenderer";
 
 type ViewerElements = {
-  startupScreen: HTMLElement;
   chooseFileBtn: HTMLButtonElement;
   fileInput: HTMLInputElement;
   viewerApp: HTMLElement;
@@ -94,41 +96,40 @@ function initViewer(): void {
   }
 
   const elements: ViewerElements = {
-    startupScreen: getRequiredElement<HTMLElement>(root, "#viewerStartupScreen"),
-    chooseFileBtn: getRequiredElement<HTMLButtonElement>(root, "#viewerChooseFileBtn"),
-    fileInput: getRequiredElement<HTMLInputElement>(root, "#viewerFileInput"),
-    viewerApp: getRequiredElement<HTMLElement>(root, "#viewerApp"),
-    canvas: getRequiredElement<HTMLCanvasElement>(root, "#viewerCanvas"),
-    info: getRequiredElement<HTMLElement>(root, "#viewerInfo"),
-    frameSlider: getRequiredElement<HTMLInputElement>(root, "#viewerFrameSlider"),
-    skipFramesInput: getRequiredElement<HTMLInputElement>(root, "#viewerSkipFrames"),
-    playBtn: getRequiredElement<HTMLButtonElement>(root, "#viewerPlayBtn"),
-    stopBtn: getRequiredElement<HTMLButtonElement>(root, "#viewerStopBtn"),
-    startupStatus: getRequiredElement<HTMLElement>(root, "#viewerStartupStatus"),
-    robotX: getRequiredElement<HTMLElement>(root, "#viewerRobotX"),
-    robotY: getRequiredElement<HTMLElement>(root, "#viewerRobotY"),
-    robotTheta: getRequiredElement<HTMLElement>(root, "#viewerRobotTheta"),
-    batteryPercent: getRequiredElement<HTMLElement>(root, "#viewerBatteryPercent"),
-    intakeTemp: getRequiredElement<HTMLElement>(root, "#viewerIntakeTemp"),
-    leftTemp: getRequiredElement<HTMLElement>(root, "#viewerLeftTemp"),
-    rightTemp: getRequiredElement<HTMLElement>(root, "#viewerRightTemp"),
-    leftOutput: getRequiredElement<HTMLElement>(root, "#viewerLeftOutput"),
-    rightOutput: getRequiredElement<HTMLElement>(root, "#viewerRightOutput"),
-    tickTime: getRequiredElement<HTMLElement>(root, "#viewerTickTime"),
-    elapsedTime: getRequiredElement<HTMLElement>(root, "#viewerElapsedTime"),
-    sensorFrontValid: getRequiredElement<HTMLElement>(root, "#viewerSensorFrontValid"),
-    sensorFrontDist: getRequiredElement<HTMLElement>(root, "#viewerSensorFrontDist"),
-    sensorFrontPos: getRequiredElement<HTMLElement>(root, "#viewerSensorFrontPos"),
-    sensorRightValid: getRequiredElement<HTMLElement>(root, "#viewerSensorRightValid"),
-    sensorRightDist: getRequiredElement<HTMLElement>(root, "#viewerSensorRightDist"),
-    sensorRightPos: getRequiredElement<HTMLElement>(root, "#viewerSensorRightPos"),
-    sensorBackValid: getRequiredElement<HTMLElement>(root, "#viewerSensorBackValid"),
-    sensorBackDist: getRequiredElement<HTMLElement>(root, "#viewerSensorBackDist"),
-    sensorBackPos: getRequiredElement<HTMLElement>(root, "#viewerSensorBackPos"),
-    sensorLeftValid: getRequiredElement<HTMLElement>(root, "#viewerSensorLeftValid"),
-    sensorLeftDist: getRequiredElement<HTMLElement>(root, "#viewerSensorLeftDist"),
-    sensorLeftPos: getRequiredElement<HTMLElement>(root, "#viewerSensorLeftPos"),
-    warningLog: getRequiredElement<HTMLElement>(root, "#viewerWarningLog")
+    chooseFileBtn: getRequiredElement<HTMLButtonElement>(document, "#viewerChooseFileBtn"),
+    fileInput: getRequiredElement<HTMLInputElement>(document, "#viewerFileInput"),
+    viewerApp: getRequiredElement<HTMLElement>(document, "#viewerApp"),
+    canvas: getRequiredElement<HTMLCanvasElement>(document, "#viewerCanvas"),
+    info: getRequiredElement<HTMLElement>(document, "#viewerInfo"),
+    frameSlider: getRequiredElement<HTMLInputElement>(document, "#viewerFrameSlider"),
+    skipFramesInput: getRequiredElement<HTMLInputElement>(document, "#viewerSkipFrames"),
+    playBtn: getRequiredElement<HTMLButtonElement>(document, "#viewerPlayBtn"),
+    stopBtn: getRequiredElement<HTMLButtonElement>(document, "#viewerStopBtn"),
+    startupStatus: getRequiredElement<HTMLElement>(document, "#viewerStartupStatus"),
+    robotX: getRequiredElement<HTMLElement>(document, "#viewerRobotX"),
+    robotY: getRequiredElement<HTMLElement>(document, "#viewerRobotY"),
+    robotTheta: getRequiredElement<HTMLElement>(document, "#viewerRobotTheta"),
+    batteryPercent: getRequiredElement<HTMLElement>(document, "#viewerBatteryPercent"),
+    intakeTemp: getRequiredElement<HTMLElement>(document, "#viewerIntakeTemp"),
+    leftTemp: getRequiredElement<HTMLElement>(document, "#viewerLeftTemp"),
+    rightTemp: getRequiredElement<HTMLElement>(document, "#viewerRightTemp"),
+    leftOutput: getRequiredElement<HTMLElement>(document, "#viewerLeftOutput"),
+    rightOutput: getRequiredElement<HTMLElement>(document, "#viewerRightOutput"),
+    tickTime: getRequiredElement<HTMLElement>(document, "#viewerTickTime"),
+    elapsedTime: getRequiredElement<HTMLElement>(document, "#viewerElapsedTime"),
+    sensorFrontValid: getRequiredElement<HTMLElement>(document, "#viewerSensorFrontValid"),
+    sensorFrontDist: getRequiredElement<HTMLElement>(document, "#viewerSensorFrontDist"),
+    sensorFrontPos: getRequiredElement<HTMLElement>(document, "#viewerSensorFrontPos"),
+    sensorRightValid: getRequiredElement<HTMLElement>(document, "#viewerSensorRightValid"),
+    sensorRightDist: getRequiredElement<HTMLElement>(document, "#viewerSensorRightDist"),
+    sensorRightPos: getRequiredElement<HTMLElement>(document, "#viewerSensorRightPos"),
+    sensorBackValid: getRequiredElement<HTMLElement>(document, "#viewerSensorBackValid"),
+    sensorBackDist: getRequiredElement<HTMLElement>(document, "#viewerSensorBackDist"),
+    sensorBackPos: getRequiredElement<HTMLElement>(document, "#viewerSensorBackPos"),
+    sensorLeftValid: getRequiredElement<HTMLElement>(document, "#viewerSensorLeftValid"),
+    sensorLeftDist: getRequiredElement<HTMLElement>(document, "#viewerSensorLeftDist"),
+    sensorLeftPos: getRequiredElement<HTMLElement>(document, "#viewerSensorLeftPos"),
+    warningLog: getRequiredElement<HTMLElement>(document, "#viewerWarningLog")
   };
 
   const ctx = elements.canvas.getContext("2d");
@@ -140,36 +141,66 @@ function initViewer(): void {
   const bgImage = new Image();
   bgImage.src = vexfield;
 
+  elements.fileInput.value = "";
+  elements.viewerApp.hidden = false;
+  elements.chooseFileBtn.type = "button";
+  elements.playBtn.type = "button";
+  elements.stopBtn.type = "button";
+
+  const resizeViewerCanvas = (): void => {
+    const rect = elements.canvas.getBoundingClientRect();
+    const side = Math.max(1, Math.floor(Math.min(rect.width || 600, rect.height || rect.width || 600)));
+    if (elements.canvas.width !== side || elements.canvas.height !== side) {
+      elements.canvas.width = side;
+      elements.canvas.height = side;
+    }
+  };
+
+  let isPanningField = false;
+  let panLastClientX = 0;
+  let panLastClientY = 0;
+
+  const redraw = (): void => {
+    draw();
+  };
+
   const draw = (): void => {
+    resizeViewerCanvas();
+
+    const drawFieldBackground = (): void => {
+      drawFieldImage(ctx, bgImage, {
+        mode: "view-window",
+        view: getFieldView(),
+        fieldSizeInches: 144
+      });
+    };
+
     if (!state.frames.length) {
       ctx.clearRect(0, 0, elements.canvas.width, elements.canvas.height);
-      ctx.fillStyle = "#aab3c2";
-      ctx.font = "16px monospace";
-      ctx.fillText("Load a file to begin", elements.canvas.width / 2 - 84, elements.canvas.height / 2);
+      drawFieldBackground();
+      ctx.fillStyle = "rgba(5, 12, 20, 0.78)";
+      ctx.fillRect(18, 18, elements.canvas.width - 36, 54);
+      ctx.fillStyle = "#c6d6ea";
+      ctx.font = "600 16px ui-sans-serif, system-ui, sans-serif";
+      ctx.fillText("Field preview is ready. Upload a log from the right panel.", 34, 50);
       resetViewerLabels(elements);
       renderWarningLog(elements.warningLog, state.warningEvents, 0);
+      elements.info.textContent = "No log loaded";
       return;
     }
 
     const frame = state.frames[state.frameIndex];
     const width = elements.canvas.width;
     const height = elements.canvas.height;
-    const worldSize = 80;
-    const fieldSize = 72;
-    const scale = width / (worldSize * 2);
-    const cx = width / 2;
-    const cy = height / 2;
 
     ctx.clearRect(0, 0, width, height);
 
-    if (bgImage.complete) {
-      ctx.drawImage(bgImage, cx - fieldSize * scale, cy - fieldSize * scale, fieldSize * 2 * scale, fieldSize * 2 * scale);
-    }
+    drawFieldBackground();
 
-    drawPathTrace(ctx, state.frames, state.skipFrames, state.frameIndex, cx, cy, scale);
-    drawParticles(ctx, frame, cx, cy, scale);
-    drawRobot(ctx, frame.robot, cx, cy, scale);
-    drawSensors(ctx, frame, cx, cy, scale);
+    drawPathTrace(ctx, state.frames, state.skipFrames, state.frameIndex);
+    drawParticles(ctx, frame);
+    drawRobot(ctx, frame.robot);
+    drawSensors(ctx, frame);
     updateRightPanel(elements, state.frames, state.skipFrames, state.frameIndex);
     renderWarningLog(elements.warningLog, state.warningEvents, state.frameIndex);
   };
@@ -298,9 +329,7 @@ function initViewer(): void {
 
     buildWarningEvents(state.frames, state.warningEvents);
 
-    elements.startupStatus.textContent = "";
-    elements.startupScreen.style.display = "none";
-    elements.viewerApp.style.display = "block";
+    elements.startupStatus.textContent = `Loaded ${state.frames.length} frames`;
 
     state.skipFrames = findInitialFrame(state.frames);
     elements.skipFramesInput.value = String(state.skipFrames);
@@ -344,6 +373,73 @@ function initViewer(): void {
     draw();
   });
 
+  elements.canvas.addEventListener("mousedown", (event: MouseEvent) => {
+    if (event.button === 1) {
+      isPanningField = true;
+      panLastClientX = event.clientX;
+      panLastClientY = event.clientY;
+      event.preventDefault();
+    }
+  });
+
+  elements.canvas.addEventListener("mousemove", (event: MouseEvent) => {
+    if (!isPanningField) {
+      return;
+    }
+
+    const rect = elements.canvas.getBoundingClientRect();
+    const view = getFieldView();
+    const spanX = view.right - view.left;
+    const spanY = view.bottom - view.top;
+    const dx = event.clientX - panLastClientX;
+    const dy = event.clientY - panLastClientY;
+
+    if (Math.abs(dx) > 0 || Math.abs(dy) > 0) {
+      panFieldView(
+        -(dx / Math.max(rect.width, 1)) * spanX,
+        (dy / Math.max(rect.height, 1)) * spanY
+      );
+      redraw();
+    }
+
+    panLastClientX = event.clientX;
+    panLastClientY = event.clientY;
+  });
+
+  elements.canvas.addEventListener("mouseup", () => {
+    isPanningField = false;
+  });
+
+  elements.canvas.addEventListener("wheel", (event: WheelEvent) => {
+    const rect = elements.canvas.getBoundingClientRect();
+    if (rect.width <= 0 || rect.height <= 0) {
+      return;
+    }
+
+    event.preventDefault();
+
+    const view = getFieldView();
+    const spanX = view.right - view.left;
+    const spanY = view.bottom - view.top;
+    const panGesture = event.shiftKey || Math.abs(event.deltaX) > Math.abs(event.deltaY);
+
+    if (panGesture) {
+      const deltaX = (event.deltaX / Math.max(rect.width, 1)) * spanX;
+      const deltaY = (event.deltaY / Math.max(rect.height, 1)) * spanY;
+      panFieldView(deltaX, deltaY);
+      redraw();
+      return;
+    }
+
+    const zoomScale = Math.exp(event.deltaY * 0.0015);
+    const pointerX = Math.max(0, Math.min(rect.width, event.clientX - rect.left));
+    const pointerY = Math.max(0, Math.min(rect.height, event.clientY - rect.top));
+    const anchorX = canvasToFieldX(pointerX, rect.width);
+    const anchorY = canvasToFieldY(pointerY, rect.height);
+    zoomFieldView(zoomScale, anchorX, anchorY);
+    redraw();
+  }, { passive: false });
+
   elements.playBtn.addEventListener("click", startPlayback);
   elements.stopBtn.addEventListener("click", stopPlayback);
 
@@ -366,6 +462,14 @@ function initViewer(): void {
   });
 
   bgImage.onload = () => draw();
+
+  window.addEventListener("resize", draw);
+  document.addEventListener("app-mode-change", (event) => {
+    const mode = (event as CustomEvent<{ mode?: string }>).detail?.mode;
+    if (mode === "viewer") {
+      draw();
+    }
+  });
 
   initialized = true;
   draw();
@@ -549,10 +653,7 @@ function drawPathTrace(
   ctx: CanvasRenderingContext2D,
   frames: ViewerFrame[],
   skipFrames: number,
-  frameIndex: number,
-  cx: number,
-  cy: number,
-  scale: number
+  frameIndex: number
 ): void {
   if (frames.length > 1 && frameIndex >= skipFrames) {
     ctx.strokeStyle = "#000000";
@@ -561,8 +662,8 @@ function drawPathTrace(
 
     for (let index = skipFrames; index <= frameIndex; index++) {
       const pathFrame = frames[index];
-      const screenX = cx + pathFrame.robot.x * scale;
-      const screenY = cy - pathFrame.robot.y * scale;
+      const screenX = fieldToCanvasX(pathFrame.robot.x, ctx.canvas.width);
+      const screenY = fieldToCanvasY(pathFrame.robot.y, ctx.canvas.height);
 
       if (index === skipFrames) {
         ctx.moveTo(screenX, screenY);
@@ -577,118 +678,49 @@ function drawPathTrace(
 
 function drawParticles(
   ctx: CanvasRenderingContext2D,
-  frame: ViewerFrame,
-  cx: number,
-  cy: number,
-  scale: number
+  frame: ViewerFrame
 ): void {
   ctx.fillStyle = "rgba(0,255,255,0.5)";
   frame.particles.forEach((particle) => {
     ctx.beginPath();
-    ctx.arc(cx + particle.x * scale, cy - particle.y * scale, 2, 0, Math.PI * 2);
+    ctx.arc(
+      fieldToCanvasX(particle.x, ctx.canvas.width),
+      fieldToCanvasY(particle.y, ctx.canvas.height),
+      2,
+      0,
+      Math.PI * 2
+    );
     ctx.fill();
   });
 }
 
-function drawRobot(ctx: CanvasRenderingContext2D, robot: ViewerRobotState, cx: number, cy: number, scale: number): void {
-  const thetaRad = robot.theta * Math.PI / 180;
-  const cosTheta = Math.cos(thetaRad);
-  const sinTheta = Math.sin(thetaRad);
-  const frontDist = ROBOT_LENGTH - ROBOT_CENTER_OFFSET_FROM_BACK;
-  const backDist = -ROBOT_CENTER_OFFSET_FROM_BACK;
-  const halfWidth = ROBOT_WIDTH / 2;
-
-  const corners: Array<[number, number]> = [
-    [frontDist, -halfWidth],
-    [frontDist, halfWidth],
-    [backDist, halfWidth],
-    [backDist, -halfWidth]
-  ];
-
-  ctx.fillStyle = "rgba(255, 0, 0, 0.5)";
-  ctx.strokeStyle = "red";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-
-  corners.forEach((corner, cornerIndex) => {
-    const worldX = robot.x + (cosTheta * corner[0] - sinTheta * corner[1]);
-    const worldY = robot.y + (sinTheta * corner[0] + cosTheta * corner[1]);
-    const screenX = cx + worldX * scale;
-    const screenY = cy - worldY * scale;
-
-    if (cornerIndex === 0) {
-      ctx.moveTo(screenX, screenY);
-    } else {
-      ctx.lineTo(screenX, screenY);
+function drawRobot(ctx: CanvasRenderingContext2D, robot: ViewerRobotState): void {
+  drawRobotOutline(
+    ctx,
+    {
+      x: robot.x,
+      y: robot.y,
+      thetaRadians: robot.theta * Math.PI / 180,
+      length: ROBOT_LENGTH,
+      width: ROBOT_WIDTH,
+      centerOffsetFromBack: ROBOT_CENTER_OFFSET_FROM_BACK
+    },
+    (worldX, worldY) => ({
+      x: fieldToCanvasX(worldX, ctx.canvas.width),
+      y: fieldToCanvasY(worldY, ctx.canvas.height)
+    }),
+    {
+      fillStyle: "rgba(255, 255, 255, 0.32)",
+      strokeStyle: "#ffffff",
+      headingStrokeStyle: "#ffffff",
+      lineWidth: 2,
+      headingLineWidth: 2,
+      headingLength: 5
     }
-  });
-
-  ctx.closePath();
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.strokeStyle = "darkred";
-  ctx.lineWidth = 1;
-  const sideOffset = 2.5;
-  const leftLineLocalY = -halfWidth + sideOffset;
-  const rightLineLocalY = halfWidth - sideOffset;
-
-  const leftBackWorldX = robot.x + (cosTheta * backDist - sinTheta * leftLineLocalY);
-  const leftBackWorldY = robot.y + (sinTheta * backDist + cosTheta * leftLineLocalY);
-  const leftFrontWorldX = robot.x + (cosTheta * frontDist - sinTheta * leftLineLocalY);
-  const leftFrontWorldY = robot.y + (sinTheta * frontDist + cosTheta * leftLineLocalY);
-  ctx.beginPath();
-  ctx.moveTo(cx + leftBackWorldX * scale, cy - leftBackWorldY * scale);
-  ctx.lineTo(cx + leftFrontWorldX * scale, cy - leftFrontWorldY * scale);
-  ctx.stroke();
-
-  const rightBackWorldX = robot.x + (cosTheta * backDist - sinTheta * rightLineLocalY);
-  const rightBackWorldY = robot.y + (sinTheta * backDist + cosTheta * rightLineLocalY);
-  const rightFrontWorldX = robot.x + (cosTheta * frontDist - sinTheta * rightLineLocalY);
-  const rightFrontWorldY = robot.y + (sinTheta * frontDist + cosTheta * rightLineLocalY);
-  ctx.beginPath();
-  ctx.moveTo(cx + rightBackWorldX * scale, cy - rightBackWorldY * scale);
-  ctx.lineTo(cx + rightFrontWorldX * scale, cy - rightFrontWorldY * scale);
-  ctx.stroke();
-
-  ctx.lineWidth = 2;
-  ctx.fillStyle = "black";
-  ctx.beginPath();
-  ctx.arc(cx + robot.x * scale, cy - robot.y * scale, 3, 0, Math.PI * 2);
-  ctx.fill();
-
-  ctx.strokeStyle = "black";
-  ctx.lineWidth = 3;
-  const arrowLen = 4;
-  const arrowWidth = 2;
-  const frontX = robot.x + cosTheta * frontDist;
-  const frontY = robot.y + sinTheta * frontDist;
-  const tipX = frontX + cosTheta * arrowLen;
-  const tipY = frontY + sinTheta * arrowLen;
-  const leftWingX = frontX + cosTheta * arrowLen / 2 - sinTheta * arrowWidth;
-  const leftWingY = frontY + sinTheta * arrowLen / 2 + cosTheta * arrowWidth;
-  const rightWingX = frontX + cosTheta * arrowLen / 2 + sinTheta * arrowWidth;
-  const rightWingY = frontY + sinTheta * arrowLen / 2 - cosTheta * arrowWidth;
-
-  ctx.beginPath();
-  ctx.moveTo(cx + frontX * scale, cy - frontY * scale);
-  ctx.lineTo(cx + tipX * scale, cy - tipY * scale);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(cx + tipX * scale, cy - tipY * scale);
-  ctx.lineTo(cx + leftWingX * scale, cy - leftWingY * scale);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(cx + tipX * scale, cy - tipY * scale);
-  ctx.lineTo(cx + rightWingX * scale, cy - rightWingY * scale);
-  ctx.stroke();
-
-  ctx.lineWidth = 1;
+  );
 }
 
-function drawSensors(ctx: CanvasRenderingContext2D, frame: ViewerFrame, cx: number, cy: number, scale: number): void {
+function drawSensors(ctx: CanvasRenderingContext2D, frame: ViewerFrame): void {
   const robot = frame.robot;
   if (!frame.distances) {
     return;
@@ -711,20 +743,20 @@ function drawSensors(ctx: CanvasRenderingContext2D, frame: ViewerFrame, cx: numb
 
     ctx.strokeStyle = isValid ? "lime" : "red";
     ctx.beginPath();
-    ctx.moveTo(cx + sensorX * scale, cy - sensorY * scale);
+    ctx.moveTo(fieldToCanvasX(sensorX, ctx.canvas.width), fieldToCanvasY(sensorY, ctx.canvas.height));
     const endX = sensorX + Math.cos(angle) * distance;
     const endY = sensorY + Math.sin(angle) * distance;
-    ctx.lineTo(cx + endX * scale, cy - endY * scale);
+    ctx.lineTo(fieldToCanvasX(endX, ctx.canvas.width), fieldToCanvasY(endY, ctx.canvas.height));
     ctx.stroke();
 
     ctx.fillStyle = isValid ? "lime" : "red";
     ctx.beginPath();
-    ctx.arc(cx + sensorX * scale, cy - sensorY * scale, 3, 0, Math.PI * 2);
+    ctx.arc(fieldToCanvasX(sensorX, ctx.canvas.width), fieldToCanvasY(sensorY, ctx.canvas.height), 3, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = "yellow";
     ctx.beginPath();
-    ctx.arc(cx + endX * scale, cy - endY * scale, 3, 0, Math.PI * 2);
+    ctx.arc(fieldToCanvasX(endX, ctx.canvas.width), fieldToCanvasY(endY, ctx.canvas.height), 3, 0, Math.PI * 2);
     ctx.fill();
   });
 
@@ -732,8 +764,8 @@ function drawSensors(ctx: CanvasRenderingContext2D, frame: ViewerFrame, cx: numb
     const sensorColors = ["cyan", "magenta", "purple", "orange"];
     frame.rayEndpoints.forEach((endpoint, sensorIndex) => {
       if (endpoint && endpoint.x !== 0 && endpoint.y !== 0) {
-        const screenX = cx + endpoint.x * scale;
-        const screenY = cy - endpoint.y * scale;
+        const screenX = fieldToCanvasX(endpoint.x, ctx.canvas.width);
+        const screenY = fieldToCanvasY(endpoint.y, ctx.canvas.height);
         const crossSize = 5;
         ctx.strokeStyle = sensorColors[sensorIndex];
         ctx.lineWidth = 2;

@@ -3,44 +3,50 @@ import {  pathpoints } from "./globals";
 import { canvas, MAX_VELOCITY, ctx, background } from "./globals";
 import { controlpoints, pathPoint, controlPoint } from "./globals";
 import { fieldToCanvasX, fieldToCanvasY, getFieldView } from "./globals";
+import { drawFieldImage } from "./fieldRenderer";
+import { drawRobotOutline } from "./robotRenderer";
 
 function drawFieldBackground() {
-  const view = getFieldView();
-  const sx = (view.left / 144) * background.naturalWidth;
-  const sy = ((144 - view.bottom) / 144) * background.naturalHeight;
-  const sWidth = ((view.right - view.left) / 144) * background.naturalWidth;
-  const sHeight = ((view.bottom - view.top) / 144) * background.naturalHeight;
-
-  ctx.drawImage(
-    background,
-    sx,
-    sy,
-    Math.max(1, sWidth),
-    Math.max(1, sHeight),
-    0,
-    0,
-    ctx.canvas.width,
-    ctx.canvas.height
-  );
+  drawFieldImage(ctx, background, {
+    mode: "view-window",
+    view: getFieldView(),
+    fieldSizeInches: 144
+  });
 }
 
 function setupCanvas() {
+  const resizePathCanvas = () => {
+    const rect = canvas.getBoundingClientRect();
+    const sideFromHeight = rect.height > 0 ? rect.height : rect.width;
+    const side = Math.max(1, Math.floor(Math.min(rect.width || sideFromHeight, sideFromHeight || rect.width)));
+    if (side > 0 && (canvas.width !== side || canvas.height !== side)) {
+      canvas.width = side;
+      canvas.height = side;
+    }
+  };
+
   background.onload = () => {
+    resizePathCanvas();
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
     drawFieldBackground();
   };
 
   document.addEventListener("drawpath", () => {
-    canvas.width = canvas.getBoundingClientRect().height;
-    canvas.height = canvas.getBoundingClientRect().height;
+    resizePathCanvas();
     redrawCanvas();
   });
 
   document.addEventListener("redrawCanvas", () => {
-    canvas.width = canvas.getBoundingClientRect().height;
-    canvas.height = canvas.getBoundingClientRect().height;
+    resizePathCanvas();
     redrawCanvas();
   });
+
+  window.addEventListener("resize", () => {
+    resizePathCanvas();
+    redrawCanvas();
+  });
+
+  resizePathCanvas();
 }
 
 let drawpoints = true;
@@ -221,55 +227,51 @@ import { end_hi, start_hi } from "./handling";
 
 function drawBot(ctx: CanvasRenderingContext2D) {
   const { x, y, o, width, length, trackwidth } = bot;
+
+  drawRobotOutline(
+    ctx,
+    {
+      x,
+      y,
+      thetaRadians: o,
+      length,
+      width,
+      centerOffsetFromBack: length / 2
+    },
+    (worldX, worldY) => ({
+      x: fieldToCanvasX(worldX, canvas.width),
+      y: fieldToCanvasY(worldY, canvas.height)
+    }),
+    {
+      fillStyle: "rgba(0, 0, 255, 0.4)",
+      strokeStyle: "blue",
+      headingStrokeStyle: "white",
+      lineWidth: 2,
+      headingLineWidth: 2,
+      headingLength: length / 2
+    }
+  );
+
   const view = getFieldView();
   const scale = canvas.width / Math.max(view.right - view.left, 1e-9);
-
-  // convert current field coordinates to screen coordinates
   const canvasX = fieldToCanvasX(x, canvas.width);
   const canvasY = fieldToCanvasY(y, canvas.height);
-
-  // body dims in px
-  const w = width  * scale;
   const l = length * scale;
-  // track‐width in px and half:
-  const tw = trackwidth * scale;
-  const ht = tw / 2;
+  const ht = (trackwidth * scale) / 2;
 
   ctx.save();
   ctx.translate(canvasX, canvasY);
   ctx.rotate(-o);
-
-  // draw robot body
   ctx.beginPath();
-  ctx.rect(-l / 2, -w / 2, l, w);
-  ctx.fillStyle   = "rgba(0, 0, 255, 0.4)";
-  ctx.fill();
-  ctx.lineWidth   = 2;
-  ctx.strokeStyle = "blue";
-  ctx.stroke();
-
-  // heading line
-  ctx.beginPath();
-  ctx.moveTo(0, 0);
-  ctx.lineTo(l / 2, 0);
-  ctx.strokeStyle = "white";
-  ctx.lineWidth   = 2;
-  ctx.stroke();
-
-  // ** new: track‐width “rails” **
-  ctx.beginPath();
-  // left side
   ctx.moveTo(-l / 2, -ht);
-  ctx.lineTo( l / 2, -ht);
-  // right side
-  ctx.moveTo(-l / 2,  ht);
-  ctx.lineTo( l / 2,  ht);
+  ctx.lineTo(l / 2, -ht);
+  ctx.moveTo(-l / 2, ht);
+  ctx.lineTo(l / 2, ht);
   ctx.strokeStyle = "rgba(255, 255, 0, 0.8)";
-  ctx.lineWidth   = 1;
-  ctx.setLineDash([4,2]);
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 2]);
   ctx.stroke();
-  ctx.setLineDash([]);  // back to solid
-
+  ctx.setLineDash([]);
   ctx.restore();
 
   // existing: draw nearest‐point velocity dot...

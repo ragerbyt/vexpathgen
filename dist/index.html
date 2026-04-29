@@ -5,8 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Vex Path Gen</title>
     <link rel="icon" href="/assets/icon-DOSe69tR.png" type="image/x-icon" />
-    <script type="module" crossorigin src="/assets/index-D9WRmbcR.js"></script>
-    <link rel="stylesheet" crossorigin href="/assets/index-B4vD8me8.css">
+    <script type="module" crossorigin src="/assets/index-Bk11w_Bw.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Dx7TNg3a.css">
   </head>
   <body data-active-mode="path">
 
@@ -16,37 +16,14 @@
       <main id="visualStage">
         <section id="pathWorkspace" class="workspace-panel">
           <div id="path-container">
-            <div id="toolbar">
-              <div id="Mode">Mode Selected: Bezier</div>
-              <div class="icon" id="PlaceBezier">Bezier</div>
-              <div class="icon" id="PlaceBezier3">Bezier 3pt</div>
-              <div class="icon" id="PlaceLine">Line</div>
-              <div class="icon" id="PlaceArc">Arc</div>
-              <div class="icon"></div>
-              <div class="icon"></div>
-              <div class="icon"></div>
-              <div class="icon"></div>
-              <div class="icon"></div>
-              <div class="icon"></div>
-            </div>
             <canvas id="path"></canvas>
           </div>
         </section>
 
         <section id="viewerWorkspace" class="workspace-panel" hidden>
-          <div id="viewerStartupScreen">
-            <div class="viewer-startup-title">Particle Filter Viewer</div>
-            <div class="viewer-startup-subtitle">Upload a particle filter log to open the viewer.</div>
-            <button id="viewerChooseFileBtn">Choose File</button>
-            <div id="viewerStartupStatus"></div>
-            <input type="file" id="viewerFileInput" accept=".txt,.log" hidden />
-          </div>
-
-          <div id="viewerApp" hidden>
+          <div id="viewerApp">
             <div class="viewer-canvas-stack">
               <canvas id="viewerCanvas" width="600" height="600"></canvas>
-              <input type="range" id="viewerFrameSlider" min="0" value="0" />
-              <div class="viewer-info" id="viewerInfo"></div>
             </div>
           </div>
         </section>
@@ -58,165 +35,190 @@
           <button class="mode-tab" data-app-mode="viewer" aria-pressed="false">Data Visualization</button>
         </div>
 
-        <section id="pathControls" class="control-panel">
-          <div id="sidebar">
-            <div id="info">
-              <div class="info-box" id="mouse-coordinates"></div>
-              <div class="info-box" id="point-coordinates"></div>
-            </div>
-
-            <div id="menu">
-              <div>
-                <button id="togglePoints">Toggle Points</button>
-                <button id="clear">Clear Points</button>
-                <button id="sidepath">Toggle wheel paths</button>
-              </div>
-
-              <label class="switch">
-                <input type="checkbox" />
-                <span class="slider round"></span>
-              </label>
-
-              <div id="botconfig">
-                <div class="field">
-                  <label for="botlen">Bot width:</label>
-                  <input type="number" id="botwidth" value="16" />
-                </div>
-                <div class="field">
-                  <label for="botwidth">Bot length:</label>
-                  <input type="number" id="botlen" value="16" />
-                </div>
-                <div class="field">
-                  <label for="trackwidth">Track width:</label>
-                  <input type="number" id="trackwidth" value="10.5" />
-                </div>
-              </div>
-              <div id="botconfig">
-                <div class="field">
-                  <label for="maxaccel">Max Acceleration:</label>
-                  <input type="number" id="maxaccel" value="80" />
-                </div>
-                <div class="field">
-                  <label for="maxvel">Max Velocity:</label>
-                  <input type="number" id="maxvel" value="80" />
-                </div>
-              </div>
-            </div>
-            <div id="segment-config">
-              <div id="exampleseg" class="segment" hidden="true">
-                <label>Segment 1</label>
-                <button>reverse direction</button>
-                <button>show speed graph</button>
+        <div id="controlContent">
+          <section id="pathControls" class="control-panel">
+            <div id="toolbar" class="mode-select-panel">
+              <div id="Mode" class="mode-select-label">Mode Selected: Bezier</div>
+              <div class="mode-select-grid">
+                <button type="button" class="mode-select-btn" id="PlaceBezier">Bezier</button>
+                <button type="button" class="mode-select-btn" id="PlaceBezier3">Bezier 3pt</button>
+                <button type="button" class="mode-select-btn" id="PlaceLine">Line</button>
+                <button type="button" class="mode-select-btn" id="PlaceArc">Arc</button>
               </div>
             </div>
 
-            <div id="graphs-container-container">
-              <div id="graphs-container">
-                <canvas id="graph" width="600" height="280"></canvas>
-                <canvas id="overlay" width="600" height="280"></canvas>
-                <div id="currtime-label" class="graph-label">0.0s</div>
-                <div id="currvel-label" class="graph-label">0 in/s</div>
-                <div id="unit-label" class="graph-label">TIME (S)</div>
-                <div id="velocity-label" class="graph-label">Vel<br /> (in/s)</div>
-                <div id="start-time-label" class="graph-label">0.00</div>
-                <div id="end-time-label" class="graph-label">0.00</div>
-                <div id="velocity-max-label" class="graph-label">60</div>
-                <div id="velocity-zero-label" class="graph-label">0</div>
+            <div id="sidebar">
+              <div id="info">
+                <div class="info-box" id="mouse-coordinates"></div>
+                <div class="info-box" id="point-coordinates"></div>
               </div>
-              <div id="graph-key">
+
+              <div id="menu">
                 <div>
-                  <span class="circle" style="background-color: white"></span>
-                  <span>velocity</span>
+                  <button id="togglePoints">Toggle Points</button>
+                  <button id="clear">Clear Points</button>
+                  <button id="sidepath">Toggle wheel paths</button>
                 </div>
-                <div>
-                  <span class="circle" style="background-color: red"></span>
-                  <span>left</span>
+
+                <label class="switch">
+                  <input type="checkbox" />
+                  <span class="slider round"></span>
+                </label>
+
+                <div id="botconfig">
+                  <div class="field">
+                    <label for="botlen">Bot width:</label>
+                    <input type="number" id="botwidth" value="16" />
+                  </div>
+                  <div class="field">
+                    <label for="botwidth">Bot length:</label>
+                    <input type="number" id="botlen" value="16" />
+                  </div>
+                  <div class="field">
+                    <label for="trackwidth">Track width:</label>
+                    <input type="number" id="trackwidth" value="10.5" />
+                  </div>
                 </div>
-                <div>
-                  <span class="circle" style="background-color: blue"></span>
-                  <span>right</span>
+                <div id="botconfig">
+                  <div class="field">
+                    <label for="maxaccel">Max Acceleration:</label>
+                    <input type="number" id="maxaccel" value="80" />
+                  </div>
+                  <div class="field">
+                    <label for="maxvel">Max Velocity:</label>
+                    <input type="number" id="maxvel" value="80" />
+                  </div>
                 </div>
-                <div>
-                  <span class="circle" style="background-color: black"></span>
-                  <span>angular</span>
+              </div>
+              <div id="segment-config">
+                <div id="exampleseg" class="segment" hidden="true">
+                  <label>Segment 1</label>
+                  <button>reverse direction</button>
+                  <button>show speed graph</button>
                 </div>
               </div>
-            </div>
 
-            <div id="graphcustom">
-              <button id="run">run</button>
-              <button id="dist">dist graph</button>
-              <button id="time">time graph</button>
-            </div>
+              <div id="graphs-container-container">
+                <div id="graphs-container">
+                  <canvas id="graph" width="600" height="280"></canvas>
+                  <canvas id="overlay" width="600" height="280"></canvas>
+                  <div id="currtime-label" class="graph-label">0.0s</div>
+                  <div id="currvel-label" class="graph-label">0 in/s</div>
+                  <div id="unit-label" class="graph-label">TIME (S)</div>
+                  <div id="velocity-label" class="graph-label">Vel<br /> (in/s)</div>
+                  <div id="start-time-label" class="graph-label">0.00</div>
+                  <div id="end-time-label" class="graph-label">0.00</div>
+                  <div id="velocity-max-label" class="graph-label">60</div>
+                  <div id="velocity-zero-label" class="graph-label">0</div>
+                </div>
+                <div id="graph-key">
+                  <div>
+                    <span class="circle" style="background-color: white"></span>
+                    <span>velocity</span>
+                  </div>
+                  <div>
+                    <span class="circle" style="background-color: red"></span>
+                    <span>left</span>
+                  </div>
+                  <div>
+                    <span class="circle" style="background-color: blue"></span>
+                    <span>right</span>
+                  </div>
+                  <div>
+                    <span class="circle" style="background-color: black"></span>
+                    <span>angular</span>
+                  </div>
+                </div>
+              </div>
 
-            <div id="saving">
-              <input type="text" id="pathNameInput" placeholder="Enter path name (e.g., redside)" />
-              <button id="saveCpp">Save C++ File</button>
-              <input type="file" id="import" accept=".cpp" hidden />
-              <label for="import" class="file-upload-button">Import C++ File</label>
-            </div>
-          </div>
-        </section>
+              <div id="graphcustom">
+                <button id="run">run</button>
+                <button id="dist">dist graph</button>
+                <button id="time">time graph</button>
+              </div>
 
-        <section id="viewerControls" class="control-panel" hidden>
-          <div class="viewer-panel">
-            <div class="viewer-stats-panel">
-              <h3>Robot State</h3>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">X (in):</span><span class="viewer-stat-value" id="viewerRobotX">-</span></div>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">Y (in):</span><span class="viewer-stat-value" id="viewerRobotY">-</span></div>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">θ (°):</span><span class="viewer-stat-value" id="viewerRobotTheta">-</span></div>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">Battery (%):</span><span class="viewer-stat-value" id="viewerBatteryPercent">-</span></div>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">Intake Temp (°C):</span><span class="viewer-stat-value" id="viewerIntakeTemp">-</span></div>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">Left Temp (°C):</span><span class="viewer-stat-value" id="viewerLeftTemp">-</span></div>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">Right Temp (°C):</span><span class="viewer-stat-value" id="viewerRightTemp">-</span></div>
-              <hr />
-              <h3>Outputs</h3>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">Left (mV):</span><span class="viewer-stat-value" id="viewerLeftOutput">-</span></div>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">Right (mV):</span><span class="viewer-stat-value" id="viewerRightOutput">-</span></div>
-              <hr />
-              <h3>Timing</h3>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">Tick (ms):</span><span class="viewer-stat-value" id="viewerTickTime">-</span></div>
-              <div class="viewer-stat-row"><span class="viewer-stat-label">Elapsed (ms):</span><span class="viewer-stat-value" id="viewerElapsedTime">-</span></div>
-              <hr />
-              <h3>Playback</h3>
-              <div class="viewer-input-row">
-                <label for="viewerSkipFrames">Start Frame:</label>
-                <input type="number" id="viewerSkipFrames" value="0" min="0" />
-              </div>
-              <div class="viewer-button-row">
-                <button id="viewerPlayBtn">Play</button>
-                <button id="viewerStopBtn" hidden>Stop</button>
+              <div id="saving">
+                <input type="text" id="pathNameInput" placeholder="Enter path name (e.g., redside)" />
+                <button id="saveCpp">Save C++ File</button>
+                <input type="file" id="import" accept=".cpp" hidden />
+                <label for="import" class="file-upload-button">Import C++ File</label>
               </div>
             </div>
+          </section>
 
-            <div class="viewer-sensors-panel">
-              <h3>Distance Sensors</h3>
-              <div class="viewer-sensor-group">
-                <div class="viewer-sensor-heading">Front <span id="viewerSensorFrontValid">-</span></div>
-                <div class="viewer-stat-row"><span class="viewer-stat-label">Reading (in):</span><span class="viewer-stat-value" id="viewerSensorFrontDist">-</span></div>
-                <div class="viewer-stat-row"><span class="viewer-stat-label">Endpoint:</span><span class="viewer-stat-value" id="viewerSensorFrontPos">-</span></div>
+          <section id="viewerControls" class="control-panel" hidden>
+            <div class="viewer-panel">
+              <div class="viewer-stats-panel">
+                <div class="viewer-info viewer-frame-info" id="viewerInfo"></div>
+                <h3>Data Source</h3>
+                <div class="viewer-upload-controls">
+                  <button id="viewerChooseFileBtn" type="button">Upload Log File</button>
+                  <input type="file" id="viewerFileInput" accept=".txt,.log" hidden />
+                  <div id="viewerStartupStatus"></div>
+                </div>
+                <hr />
+
+                <h3>Robot State</h3>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">X (in):</span><span class="viewer-stat-value" id="viewerRobotX">-</span></div>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">Y (in):</span><span class="viewer-stat-value" id="viewerRobotY">-</span></div>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">θ (°):</span><span class="viewer-stat-value" id="viewerRobotTheta">-</span></div>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">Battery (%):</span><span class="viewer-stat-value" id="viewerBatteryPercent">-</span></div>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">Intake Temp (°C):</span><span class="viewer-stat-value" id="viewerIntakeTemp">-</span></div>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">Left Temp (°C):</span><span class="viewer-stat-value" id="viewerLeftTemp">-</span></div>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">Right Temp (°C):</span><span class="viewer-stat-value" id="viewerRightTemp">-</span></div>
+                <hr />
+                <h3>Outputs</h3>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">Left (mV):</span><span class="viewer-stat-value" id="viewerLeftOutput">-</span></div>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">Right (mV):</span><span class="viewer-stat-value" id="viewerRightOutput">-</span></div>
+                <hr />
+                <h3>Timing</h3>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">Tick (ms):</span><span class="viewer-stat-value" id="viewerTickTime">-</span></div>
+                <div class="viewer-stat-row"><span class="viewer-stat-label">Elapsed (ms):</span><span class="viewer-stat-value" id="viewerElapsedTime">-</span></div>
+                <hr />
+                <h3>Playback</h3>
+                <div class="viewer-input-row">
+                  <label for="viewerFrameSlider">Frame</label>
+                  <input type="range" id="viewerFrameSlider" min="0" value="0" />
+                </div>
+                <div class="viewer-input-row">
+                  <label for="viewerSkipFrames">Start Frame:</label>
+                  <input type="number" id="viewerSkipFrames" value="0" min="0" />
+                </div>
+                <div class="viewer-button-row">
+                  <button id="viewerPlayBtn">Play</button>
+                  <button id="viewerStopBtn" hidden>Stop</button>
+                </div>
               </div>
-              <div class="viewer-sensor-group">
-                <div class="viewer-sensor-heading">Right <span id="viewerSensorRightValid">-</span></div>
-                <div class="viewer-stat-row"><span class="viewer-stat-label">Reading (in):</span><span class="viewer-stat-value" id="viewerSensorRightDist">-</span></div>
-                <div class="viewer-stat-row"><span class="viewer-stat-label">Endpoint:</span><span class="viewer-stat-value" id="viewerSensorRightPos">-</span></div>
+
+              <div class="viewer-sensors-panel">
+                <h3>Distance Sensors</h3>
+                <div class="viewer-sensor-group">
+                  <div class="viewer-sensor-heading">Front <span id="viewerSensorFrontValid">-</span></div>
+                  <div class="viewer-stat-row"><span class="viewer-stat-label">Reading (in):</span><span class="viewer-stat-value" id="viewerSensorFrontDist">-</span></div>
+                  <div class="viewer-stat-row"><span class="viewer-stat-label">Endpoint:</span><span class="viewer-stat-value" id="viewerSensorFrontPos">-</span></div>
+                </div>
+                <div class="viewer-sensor-group">
+                  <div class="viewer-sensor-heading">Right <span id="viewerSensorRightValid">-</span></div>
+                  <div class="viewer-stat-row"><span class="viewer-stat-label">Reading (in):</span><span class="viewer-stat-value" id="viewerSensorRightDist">-</span></div>
+                  <div class="viewer-stat-row"><span class="viewer-stat-label">Endpoint:</span><span class="viewer-stat-value" id="viewerSensorRightPos">-</span></div>
+                </div>
+                <div class="viewer-sensor-group">
+                  <div class="viewer-sensor-heading">Back <span id="viewerSensorBackValid">-</span></div>
+                  <div class="viewer-stat-row"><span class="viewer-stat-label">Reading (in):</span><span class="viewer-stat-value" id="viewerSensorBackDist">-</span></div>
+                  <div class="viewer-stat-row"><span class="viewer-stat-label">Endpoint:</span><span class="viewer-stat-value" id="viewerSensorBackPos">-</span></div>
+                </div>
+                <div class="viewer-sensor-group">
+                  <div class="viewer-sensor-heading">Left <span id="viewerSensorLeftValid">-</span></div>
+                  <div class="viewer-stat-row"><span class="viewer-stat-label">Reading (in):</span><span class="viewer-stat-value" id="viewerSensorLeftDist">-</span></div>
+                  <div class="viewer-stat-row"><span class="viewer-stat-label">Endpoint:</span><span class="viewer-stat-value" id="viewerSensorLeftPos">-</span></div>
+                </div>
+                <hr />
+                <h3>Warnings</h3>
+                <div id="viewerWarningLog" class="viewer-warning-log"></div>
               </div>
-              <div class="viewer-sensor-group">
-                <div class="viewer-sensor-heading">Back <span id="viewerSensorBackValid">-</span></div>
-                <div class="viewer-stat-row"><span class="viewer-stat-label">Reading (in):</span><span class="viewer-stat-value" id="viewerSensorBackDist">-</span></div>
-                <div class="viewer-stat-row"><span class="viewer-stat-label">Endpoint:</span><span class="viewer-stat-value" id="viewerSensorBackPos">-</span></div>
-              </div>
-              <div class="viewer-sensor-group">
-                <div class="viewer-sensor-heading">Left <span id="viewerSensorLeftValid">-</span></div>
-                <div class="viewer-stat-row"><span class="viewer-stat-label">Reading (in):</span><span class="viewer-stat-value" id="viewerSensorLeftDist">-</span></div>
-                <div class="viewer-stat-row"><span class="viewer-stat-label">Endpoint:</span><span class="viewer-stat-value" id="viewerSensorLeftPos">-</span></div>
-              </div>
-              <hr />
-              <h3>Warnings</h3>
-              <div id="viewerWarningLog" class="viewer-warning-log"></div>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </aside>
     </div>
 

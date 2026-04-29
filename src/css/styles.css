@@ -16,7 +16,8 @@ body {
   background-color: #212236;
   font-family: ui-sans-serif, system-ui, sans-serif;
   color: #ffffff;
-  cursor: none
+  cursor: none;
+  overflow: hidden;
 }
 
 .cursor-dot {
@@ -620,10 +621,16 @@ body {
 
 #appShell {
   display: grid;
-  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.85fr);
+  grid-template-columns: minmax(0, 0.98fr) minmax(540px, 1.08fr);
   gap: 1rem;
-  min-height: 100vh;
+  min-height: calc(100vh - 2rem);
+  height: calc(100vh - 2rem);
   padding: 1rem;
+  width: 100%;
+  border: 2px solid #ffffff;
+  border-radius: 14px;
+  background: rgba(12, 18, 28, 0.68);
+  overflow: hidden;
 }
 
 #visualStage,
@@ -635,6 +642,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  min-height: 0;
 }
 
 #pathWorkspace,
@@ -642,6 +650,11 @@ body {
   display: flex;
   flex: 1;
   min-height: 0;
+  align-items: stretch;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  padding: 0.6rem;
 }
 
 #pathWorkspace[hidden],
@@ -653,17 +666,17 @@ body {
 
 #path-container {
   width: 100%;
-  min-height: calc(100vh - 2rem);
+  min-height: 0;
   display: flex;
-  gap: 1rem;
-  align-items: stretch;
+  align-items: center;
+  justify-content: center;
 }
 
 #path {
-  flex: 1;
-  min-width: 0;
+  width: min(100%, calc(100vh - 4rem));
   aspect-ratio: 1 / 1;
   height: auto;
+  border: 1px solid rgba(255, 255, 255, 0.28);
 }
 
 #controlPane {
@@ -671,6 +684,7 @@ body {
   flex-direction: column;
   gap: 1rem;
   min-height: 0;
+  overflow: hidden;
 }
 
 #modeTabs {
@@ -680,7 +694,7 @@ body {
   padding: 0.75rem;
   border-radius: 16px;
   background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.24);
 }
 
 .mode-tab {
@@ -703,8 +717,75 @@ body {
   overflow: auto;
   padding: 1rem;
   border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+#pathControls {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.mode-select-panel,
+.viewer-stats-panel,
+.viewer-sensors-panel,
+#segment-config,
+#graphs-container-container,
+#saving,
+#menu,
+#info,
+#modeTabs {
+  border: 1px solid rgba(255, 255, 255, 0.2);
   background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+}
+
+.mode-select-panel {
+  padding: 1rem;
+}
+
+.mode-select-label {
+  color: #ffffff;
+  font-weight: 800;
+  margin-bottom: 0.75rem;
+}
+
+.mode-select-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.mode-select-btn {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: none;
+}
+
+.mode-select-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+#sidebar {
+  flex: 1;
+  min-height: 0;
+  height: auto;
+  overflow-y: auto;
+}
+
+#toolbar {
+  display: block;
+}
+
+#modeTabs {
+  padding: 1rem;
+}
+
+#modeTabs .mode-tab {
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .viewer-panel {
@@ -717,14 +798,12 @@ body {
 .viewer-sensors-panel {
   padding: 1rem;
   border-radius: 14px;
-  background: rgba(10, 20, 34, 0.68);
-  border: 1px solid rgba(77, 166, 255, 0.24);
 }
 
 .viewer-stats-panel h3,
 .viewer-sensors-panel h3 {
   margin: 0 0 0.75rem;
-  color: #6bb2ff;
+  color: #ffffff;
 }
 
 .viewer-stat-row {
@@ -740,7 +819,7 @@ body {
 }
 
 .viewer-stat-value {
-  color: #8bd0ff;
+  color: #eaf3ff;
   font-weight: 700;
 }
 
@@ -812,7 +891,7 @@ body {
 #viewerCanvas {
   width: 100%;
   aspect-ratio: 1 / 1;
-  border: 1px solid rgba(77, 166, 255, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.28);
   background: #050c14;
 }
 
@@ -826,67 +905,63 @@ body {
   font-size: 0.92rem;
 }
 
-#viewerStartupScreen {
-  margin-bottom: 1rem;
-  padding: 1.25rem;
-  border-radius: 16px;
-  border: 1px solid rgba(77, 166, 255, 0.35);
-  background: rgba(10, 20, 34, 0.72);
-}
-
-.viewer-startup-title {
-  color: #8ec5ff;
-  font-size: 1.35rem;
-  font-weight: 800;
-  margin-bottom: 0.35rem;
-}
-
-.viewer-startup-subtitle {
-  color: #a3b4c9;
-  margin-bottom: 1rem;
-}
-
 #viewerChooseFileBtn {
   width: 100%;
-  padding: 1rem 1.1rem;
-  border-radius: 14px;
-  background: #4da6ff;
-  color: #08111d;
-  font-size: 1.1rem;
-  font-weight: 800;
+  padding: 0.85rem 1rem;
+  border-radius: 10px;
 }
 
 #viewerStartupStatus {
   min-height: 1.25rem;
-  margin-top: 0.85rem;
-  color: #6bb2ff;
+  margin-top: 0.55rem;
+  color: #a9cfff;
+  font-size: 0.9rem;
+}
+
+.viewer-upload-controls {
+  border-radius: 10px;
+  padding: 0.75rem 0 0;
+}
+
+@media (min-width: 1400px) {
+  #appShell {
+    grid-template-columns: minmax(0, 0.82fr) minmax(660px, 1.18fr);
+  }
+}
+
+@media (min-width: 1101px) {
+  #sidebar {
+    min-height: 0;
+  }
 }
 
 @media (max-width: 1100px) {
   #appShell {
     grid-template-columns: 1fr;
+    overflow: auto;
+    height: auto;
+    min-height: calc(100vh - 2rem);
   }
 
   #path-container {
     min-height: auto;
   }
+
+  body {
+    overflow: auto;
+  }
+
+  #controlPane {
+    overflow: visible;
+  }
 }
 
 @media (max-aspect-ratio: 1/1) {
-  #appShell {
-    min-height: auto;
-  }
-
   #visualStage {
     min-height: auto;
   }
 
   #path-container {
-    flex-direction: column-reverse;
-  }
-
-  #toolbar {
-    flex-direction: row;
-    flex-wrap: wrap;
+    min-height: auto;
   }
 }

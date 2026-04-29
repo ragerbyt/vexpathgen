@@ -14,36 +14,14 @@
       <main id="visualStage">
         <section id="pathWorkspace" class="workspace-panel">
           <div id="path-container">
-            <div id="toolbar">
-              <div id="Mode">Mode Selected: Bezier</div>
-              <div class="icon" id="PlaceBezier">Bezier</div>
-              <div class="icon" id="PlaceBezier3">Bezier 3pt</div>
-              <div class="icon" id="PlaceLine">Line</div>
-              <div class="icon" id="PlaceArc">Arc</div>
-              <div class="icon"></div>
-              <div class="icon"></div>
-              <div class="icon"></div>
-              <div class="icon"></div>
-              <div class="icon"></div>
-              <div class="icon"></div>
-            </div>
             <canvas id="path"></canvas>
           </div>
         </section>
 
         <section id="viewerWorkspace" class="workspace-panel" hidden>
-          <div id="viewerStartupScreen">
-            <div class="viewer-startup-title">Particle Filter Viewer</div>
-            <div class="viewer-startup-subtitle">Upload a particle filter log to open the viewer.</div>
-            <button id="viewerChooseFileBtn">Choose File</button>
-            <div id="viewerStartupStatus"></div>
-            <input type="file" id="viewerFileInput" accept=".txt,.log" hidden />
-          </div>
-
-          <div id="viewerApp" hidden>
+          <div id="viewerApp">
             <div class="viewer-canvas-stack">
               <canvas id="viewerCanvas" width="600" height="600"></canvas>
-              <input type="range" id="viewerFrameSlider" min="0" value="0" />
               <div class="viewer-info" id="viewerInfo"></div>
             </div>
           </div>
@@ -57,6 +35,16 @@
         </div>
 
         <section id="pathControls" class="control-panel">
+          <div id="toolbar" class="mode-select-panel">
+            <div id="Mode" class="mode-select-label">Mode Selected: Bezier</div>
+            <div class="mode-select-grid">
+              <button type="button" class="mode-select-btn" id="PlaceBezier">Bezier</button>
+              <button type="button" class="mode-select-btn" id="PlaceBezier3">Bezier 3pt</button>
+              <button type="button" class="mode-select-btn" id="PlaceLine">Line</button>
+              <button type="button" class="mode-select-btn" id="PlaceArc">Arc</button>
+            </div>
+          </div>
+
           <div id="sidebar">
             <div id="info">
               <div class="info-box" id="mouse-coordinates"></div>
@@ -159,6 +147,14 @@
         <section id="viewerControls" class="control-panel" hidden>
           <div class="viewer-panel">
             <div class="viewer-stats-panel">
+              <h3>Data Source</h3>
+              <div class="viewer-upload-controls">
+                <button id="viewerChooseFileBtn" type="button">Upload Log File</button>
+                <input type="file" id="viewerFileInput" accept=".txt,.log" hidden />
+                <div id="viewerStartupStatus"></div>
+              </div>
+              <hr />
+
               <h3>Robot State</h3>
               <div class="viewer-stat-row"><span class="viewer-stat-label">X (in):</span><span class="viewer-stat-value" id="viewerRobotX">-</span></div>
               <div class="viewer-stat-row"><span class="viewer-stat-label">Y (in):</span><span class="viewer-stat-value" id="viewerRobotY">-</span></div>
@@ -177,6 +173,10 @@
               <div class="viewer-stat-row"><span class="viewer-stat-label">Elapsed (ms):</span><span class="viewer-stat-value" id="viewerElapsedTime">-</span></div>
               <hr />
               <h3>Playback</h3>
+              <div class="viewer-input-row">
+                <label for="viewerFrameSlider">Frame</label>
+                <input type="range" id="viewerFrameSlider" min="0" value="0" />
+              </div>
               <div class="viewer-input-row">
                 <label for="viewerSkipFrames">Start Frame:</label>
                 <input type="number" id="viewerSkipFrames" value="0" min="0" />
