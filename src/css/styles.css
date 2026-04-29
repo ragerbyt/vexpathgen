@@ -600,3 +600,293 @@ input:checked + .slider:before {
   background-repeat: no-repeat;
   background-size: 100% 2px, 2px 100%;
 }
+
+/* Integrated app shell overrides */
+body {
+  min-height: 100vh;
+  height: auto;
+  display: block;
+  justify-content: unset;
+  align-items: unset;
+  background:
+    radial-gradient(circle at top left, rgba(59, 90, 132, 0.35), transparent 35%),
+    radial-gradient(circle at bottom right, rgba(24, 49, 88, 0.45), transparent 32%),
+    linear-gradient(160deg, #090f18 0%, #11192b 55%, #0d1320 100%);
+}
+
+:root {
+  color-scheme: dark;
+}
+
+#appShell {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.85fr);
+  gap: 1rem;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+#visualStage,
+#controlPane {
+  min-width: 0;
+}
+
+#visualStage {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+#pathWorkspace,
+#viewerWorkspace {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+#pathWorkspace[hidden],
+#viewerWorkspace[hidden],
+#pathControls[hidden],
+#viewerControls[hidden] {
+  display: none !important;
+}
+
+#path-container {
+  width: 100%;
+  min-height: calc(100vh - 2rem);
+  display: flex;
+  gap: 1rem;
+  align-items: stretch;
+}
+
+#path {
+  flex: 1;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
+  height: auto;
+}
+
+#controlPane {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  min-height: 0;
+}
+
+#modeTabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+  padding: 0.75rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.mode-tab {
+  width: 100%;
+  border-radius: 12px;
+  padding: 0.9rem 1rem;
+  background: rgba(255, 255, 255, 0.08);
+  color: #dfe7f4;
+  box-shadow: none;
+}
+
+.mode-tab[data-active="true"] {
+  background: #62a9ff;
+  color: #08111d;
+}
+
+.control-panel {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 1rem;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.viewer-panel {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.viewer-stats-panel,
+.viewer-sensors-panel {
+  padding: 1rem;
+  border-radius: 14px;
+  background: rgba(10, 20, 34, 0.68);
+  border: 1px solid rgba(77, 166, 255, 0.24);
+}
+
+.viewer-stats-panel h3,
+.viewer-sensors-panel h3 {
+  margin: 0 0 0.75rem;
+  color: #6bb2ff;
+}
+
+.viewer-stat-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 0.45rem 0;
+  font-size: 0.95rem;
+}
+
+.viewer-stat-label {
+  color: #a3b4c9;
+}
+
+.viewer-stat-value {
+  color: #8bd0ff;
+  font-weight: 700;
+}
+
+.viewer-input-row {
+  margin: 0.75rem 0;
+}
+
+.viewer-input-row label {
+  display: block;
+  margin-bottom: 0.45rem;
+  color: #a3b4c9;
+}
+
+.viewer-input-row input {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(77, 166, 255, 0.32);
+  color: #ffffff;
+}
+
+.viewer-button-row {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.viewer-button-row button {
+  flex: 1;
+}
+
+.viewer-sensor-group {
+  margin: 0.85rem 0 1rem;
+}
+
+.viewer-sensor-heading {
+  margin-bottom: 0.5rem;
+  color: #a3b4c9;
+  font-weight: 700;
+}
+
+.viewer-warning-log {
+  max-height: 180px;
+  overflow: auto;
+  padding: 0.75rem;
+  border-radius: 10px;
+  background: rgba(5, 10, 16, 0.85);
+  border: 1px solid rgba(77, 166, 255, 0.2);
+  font-size: 0.82rem;
+}
+
+.viewer-warning-entry {
+  color: #ffabab;
+  margin-bottom: 0.35rem;
+  word-break: break-word;
+}
+
+.viewer-warning-empty {
+  color: #7f93ad;
+}
+
+.viewer-canvas-stack {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+#viewerCanvas {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border: 1px solid rgba(77, 166, 255, 0.45);
+  background: #050c14;
+}
+
+#viewerFrameSlider {
+  width: 100%;
+  accent-color: #4da6ff;
+}
+
+.viewer-info {
+  color: #69b4ff;
+  font-size: 0.92rem;
+}
+
+#viewerStartupScreen {
+  margin-bottom: 1rem;
+  padding: 1.25rem;
+  border-radius: 16px;
+  border: 1px solid rgba(77, 166, 255, 0.35);
+  background: rgba(10, 20, 34, 0.72);
+}
+
+.viewer-startup-title {
+  color: #8ec5ff;
+  font-size: 1.35rem;
+  font-weight: 800;
+  margin-bottom: 0.35rem;
+}
+
+.viewer-startup-subtitle {
+  color: #a3b4c9;
+  margin-bottom: 1rem;
+}
+
+#viewerChooseFileBtn {
+  width: 100%;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  background: #4da6ff;
+  color: #08111d;
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+#viewerStartupStatus {
+  min-height: 1.25rem;
+  margin-top: 0.85rem;
+  color: #6bb2ff;
+}
+
+@media (max-width: 1100px) {
+  #appShell {
+    grid-template-columns: 1fr;
+  }
+
+  #path-container {
+    min-height: auto;
+  }
+}
+
+@media (max-aspect-ratio: 1/1) {
+  #appShell {
+    min-height: auto;
+  }
+
+  #visualStage {
+    min-height: auto;
+  }
+
+  #path-container {
+    flex-direction: column-reverse;
+  }
+
+  #toolbar {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+}

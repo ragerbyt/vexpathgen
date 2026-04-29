@@ -3,6 +3,8 @@ import "./draw";
 import "./curve";
 import "./plot";
 import "./css/styles.css";
+import "./shell";
+import "./viewer/viewer";
 import "./ui";
 import "./sidebar"
 
