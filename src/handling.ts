@@ -1,27 +1,72 @@
-//dik
-import { controlpoints, pathpoints,sections,totalInterp } from "./globals";
-import { numSegments, totalSeg } from "./curve";
+import { sections } from "./globals";
 
-const radius = 2;
-export let hi_seg = -1; //highlighted segment
-export let start_hi = -1; 
-export let end_hi = -1;
-let canrun = true;
+export type SegmentRange = { startIndex: number; endIndex: number };
 
-export function resetsegment(){
-    hi_seg = -1;
-    start_hi = -1;
-    end_hi = -1;
-}
+export let hoveredSegmentIndex = -1;
+export let selectedSegmentIndex = -1;
+export let hoveredSegmentRange: SegmentRange | null = null;
+export let selectedSegmentRange: SegmentRange | null = null;
 
-export function selectSegment(index : number){
+function getRangeForSegment(index: number): SegmentRange | null {
     const currseg = sections[index];
+    if (!currseg || currseg.startpath === undefined || currseg.endpath === undefined) {
+        return null;
+    }
 
-    start_hi = currseg.startpath!
-    end_hi = currseg.endpath!
-    hi_seg = index;
+    return {
+        startIndex: Math.min(currseg.startpath, currseg.endpath),
+        endIndex: Math.max(currseg.startpath, currseg.endpath),
+    };
 }
 
-export function deselectSegment(index : number){
+export function resetsegment() {
+    hoveredSegmentIndex = -1;
+    hoveredSegmentRange = null;
+}
+
+export function clearSelectedSegment() {
+    selectedSegmentIndex = -1;
+    selectedSegmentRange = null;
+}
+
+export function clearSegmentState() {
     resetsegment();
+    clearSelectedSegment();
+}
+
+export function refreshSegmentRanges() {
+    hoveredSegmentRange = hoveredSegmentIndex >= 0 ? getRangeForSegment(hoveredSegmentIndex) : null;
+    selectedSegmentRange = selectedSegmentIndex >= 0 ? getRangeForSegment(selectedSegmentIndex) : null;
+    if (!hoveredSegmentRange) {
+        hoveredSegmentIndex = -1;
+    }
+    if (!selectedSegmentRange) {
+        selectedSegmentIndex = -1;
+    }
+}
+
+export function selectSegment(index: number) {
+    const range = getRangeForSegment(index);
+    if (!range) {
+        resetsegment();
+        return;
+    }
+
+    hoveredSegmentIndex = index;
+    hoveredSegmentRange = range;
+}
+
+export function deselectSegment(index: number) {
+    resetsegment();
+}
+
+export function setSelectedSegment(index: number) {
+    const range = getRangeForSegment(index);
+    if (!range) {
+        clearSelectedSegment();
+        return;
+    }
+
+    selectedSegmentIndex = index;
+    selectedSegmentRange = range;
 }

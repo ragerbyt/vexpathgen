@@ -1,9 +1,9 @@
-import { controlPoint } from "./globals";
+import { controlPoint, section } from "./globals";
 
 let isDraggingGlobal = false;
 let activeDragPoint: controlPoint | null = null;
-let selectedPoint: controlPoint | null = null;
 let dragHistoryCaptured = false;
+let suppressNextPathRowClick = false;
 
 type HistorySnapshot = {
   controlpoints: controlPoint[];
@@ -20,18 +20,38 @@ const state = false;
 //so if top = 20; left = 20 ;then top left is chopped off.
 
 
-const pointdisplay = document.getElementById("point-coordinates")!
+const pointdisplay = document.getElementById("point-coordinates") as HTMLDivElement | null;
 
-import { computeBezierWaypoints } from "./curve";
-import { canvas,controlpoints, sections } from "./globals";
+import { computePathProfile } from "./curve";
+import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView } from "./globals";
 import { canvasToFieldX, canvasToFieldY, getFieldView, panFieldView, zoomFieldView } from "./globals";
-import { deselectSegment, hi_seg, selectSegment } from "./handling";
-
-import { resetsegment } from "./handling";
+import { clearSegmentState, clearSelectedSegment, deselectSegment, hoveredSegmentIndex, refreshSegmentRanges, resetsegment, selectSegment, selectedSegmentIndex, setSelectedSegment } from "./handling";
+import { clearGraphInteractionState, renderGraphHoverOverlay } from "./plot";
 import { MODE } from "./sidebar";
-import { color, PI } from "chart.js/helpers";
-import { Normalize } from "./plot";
+import { PI } from "chart.js/helpers";
 document.addEventListener("DOMContentLoaded", initCanvas);
+
+document.addEventListener("DOMContentLoaded", () => {
+  rebuildPathTree();
+  updatePathNameInput();
+
+  addPathButton?.addEventListener("click", () => {
+    const newPath = createPathModel(getDefaultPathName(paths.length));
+    paths.push(newPath);
+    setActivePath(paths.length - 1);
+  });
+
+  pathNameInput?.addEventListener("input", () => {
+    const active = getActivePath();
+    const nextValue = pathNameInput.value.trim();
+    if (nextValue.length > 0) {
+      active.name = nextValue;
+    } else {
+      updatePathNameInput();
+    }
+    rebuildPathTree();
+  });
+});
 
 function initCanvas() {
   canvas.addEventListener("click", (e: MouseEvent) => handleCanvasClick(e));
@@ -106,9 +126,13 @@ function handleMouseDown(e: MouseEvent) {
     temptext += clickedPoint.x.toFixed(1);
     temptext += " Y: ";
     temptext += clickedPoint.y.toFixed(1);
-    pointdisplay.innerText = temptext;
+    if (pointdisplay) {
+      pointdisplay.innerText = temptext;
+    }
   }else{
-    pointdisplay.innerText = "No controlPoint selected";
+    if (pointdisplay) {
+      pointdisplay.innerText = "No controlPoint selected";
+    }
   }
 }
 
@@ -163,7 +187,7 @@ function handleMouseMove(e: MouseEvent) {
   const point = getPointAtPosition(newFieldX, newFieldY)
 
   if (activeDragPoint){
-    updateDrag(activeDragPoint, newFieldX, newFieldY);
+    updateDrag(activeDragPoint, newFieldX, newFieldY, e.shiftKey);
     redrawPoints();
   }
 
@@ -234,10 +258,69 @@ function handleFieldWheel(e: WheelEvent) {
   redrawPoints();
 }
 
-const segcontainer = document.getElementById("segment-config")
-const exampleseg = document.getElementById("exampleseg")!
+const pathTree = document.getElementById("path-tree");
+const addPathButton = document.getElementById("addPath") as HTMLButtonElement | null;
+const pathNameInput = document.getElementById("pathNameInput") as HTMLInputElement | null;
 
-const selectedSegments : Boolean[] = []; // key: idx, value: true/false
+function getDefaultPathName(index: number): string {
+  return `Path ${index + 1}`;
+}
+
+function getDefaultSegmentName(index: number): string {
+  return `Segment ${index + 1}`;
+}
+
+function ensurePathName(index: number) {
+  if (!paths[index].name || paths[index].name.trim().length === 0) {
+    paths[index].name = getDefaultPathName(index);
+  }
+}
+
+function ensureSegmentName(segmentIndex: number, sectionList: section[]) {
+  if (!sectionList[segmentIndex].name || sectionList[segmentIndex].name!.trim().length === 0) {
+    sectionList[segmentIndex].name = getDefaultSegmentName(segmentIndex);
+  }
+}
+
+function updatePathNameInput() {
+  if (!pathNameInput) return;
+  ensurePathName(activePathIndex);
+  const active = getActivePath();
+  pathNameInput.value = active.name;
+}
+
+function startInlineRename(
+  label: HTMLSpanElement,
+  initialValue: string,
+  onCommit: (nextValue: string) => void
+) {
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = initialValue;
+  input.className = "rename-input";
+
+  const finalize = (save: boolean) => {
+    const nextValue = input.value.trim();
+    if (save && nextValue.length > 0) {
+      onCommit(nextValue);
+    }
+    input.replaceWith(label);
+  };
+
+  input.addEventListener("blur", () => finalize(true));
+  input.addEventListener("keydown", (event: KeyboardEvent) => {
+    if (event.key === "Enter") {
+      finalize(true);
+    } else if (event.key === "Escape") {
+      input.value = initialValue;
+      finalize(false);
+    }
+  });
+
+  label.replaceWith(input);
+  input.focus();
+  input.select();
+}
 
 function reindexControlPoints() {
   for (let i = 0; i < controlpoints.length; i++) {
@@ -245,251 +328,135 @@ function reindexControlPoints() {
   }
 }
 
-function normalizeAngle(angle: number): number {
-  while (angle > PI) angle -= 2 * PI;
-  while (angle < -PI) angle += 2 * PI;
-  return angle;
-}
 
-function ccwDelta(from: number, to: number): number {
-  let d = to - from;
-  while (d < 0) d += 2 * PI;
-  while (d >= 2 * PI) d -= 2 * PI;
-  return d;
-}
-
-function getArcTangents(start: controlPoint, mid: controlPoint, end: controlPoint): { startAngle: number; endAngle: number } {
-  const x1 = start.x;
-  const y1 = start.y;
-  const x2 = mid.x;
-  const y2 = mid.y;
-  const x3 = end.x;
-  const y3 = end.y;
-
-  const det = 2 * (x1 * (y2 - y3) + x2 * (y3 - y1) + x3 * (y1 - y2));
-  if (Math.abs(det) < 1e-6) {
-    const fallback = Math.atan2(end.y - start.y, end.x - start.x);
-    return { startAngle: fallback, endAngle: fallback };
-  }
-
-  const ux =
-    ((x1 * x1 + y1 * y1) * (y2 - y3) +
-      (x2 * x2 + y2 * y2) * (y3 - y1) +
-      (x3 * x3 + y3 * y3) * (y1 - y2)) /
-    det;
-  const uy =
-    ((x1 * x1 + y1 * y1) * (x3 - x2) +
-      (x2 * x2 + y2 * y2) * (x1 - x3) +
-      (x3 * x3 + y3 * y3) * (x2 - x1)) /
-    det;
-
-  const a0 = Math.atan2(y1 - uy, x1 - ux);
-  const a1 = Math.atan2(y2 - uy, x2 - ux);
-  const a2 = Math.atan2(y3 - uy, x3 - ux);
-
-  const totalCCW = ccwDelta(a0, a2);
-  const midCCW = ccwDelta(a0, a1);
-  const isCCW = midCCW <= totalCCW + 1e-6;
-
-  const startAngle = normalizeAngle(a0 + (isCCW ? PI / 2 : -PI / 2));
-  const endAngle = normalizeAngle(a2 + (isCCW ? PI / 2 : -PI / 2));
-  return { startAngle, endAngle };
-}
-
-function getSectionAngles(start: number, end: number, type: "bezier" | "bezier3" | "line" | "arc"): { startAngle: number; endAngle: number } {
-  if (type === "arc") {
-    const mid = start + 1;
-    if (!controlpoints[start] || !controlpoints[mid] || !controlpoints[end]) {
-      const fallback = Math.atan2(controlpoints[end].y - controlpoints[start].y, controlpoints[end].x - controlpoints[start].x);
-      return { startAngle: fallback, endAngle: fallback };
-    }
-    return getArcTangents(controlpoints[start], controlpoints[mid], controlpoints[end]);
-  }
-
+function getSectionAngles(start: number, end: number, type: "bezier" | "line"): { startAngle: number; endAngle: number } {
   if (type === "line") {
     const angle = Math.atan2(controlpoints[end].y - controlpoints[start].y, controlpoints[end].x - controlpoints[start].x);
     return { startAngle: angle, endAngle: angle };
   }
 
-  const startAngle = Math.atan2(controlpoints[start + 1].y - controlpoints[start].y, controlpoints[start + 1].x - controlpoints[start].x);
-  const endAngle = Math.atan2(controlpoints[end].y - controlpoints[end - 1].y, controlpoints[end].x - controlpoints[end - 1].x);
+  const startHandle = controlpoints[start + 1] ?? controlpoints[start];
+  const endHandle = controlpoints[end - 1] ?? controlpoints[end];
+  const startAngle = Math.atan2(startHandle.y - controlpoints[start].y, startHandle.x - controlpoints[start].x);
+  const endAngle = Math.atan2(controlpoints[end].y - endHandle.y, controlpoints[end].x - endHandle.x);
   return { startAngle, endAngle };
 }
 
-function getAutoMiddleControlPoint(start: controlPoint, endX: number, endY: number, bendScale: number): { x: number; y: number } {
-  const dx = endX - start.x;
-  const dy = endY - start.y;
-  const length = Math.hypot(dx, dy);
 
-  const midX = (start.x + endX) / 2;
-  const midY = (start.y + endY) / 2;
-  if (length < 1e-6) {
-    return { x: midX, y: midY };
-  }
+type BezierIndices = {
+  p0: number;
+  p1: number;
+  p2: number;
+  p3: number;
+  p4: number;
+  p5: number;
+};
 
-  const perpX = -dy / length;
-  const perpY = dx / length;
-  let side = 1;
-
-  if (typeof start.anglex === "number" && typeof start.angley === "number") {
-    const dot = start.anglex * perpX + start.angley * perpY;
-    side = dot >= 0 ? 1 : -1;
-  }
-
-  const bend = length * bendScale;
+function getBezierIndices(sec: section): BezierIndices | null {
+  if (sec.type !== "bezier") return null;
+  const span = sec.endcontrol - sec.startcontrol;
+  if (span < 5) return null;
   return {
-    x: midX + perpX * bend * side,
-    y: midY + perpY * bend * side,
+    p0: sec.startcontrol,
+    p1: sec.startcontrol + 1,
+    p2: sec.startcontrol + 2,
+    p3: sec.endcontrol - 2,
+    p4: sec.endcontrol - 1,
+    p5: sec.endcontrol,
   };
 }
 
-function getAnchorDirection(anchor: controlPoint, fallbackX: number, fallbackY: number): { x: number; y: number } {
-  const ax = anchor.anglex ?? 0;
-  const ay = anchor.angley ?? 0;
-  const amag = Math.hypot(ax, ay);
-  if (amag > 1e-6) {
-    return { x: ax / amag, y: ay / amag };
-  }
-
-  const dx = fallbackX - anchor.x;
-  const dy = fallbackY - anchor.y;
-  const dmag = Math.hypot(dx, dy);
-  if (dmag > 1e-6) {
-    return { x: dx / dmag, y: dy / dmag };
-  }
-
-  return { x: 1, y: 0 };
-}
-
-type HandleRelation = {
-  anchorIndex: number;
-  handleIndex: number;
-  sign: 1 | -1;
-};
-
-type RelationGraph = {
-  anchorToRelations: Map<number, HandleRelation[]>;
-  handleToRelations: Map<number, HandleRelation[]>;
-};
-
-function buildRelationGraph(): RelationGraph {
-  const anchorToRelations = new Map<number, HandleRelation[]>();
-  const handleToRelations = new Map<number, HandleRelation[]>();
-
-  function addRelation(anchorIndex: number, handleIndex: number, sign: 1 | -1) {
-    if (anchorIndex < 0 || anchorIndex >= controlpoints.length) return;
-    if (handleIndex < 0 || handleIndex >= controlpoints.length) return;
-    if (controlpoints[handleIndex].isMain) return;
-
-    const rel: HandleRelation = { anchorIndex, handleIndex, sign };
-
-    if (!anchorToRelations.has(anchorIndex)) anchorToRelations.set(anchorIndex, []);
-    anchorToRelations.get(anchorIndex)!.push(rel);
-
-    if (!handleToRelations.has(handleIndex)) handleToRelations.set(handleIndex, []);
-    handleToRelations.get(handleIndex)!.push(rel);
-  }
-
+function getHandlesForAnchor(anchorIndex: number): number[] {
+  const handles: number[] = [];
   for (const sec of sections) {
-    if (sec.type === "bezier") {
-      addRelation(sec.startcontrol, sec.startcontrol + 1, 1);
-      addRelation(sec.endcontrol, sec.endcontrol - 1, -1);
+    if (sec.type !== "bezier") continue;
+    if (sec.startcontrol === anchorIndex) {
+      handles.push(sec.startcontrol + 1, sec.startcontrol + 2);
     }
-
-    if (sec.type === "bezier3") {
-      const handleIdx = sec.startcontrol + 1;
-      addRelation(sec.startcontrol, handleIdx, 1);
-      addRelation(sec.endcontrol, handleIdx, -1);
+    if (sec.endcontrol === anchorIndex) {
+      handles.push(sec.endcontrol - 2, sec.endcontrol - 1);
     }
   }
-
-  return { anchorToRelations, handleToRelations };
+  return Array.from(new Set(handles.filter((idx) => idx >= 0 && idx < controlpoints.length)));
 }
 
-function setAnchorDirectionFromHandle(anchorIndex: number, handleIndex: number, sign: 1 | -1): boolean {
-  const anchor = controlpoints[anchorIndex];
-  const handle = controlpoints[handleIndex];
-  const dx = handle.x - anchor.x;
-  const dy = handle.y - anchor.y;
-  const mag = Math.hypot(dx, dy);
-  if (mag <= 1e-6) return false;
+function enforceG2Forward(prevSec: section, nextSec: section) {
+  const prev = getBezierIndices(prevSec);
+  const next = getBezierIndices(nextSec);
+  if (!prev || !next) return;
 
-  anchor.anglex = (dx / mag) * sign;
-  anchor.angley = (dy / mag) * sign;
-  return true;
+  const p3 = controlpoints[prev.p3];
+  const p4 = controlpoints[prev.p4];
+  const p5 = controlpoints[prev.p5];
+  const q0 = controlpoints[next.p0];
+  const q1 = controlpoints[next.p1];
+  const q2 = controlpoints[next.p2];
+
+  q0.x = p5.x;
+  q0.y = p5.y;
+  q1.x = 2 * p5.x - p4.x;
+  q1.y = 2 * p5.y - p4.y;
+
+  const seamSecond = {
+    x: p5.x - 2 * p4.x + p3.x,
+    y: p5.y - 2 * p4.y + p3.y,
+  };
+  q2.x = seamSecond.x + 2 * q1.x - q0.x;
+  q2.y = seamSecond.y + 2 * q1.y - q0.y;
 }
 
-function moveHandleFromAnchorRelation(rel: HandleRelation): boolean {
-  const anchor = controlpoints[rel.anchorIndex];
-  const handle = controlpoints[rel.handleIndex];
-  const length = Math.hypot(handle.x - anchor.x, handle.y - anchor.y);
-  if (length <= 1e-6) return false;
+function enforceG2Backward(prevSec: section, nextSec: section) {
+  const prev = getBezierIndices(prevSec);
+  const next = getBezierIndices(nextSec);
+  if (!prev || !next) return;
 
-  const dirX = anchor.anglex ?? 0;
-  const dirY = anchor.angley ?? 0;
-  const dirMag = Math.hypot(dirX, dirY);
-  if (dirMag <= 1e-6) return false;
+  const p3 = controlpoints[prev.p3];
+  const p4 = controlpoints[prev.p4];
+  const p5 = controlpoints[prev.p5];
+  const q0 = controlpoints[next.p0];
+  const q1 = controlpoints[next.p1];
+  const q2 = controlpoints[next.p2];
 
-  const nx = dirX / dirMag;
-  const ny = dirY / dirMag;
+  p5.x = q0.x;
+  p5.y = q0.y;
+  p4.x = 2 * p5.x - q1.x;
+  p4.y = 2 * p5.y - q1.y;
 
-  handle.x = anchor.x + length * rel.sign * nx;
-  handle.y = anchor.y + length * rel.sign * ny;
-
-  if (rel.sign === 1) {
-    handle.dist = Math.abs(handle.dist || length);
-  }
-
-  return true;
+  const seamSecond = {
+    x: q2.x - 2 * q1.x + q0.x,
+    y: q2.y - 2 * q1.y + q0.y,
+  };
+  p3.x = seamSecond.x + 2 * p4.x - p5.x;
+  p3.y = seamSecond.y + 2 * p4.y - p5.y;
 }
 
-function getAnchorHandleIndices(anchorIndex: number): number[] {
-  const graph = buildRelationGraph();
-  const rels = graph.anchorToRelations.get(anchorIndex) ?? [];
-  const unique = new Set<number>();
-  for (const rel of rels) {
-    unique.add(rel.handleIndex);
-  }
-  return Array.from(unique);
-}
-
-function propagateHandleChain(activeHandleIndex: number) {
-  const graph = buildRelationGraph();
-  const activeRels = graph.handleToRelations.get(activeHandleIndex);
-  if (!activeRels || activeRels.length === 0) return;
-
-  const anchorQueue: number[] = [];
-  const inQueue = new Set<number>();
-
-  for (const rel of activeRels) {
-    if (setAnchorDirectionFromHandle(rel.anchorIndex, rel.handleIndex, rel.sign) && !inQueue.has(rel.anchorIndex)) {
-      anchorQueue.push(rel.anchorIndex);
-      inQueue.add(rel.anchorIndex);
+function enforceG2ForDragIndex(index: number) {
+  let secIndex = -1;
+  for (let i = 0; i < sections.length; i++) {
+    const sec = sections[i];
+    if (sec.type !== "bezier") continue;
+    if (index >= sec.startcontrol && index <= sec.endcontrol) {
+      secIndex = i;
+      break;
     }
   }
+  if (secIndex === -1) return;
 
-  let iter = 0;
-  const MAX_ITERS = 2000;
-  while (anchorQueue.length > 0 && iter < MAX_ITERS) {
-    iter++;
-    const anchorIndex = anchorQueue.shift()!;
-    inQueue.delete(anchorIndex);
-    const rels = graph.anchorToRelations.get(anchorIndex) ?? [];
+  const sec = sections[secIndex];
+  const indices = getBezierIndices(sec);
+  if (!indices) return;
 
-    for (const rel of rels) {
-      if (rel.handleIndex === activeHandleIndex) continue;
-      if (!moveHandleFromAnchorRelation(rel)) continue;
+  const isNearStart = index <= indices.p2;
+  const isNearEnd = index >= indices.p3;
 
-      const neighborRels = graph.handleToRelations.get(rel.handleIndex) ?? [];
-      for (const nrel of neighborRels) {
-        if (nrel.anchorIndex === anchorIndex) continue;
-        if (!setAnchorDirectionFromHandle(nrel.anchorIndex, nrel.handleIndex, nrel.sign)) continue;
-        if (!inQueue.has(nrel.anchorIndex)) {
-          anchorQueue.push(nrel.anchorIndex);
-          inQueue.add(nrel.anchorIndex);
-        }
-      }
-    }
+  const prev = secIndex > 0 ? sections[secIndex - 1] : null;
+  const next = secIndex < sections.length - 1 ? sections[secIndex + 1] : null;
+
+  if (isNearStart && prev && prev.type === "bezier" && prev.endcontrol === sec.startcontrol && prev.rev === sec.rev) {
+    enforceG2Backward(prev, sec);
+  }
+  if (isNearEnd && next && next.type === "bezier" && next.startcontrol === sec.endcontrol && next.rev === sec.rev) {
+    enforceG2Forward(sec, next);
   }
 }
 
@@ -518,10 +485,6 @@ function createPointSet(fieldX: number, fieldY: number) {
     createdSegment = insertline(fieldX, fieldY);
   } else if (MODE == "Bezier") {
     createdSegment = insertbezier(fieldX, fieldY);
-  } else if (MODE == "Bezier3") {
-    createdSegment = insertbezier3(fieldX, fieldY);
-  } else if (MODE == "Arc") {
-    createdSegment = insertarc(fieldX, fieldY);
   }
 
   if (!createdSegment) {
@@ -529,7 +492,7 @@ function createPointSet(fieldX: number, fieldY: number) {
     return;
   }
 
-  appendSegmentEntry(sections.length - 1);
+  rebuildPathTree();
 
   console.log(controlpoints);
   console.log(sections);
@@ -538,81 +501,108 @@ function createPointSet(fieldX: number, fieldY: number) {
   redrawPoints();
 }
 
-function updateDrag(controlPoint: controlPoint, newX: number, newY: number) {
+function computeHandleSimilarity(anchor: controlPoint, near: controlPoint, far: controlPoint): { ratio: number; angle: number } {
+  const ax = near.x - anchor.x;
+  const ay = near.y - anchor.y;
+  const bx = far.x - anchor.x;
+  const by = far.y - anchor.y;
+  const lenA = Math.hypot(ax, ay);
+  const lenB = Math.hypot(bx, by);
+  const ratio = lenA > 1e-9 ? lenB / lenA : 0;
+  const dot = ax * bx + ay * by;
+  const cross = ax * by - ay * bx;
+  const angle = lenA > 1e-9 && lenB > 1e-9 ? Math.atan2(cross, dot) : 0;
+  return { ratio, angle };
+}
+
+function getShiftHandleLink(index: number): {
+  anchor: controlPoint;
+  near: controlPoint;
+  far: controlPoint;
+  ratio: number;
+  angle: number;
+  draggedIsNear: boolean;
+} | null {
+  for (const sec of sections) {
+    if (sec.type !== "bezier") continue;
+    const indices = getBezierIndices(sec);
+    if (!indices) continue;
+
+    if (index === indices.p1 || index === indices.p2) {
+      const anchor = controlpoints[indices.p0];
+      const near = controlpoints[indices.p1];
+      const far = controlpoints[indices.p2];
+      const { ratio, angle } = computeHandleSimilarity(anchor, near, far);
+      return { anchor, near, far, ratio, angle, draggedIsNear: index === indices.p1 };
+    }
+
+    if (index === indices.p4 || index === indices.p3) {
+      const anchor = controlpoints[indices.p5];
+      const near = controlpoints[indices.p4];
+      const far = controlpoints[indices.p3];
+      const { ratio, angle } = computeHandleSimilarity(anchor, near, far);
+      return { anchor, near, far, ratio, angle, draggedIsNear: index === indices.p4 };
+    }
+  }
+
+  return null;
+}
+
+function updateDrag(controlPoint: controlPoint, newX: number, newY: number, keepRatio: boolean) {
   if (!dragHistoryCaptured) {
     captureHistoryState();
     dragHistoryCaptured = true;
   }
 
   const index = controlPoint.index;
-
-  const arcSection = sections.find(sec => sec.type === "arc" && sec.startcontrol + 1 === index);
-
-  if (!controlPoint.isMain && arcSection) {
-    controlPoint.x = newX;
-    controlPoint.y = newY;
-    updatesections();
-    dispatchPathGeneration();
-    return;
-  }
-
-  // Determine the index of the main controlPoint for this group (main points are at indexes that are multiples of 3)
-  const groupStartIndex = Math.round(index / 3) * 3;
-  const mainPoint = controlpoints[groupStartIndex];
-  const deltaX = controlPoint.x - newX;
-  const deltaY = controlPoint.y - newY;
+  const link = keepRatio ? getShiftHandleLink(index) : null;
 
   if (controlPoint.isMain) {
     const dx = newX - controlPoint.x;
     const dy = newY - controlPoint.y;
-
     controlPoint.x = newX;
     controlPoint.y = newY;
 
-    // Keep attached handles translated with the anchor, then propagate the chain.
-    const attachedHandles = getAnchorHandleIndices(index);
+    const attachedHandles = getHandlesForAnchor(index);
     for (const handleIndex of attachedHandles) {
       const handle = controlpoints[handleIndex];
       handle.x += dx;
       handle.y += dy;
     }
-
-    for (const handleIndex of attachedHandles) {
-      propagateHandleChain(handleIndex);
-    }
   } else {
-    const graph = buildRelationGraph();
-    if (graph.handleToRelations.has(index)) {
-      const primaryRel = graph.handleToRelations.get(index)![0];
-      const anchorPoint = controlpoints[primaryRel.anchorIndex];
-      controlPoint.x = newX;
-      controlPoint.y = newY;
-      controlPoint.dist = calculateSignedDistance(anchorPoint, controlPoint);
-
-      propagateHandleChain(index);
-    } else {
-      // Fallback for non-sectioned handles.
-      controlPoint.x = newX;
-      controlPoint.y = newY;
-
-      controlPoint.dist = calculateSignedDistance(mainPoint, controlPoint);
-      const mag = Math.abs(controlPoint.dist);
-      if (mag > 1e-6) {
-        mainPoint.anglex = (controlPoint.x - mainPoint.x) / controlPoint.dist;
-        mainPoint.angley = (controlPoint.y - mainPoint.y) / controlPoint.dist;
-      }
-
-      for (let i = -1; i <= 1; i++) {
-        const controlPointIndex = groupStartIndex + i;
-        if (controlPointIndex >= 0 && controlPointIndex < controlpoints.length) {
-          if(controlpoints[controlPointIndex].isMain != true){
-            updateControlPosition(mainPoint, controlpoints[controlPointIndex]);
-          }
+    if (link && link.ratio > 0) {
+      if (link.draggedIsNear) {
+        link.near.x = newX;
+        link.near.y = newY;
+        const vx = link.near.x - link.anchor.x;
+        const vy = link.near.y - link.anchor.y;
+        const cosA = Math.cos(link.angle);
+        const sinA = Math.sin(link.angle);
+        const rx = vx * cosA - vy * sinA;
+        const ry = vx * sinA + vy * cosA;
+        link.far.x = link.anchor.x + link.ratio * rx;
+        link.far.y = link.anchor.y + link.ratio * ry;
+      } else {
+        link.far.x = newX;
+        link.far.y = newY;
+        const vx = link.far.x - link.anchor.x;
+        const vy = link.far.y - link.anchor.y;
+        const cosA = Math.cos(-link.angle);
+        const sinA = Math.sin(-link.angle);
+        const rx = vx * cosA - vy * sinA;
+        const ry = vx * sinA + vy * cosA;
+        if (link.ratio > 1e-6) {
+          link.near.x = link.anchor.x + rx / link.ratio;
+          link.near.y = link.anchor.y + ry / link.ratio;
         }
       }
+    } else {
+      controlPoint.x = newX;
+      controlPoint.y = newY;
     }
   }
 
+  enforceG2ForDragIndex(index);
   updatesections();
   dispatchPathGeneration();
 }
@@ -631,7 +621,8 @@ function updateControlPosition(mainPoint: controlPoint, controlPoint: controlPoi
 }
 
 function dispatchPathGeneration() {
-  computeBezierWaypoints();
+  computePathProfile();
+  refreshSegmentRanges();
   document.dispatchEvent(new CustomEvent("drawpath", { detail: { controlpoints } }));
 }
 
@@ -656,6 +647,13 @@ function cloneSections(items: typeof sections): typeof sections {
   return items.map((section) => ({ ...section }));
 }
 
+function resetHistoryState() {
+  historyPast.length = 0;
+  historyFuture.length = 0;
+  dragHistoryCaptured = false;
+  activeDragPoint = null;
+}
+
 function restoreHistoryState(snapshot: HistorySnapshot) {
   activeDragPoint = null;
   isDraggingGlobal = false;
@@ -666,10 +664,12 @@ function restoreHistoryState(snapshot: HistorySnapshot) {
   controlpoints.splice(0, controlpoints.length, ...cloneControlPoints(snapshot.controlpoints));
   sections.splice(0, sections.length, ...cloneSections(snapshot.sections));
   reindexControlPoints();
-  rebuildSegmentSidebar();
-  resetsegment();
+  rebuildPathTree();
+  clearSegmentState();
 
-  pointdisplay.innerText = controlpoints.length > 0 ? "controlPoint selection restored" : "No controlPoint selected";
+  if (pointdisplay) {
+    pointdisplay.innerText = controlpoints.length > 0 ? "controlPoint selection restored" : "No controlPoint selected";
+  }
   dispatchPathGeneration();
   redrawPoints();
 }
@@ -718,49 +718,196 @@ function handleHistoryShortcut(e: KeyboardEvent) {
   }
 }
 
-function appendSegmentEntry(segmentIndex: number) {
-  if (!segcontainer || !exampleseg) return;
-
-  const newSeg = exampleseg.cloneNode(true) as HTMLDivElement;
-  newSeg.id = "segment" + segmentIndex;
-  newSeg.hidden = false;
-
-  const label = newSeg.querySelector("label");
-  label!.textContent = "Segment" + (segmentIndex + 1);
-
-  const button = newSeg.querySelector("button");
-  button?.addEventListener("click", () => {
-    if (!sections[segmentIndex]) return;
-    sections[segmentIndex].rev = !sections[segmentIndex].rev;
-    updatesections();
-    computeBezierWaypoints();
-  });
-
-  newSeg.addEventListener("mouseenter", () => {
-    newSeg.style.backgroundColor = "lightgrey";
-    selectSegment(segmentIndex);
-  });
-
-  newSeg.addEventListener("mouseleave", () => {
-    deselectSegment(segmentIndex);
-    newSeg.style.backgroundColor = "grey";
-  });
-
-  segcontainer.append(newSeg);
+function setActivePath(pathIndex: number) {
+  setActivePathIndex(pathIndex);
+  resetHistoryState();
+  clearSegmentState();
+  clearGraphInteractionState();
+  updatePathNameInput();
+  rebuildPathTree();
+  dispatchPathGeneration();
+  redrawPoints();
 }
 
-function rebuildSegmentSidebar() {
-  if (!segcontainer || !exampleseg) return;
+export function replaceEditorPaths(nextPaths: PathModel[], activeIndex = 0) {
+  resetHistoryState();
+  clearSegmentState();
+  clearGraphInteractionState();
+  resetFieldView();
+  isDraggingGlobal = false;
+  isPanningField = false;
+  hasPannedField = false;
+  suppressNextPathRowClick = false;
 
-  const existingSegments = Array.from(segcontainer.querySelectorAll(".segment"));
-  for (const segment of existingSegments) {
-    if (segment.id !== "exampleseg") {
-      segment.remove();
-    }
+  replacePaths(nextPaths);
+
+  for (let i = 0; i < paths.length; i++) {
+    setActivePathIndex(i);
+    computePathProfile();
   }
 
-  for (let i = 0; i < sections.length; i++) {
-    appendSegmentEntry(i);
+  const nextActiveIndex = Math.max(0, Math.min(activeIndex, paths.length - 1));
+  setActivePathIndex(nextActiveIndex);
+  updatePathNameInput();
+  rebuildPathTree();
+  refreshSegmentRanges();
+  if (pointdisplay) {
+    pointdisplay.innerText = controlpoints.length > 0 ? "controlPoint selection restored" : "No controlPoint selected";
+  }
+  renderGraphHoverOverlay();
+  redrawPoints();
+}
+
+function activatePathForSegment(pathIndex: number) {
+  if (pathIndex !== activePathIndex) {
+    setActivePath(pathIndex);
+  }
+}
+
+function buildSegmentEntry(pathIndex: number, segmentIndex: number, sectionList: section[]): HTMLDivElement {
+  const segment = document.createElement("div");
+  segment.className = "segment";
+
+  const label = document.createElement("span");
+  label.className = "segment-label";
+
+  const reverseButton = document.createElement("button");
+  reverseButton.className = "segment-reverse";
+  reverseButton.textContent = "Reverse";
+
+  segment.append(label, reverseButton);
+
+  ensureSegmentName(segmentIndex, sectionList);
+  label.textContent = sectionList[segmentIndex].name || getDefaultSegmentName(segmentIndex);
+
+  if (pathIndex !== activePathIndex) {
+    segment.classList.add("is-inactive");
+  }
+  if (pathIndex === activePathIndex && segmentIndex === selectedSegmentIndex) {
+    segment.classList.add("is-selected");
+  }
+  if (pathIndex === activePathIndex && segmentIndex === hoveredSegmentIndex) {
+    segment.classList.add("is-hovered");
+  }
+
+  reverseButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    activatePathForSegment(pathIndex);
+    if (pathIndex !== activePathIndex || !sectionList[segmentIndex]) return;
+    captureHistoryState();
+    sectionList[segmentIndex].rev = !sectionList[segmentIndex].rev;
+    updatesections();
+    dispatchPathGeneration();
+    rebuildPathTree();
+    renderGraphHoverOverlay();
+    redrawPoints();
+  });
+
+  segment.addEventListener("click", (event) => {
+    event.stopPropagation();
+    activatePathForSegment(pathIndex);
+    if (pathIndex === activePathIndex && segmentIndex === selectedSegmentIndex) {
+      clearSelectedSegment();
+    } else {
+      setSelectedSegment(segmentIndex);
+    }
+    resetsegment();
+    rebuildPathTree();
+    renderGraphHoverOverlay();
+    redrawPoints();
+  });
+
+  label.addEventListener("dblclick", (event) => {
+    event.stopPropagation();
+    suppressNextPathRowClick = true;
+    activatePathForSegment(pathIndex);
+    if (pathIndex !== activePathIndex) return;
+    startInlineRename(label, label.textContent || "", (nextValue) => {
+      sectionList[segmentIndex].name = nextValue;
+      label.textContent = nextValue;
+      rebuildPathTree();
+    });
+  });
+
+  segment.addEventListener("mouseenter", () => {
+    if (pathIndex !== activePathIndex) return;
+    selectSegment(segmentIndex);
+    renderGraphHoverOverlay();
+    redrawPoints();
+  });
+
+  segment.addEventListener("mouseleave", () => {
+    if (pathIndex !== activePathIndex) return;
+    deselectSegment(segmentIndex);
+    renderGraphHoverOverlay();
+    redrawPoints();
+  });
+
+  return segment;
+}
+
+function buildPathEntry(pathIndex: number): HTMLDivElement {
+  const pathEntry = document.createElement("div");
+  pathEntry.className = "path-item";
+
+  const pathRow = document.createElement("div");
+  pathRow.className = "path-row";
+
+  const label = document.createElement("span");
+  label.className = "path-label";
+
+  const segmentList = document.createElement("div");
+  segmentList.className = "segment-list";
+
+  pathRow.append(label);
+  pathEntry.append(pathRow);
+
+  ensurePathName(pathIndex);
+  label.textContent = paths[pathIndex].name;
+
+  if (pathIndex === activePathIndex) {
+    pathEntry.classList.add("is-active");
+  }
+
+  pathRow.addEventListener("click", () => {
+    if (suppressNextPathRowClick) {
+      suppressNextPathRowClick = false;
+      return;
+    }
+    if (pathIndex === activePathIndex) return;
+    setActivePath(pathIndex);
+  });
+
+  label.addEventListener("dblclick", (event) => {
+    event.stopPropagation();
+    suppressNextPathRowClick = true;
+    startInlineRename(label, label.textContent || "", (nextValue) => {
+      paths[pathIndex].name = nextValue;
+      label.textContent = nextValue;
+      if (pathIndex === activePathIndex) {
+        updatePathNameInput();
+      }
+      rebuildPathTree();
+    });
+  });
+
+  const sectionList = paths[pathIndex].sections;
+  if (pathIndex === activePathIndex) {
+    for (let i = 0; i < sectionList.length; i++) {
+      segmentList.append(buildSegmentEntry(pathIndex, i, sectionList));
+    }
+    pathEntry.append(segmentList);
+  }
+
+  return pathEntry;
+}
+
+function rebuildPathTree() {
+  if (!pathTree) return;
+  pathTree.innerHTML = "";
+
+  for (let i = 0; i < paths.length; i++) {
+    pathTree.append(buildPathEntry(i));
   }
 }
 
@@ -787,45 +934,70 @@ function redrawPoints() {
 document.getElementById("clear")?.addEventListener("click", () => {
   captureHistoryState();
   controlpoints.length = 0;
+  sections.length = 0;
+  pathpoints.length = 0;
+  clearSegmentState();
+  rebuildPathTree();
+  renderGraphHoverOverlay();
   redrawPoints();
   dispatchPathGeneration();
 });
 
 
 function insertbezier(fieldX: number, fieldY: number): boolean {
-
-  let idx = controlpoints.length - 1;
-  let prevx = controlpoints[idx].x;
-  let prevy = controlpoints[idx].y;
-  let offset = (100 / 3) * 144 / canvas.width; // now in field units (0-144 range)
-  const segDx = fieldX - prevx;
-  const segDy = fieldY - prevy;
+  const startIndex = controlpoints.length - 1;
+  const startPoint = controlpoints[startIndex];
+  const segDx = fieldX - startPoint.x;
+  const segDy = fieldY - startPoint.y;
   const segLen = Math.hypot(segDx, segDy);
-  const dirX = segLen > 1e-6 ? segDx / segLen : (controlpoints[idx].anglex ?? 1);
-  const dirY = segLen > 1e-6 ? segDy / segLen : (controlpoints[idx].angley ?? 0);
+  const dirX = segLen > 1e-6 ? segDx / segLen : (startPoint.anglex ?? 1);
+  const dirY = segLen > 1e-6 ? segDy / segLen : (startPoint.angley ?? 0);
 
-  // Create first 2 control points
-  const controlPoint1: controlPoint = {
-    x: prevx + offset * controlpoints[idx].anglex!,
-    y: prevy + offset * controlpoints[idx].angley!,
+  const baseOffset = (100 / 3) * 144 / canvas.width;
+  const offset1 = Math.min(baseOffset, segLen * 0.25);
+  const offset2 = Math.min(baseOffset * 2, segLen * 0.5);
+
+  const p1: controlPoint = {
+    x: startPoint.x + offset1 * dirX,
+    y: startPoint.y + offset1 * dirY,
     index: controlpoints.length,
     color: "blue",
-    dist: offset,
+    dist: offset1,
     size: 6,
   };
-  controlpoints.push(controlPoint1);
+  controlpoints.push(p1);
 
-  const controlPoint2: controlPoint = {
-    x: fieldX - offset * dirX,
-    y: fieldY - offset * dirY,
+  const p2: controlPoint = {
+    x: startPoint.x + offset2 * dirX,
+    y: startPoint.y + offset2 * dirY,
     index: controlpoints.length,
     color: "blue",
-    dist: -offset,
+    dist: offset2,
     size: 6,
   };
-  controlpoints.push(controlPoint2);
+  controlpoints.push(p2);
 
-  const mainPoint: controlPoint = {
+  const p3: controlPoint = {
+    x: fieldX - offset2 * dirX,
+    y: fieldY - offset2 * dirY,
+    index: controlpoints.length,
+    color: "blue",
+    dist: offset2,
+    size: 6,
+  };
+  controlpoints.push(p3);
+
+  const p4: controlPoint = {
+    x: fieldX - offset1 * dirX,
+    y: fieldY - offset1 * dirY,
+    index: controlpoints.length,
+    color: "blue",
+    dist: offset1,
+    size: 6,
+  };
+  controlpoints.push(p4);
+
+  const endPoint: controlPoint = {
     x: fieldX,
     y: fieldY,
     index: controlpoints.length,
@@ -835,14 +1007,21 @@ function insertbezier(fieldX: number, fieldY: number): boolean {
     anglex: dirX,
     angley: dirY,
     size: 8,
-    rev: state
-
+    rev: state,
   };
-  controlpoints.push(mainPoint);
+  controlpoints.push(endPoint);
 
-  pushSection(idx, idx+ 3, "bezier", false);
+  pushSection(startIndex, endPoint.index, "bezier", false);
+  const newSectionIndex = sections.length - 1;
+  if (newSectionIndex > 0) {
+    const prev = sections[newSectionIndex - 1];
+    const next = sections[newSectionIndex];
+    if (prev.type === "bezier" && next.type === "bezier" && prev.endcontrol === next.startcontrol) {
+      enforceG2Forward(prev, next);
+    }
+  }
+  updatesections();
   return true;
-
 }
 
 function insertline(fieldX: number, fieldY: number): boolean {
@@ -874,92 +1053,9 @@ function insertline(fieldX: number, fieldY: number): boolean {
 
 }
 
-function insertbezier3(fieldX: number, fieldY: number): boolean {
-  const startIndex = controlpoints.length - 1;
-  const startPoint = controlpoints[startIndex];
-  const dx = fieldX - startPoint.x;
-  const dy = fieldY - startPoint.y;
-  const length = Math.hypot(dx, dy);
-  const dir = getAnchorDirection(startPoint, fieldX, fieldY);
-  const defaultHandle = (100 / 3) * 144 / canvas.width;
-  const handleDist = Math.min(defaultHandle, length * 0.75);
-  const autoMid = {
-    x: startPoint.x + dir.x * handleDist,
-    y: startPoint.y + dir.y * handleDist,
-  };
-
-  const midControl: controlPoint = {
-    x: autoMid.x,
-    y: autoMid.y,
-    index: controlpoints.length,
-    color: "blue",
-    dist: handleDist,
-    size: 7,
-    isMain: false,
-  };
-  controlpoints.push(midControl);
-
-  const endPoint: controlPoint = {
-    x: fieldX,
-    y: fieldY,
-    index: controlpoints.length,
-    color: "red",
-    dist: 0,
-    isMain: true,
-    anglex: dir.x,
-    angley: dir.y,
-    size: 8,
-    rev: state
-  };
-  controlpoints.push(endPoint);
-  pushSection(startIndex, endPoint.index, "bezier3", false);
-  return true;
-}
-
-function insertarc(fieldX: number, fieldY: number): boolean {
-  const startIndex = controlpoints.length - 1;
-  const startPoint = controlpoints[startIndex];
-  const autoMid = getAutoMiddleControlPoint(startPoint, fieldX, fieldY, 0.35);
-
-  const midControl: controlPoint = {
-    x: autoMid.x,
-    y: autoMid.y,
-    index: controlpoints.length,
-    color: "orange",
-    dist: 0,
-    size: 7,
-    isMain: false,
-  };
-  controlpoints.push(midControl);
-
-  const endPoint: controlPoint = {
-    x: fieldX,
-    y: fieldY,
-    index: controlpoints.length,
-    color: "red",
-    dist: 0,
-    isMain: true,
-    anglex: fieldX - autoMid.x,
-    angley: fieldY - autoMid.y,
-    size: 8,
-    rev: state
-  };
-
-  const endMag = Math.hypot(endPoint.anglex ?? 0, endPoint.angley ?? 0);
-  if (endMag > 1e-6) {
-    endPoint.anglex = (endPoint.anglex ?? 0) / endMag;
-    endPoint.angley = (endPoint.angley ?? 0) / endMag;
-  } else {
-    endPoint.anglex = 1;
-    endPoint.angley = 0;
-  }
-  controlpoints.push(endPoint);
-  pushSection(startIndex, endPoint.index, "arc", false);
-  return true;
-}
-
-function pushSection(start: number, end: number, type: "bezier" | "bezier3" | "line" | "arc", rev: boolean){
+function pushSection(start: number, end: number, type: "bezier" | "line", rev: boolean){
   const angles = getSectionAngles(start, end, type);
+  const nextName = getDefaultSegmentName(sections.length);
 
   sections.push(
   { startcontrol: start,
@@ -974,6 +1070,7 @@ function pushSection(start: number, end: number, type: "bezier" | "bezier3" | "l
     starty: controlpoints[start].y,
     endx: controlpoints[end].x,
     endy: controlpoints[end].y,
+    name: nextName,
   });
 }
 
@@ -998,6 +1095,7 @@ function updatesections(){
       starty: controlpoints[start].y,
       endx: controlpoints[end].x,
       endy: controlpoints[end].y,
+      name: sections[i].name || getDefaultSegmentName(i),
     }
 
     if(sections[i].rev){

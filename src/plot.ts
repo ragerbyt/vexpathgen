@@ -2,13 +2,9 @@
 
 export let GRAPHMODE = "time"
 
-import { leftVel, rightVel } from "./curve"; // Assuming they're exported there
-
 import { redrawCanvas } from "./draw";
-import {graph, MAX_ACCELERATION, MAX_VELOCITY,pathpoints } from "./globals";
-
-let startime = 0; 
-let endtime = 0;
+import { graph, MAX_ACCELERATION, MAX_DECELERATION, MAX_VELOCITY, pathpoints } from "./globals";
+import { hoveredSegmentRange, selectedSegmentRange } from "./handling";
 
 const MIN_VIEW_SPAN_RATIO = 0.03;
 type GraphMode = "time" | "dist";
@@ -271,10 +267,8 @@ export function plot() {
 
   // Update velocity markings in HTML
   const velocityMaxLabel = document.getElementById("velocity-max-label") as HTMLDivElement;
-  const velocityZeroLabel = document.getElementById("velocity-zero-label") as HTMLDivElement;
 
   velocityMaxLabel.textContent = `${maxVelocity.toFixed(0)}`; // Example max velocity
-  velocityZeroLabel.textContent = "0";
   renderLockedGraphProbe();
   
 }
@@ -304,6 +298,7 @@ const octx = overlay.getContext("2d")!
 const currtime = document.getElementById("currtime-label") as HTMLDivElement;
 
 import { bot } from "./globals";
+import { PI } from "chart.js/helpers";
 
 let disable = false;
 let velocityDisplayMode: "center" | "left" | "right" = "center";
@@ -317,8 +312,64 @@ type LockedGraphProbe = {
 
 let lockedGraphProbe: LockedGraphProbe | null = null;
 
+function getHoverDomainRange(mode: GraphMode): { start: number; end: number } | null {
+  if (!hoveredSegmentRange || pathpoints.length === 0) return null;
+  return getDomainRangeForSegmentRange(hoveredSegmentRange, mode);
+}
+
+function getSelectedDomainRange(mode: GraphMode): { start: number; end: number } | null {
+  if (!selectedSegmentRange || pathpoints.length === 0) return null;
+  return getDomainRangeForSegmentRange(selectedSegmentRange, mode);
+}
+
+function getDomainRangeForSegmentRange(
+  range: { startIndex: number; endIndex: number },
+  mode: GraphMode
+): { start: number; end: number } | null {
+  const lastIndex = pathpoints.length - 1;
+  const startIndex = Math.max(0, Math.min(range.startIndex, lastIndex));
+  const endIndex = Math.max(0, Math.min(range.endIndex, lastIndex));
+  const startValue = getXValueAtPoint(startIndex, mode);
+  const endValue = getXValueAtPoint(endIndex, mode);
+  if (!isFinite(startValue) || !isFinite(endValue)) return null;
+  return {
+    start: Math.min(startValue, endValue),
+    end: Math.max(startValue, endValue),
+  };
+}
+
+function renderHoverBand(rect: DOMRect) {
+  renderDomainBand(rect, getSelectedDomainRange(GRAPHMODE as GraphMode), "rgba(255, 136, 0, 0.16)");
+  renderDomainBand(rect, getHoverDomainRange(GRAPHMODE as GraphMode), "rgba(255, 255, 0, 0.18)");
+}
+
+function renderDomainBand(
+  rect: DOMRect,
+  range: { start: number; end: number } | null,
+  color: string
+) {
+  const mode = GRAPHMODE as GraphMode;
+  if (!range) return;
+
+  const view = getViewDomain(mode);
+  const start = Math.max(range.start, view.start);
+  const end = Math.min(range.end, view.end);
+  if (end <= start) return;
+
+  const xStart = domainToX(start, rect.width, mode);
+  const xEnd = domainToX(end, rect.width, mode);
+  const scaleX = octx.canvas.width / Math.max(rect.width, 1);
+
+  octx.save();
+  octx.fillStyle = color;
+  octx.fillRect(xStart * scaleX, 0, (xEnd - xStart) * scaleX, octx.canvas.height);
+  octx.restore();
+}
+
 function clearGraphProbeDisplay() {
+  const rect = graph.getBoundingClientRect();
   octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
+  renderHoverBand(rect);
   bot.x = -1;
   bot.y = -1;
   bot.o = -1;
@@ -335,6 +386,7 @@ function renderProbeAt(domainValue: number, yRatio: number, rect: DOMRect) {
   const yPx = clamp(yRatio, 0, 1) * rect.height;
 
   octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
+  renderHoverBand(rect);
 
   if (xPx >= 0 && xPx <= rect.width) {
     drawLine(
@@ -414,10 +466,29 @@ function renderProbeAt(domainValue: number, yRatio: number, rect: DOMRect) {
     currtime.innerText = `${time.toFixed(2)}s`;
   }
 
-  currVelocity.style.display = "block";
-  currVelocity.innerText = `${displayedVel.toFixed(1)} in/s`;
+    currVelocity.style.display = "block";
+    currVelocity.innerText =
+    `${displayedVel.toFixed(1)} in/s, ` +
+    `x: ${bot.x.toFixed(2)}, ` +
+    `y: ${bot.y.toFixed(2)}, ` +
+    `orientation: ${(bot.o*360/(2*PI)).toFixed(2)}°`;
 
   redrawCanvas();
+}
+
+export function renderGraphHoverOverlay() {
+  if (disable || isPanningGraph) return;
+  if (lockedGraphProbe) {
+    renderLockedGraphProbe();
+    return;
+  }
+  clearGraphProbeDisplay();
+}
+
+export function clearGraphInteractionState() {
+  stopPlayback();
+  lockedGraphProbe = null;
+  clearGraphProbeDisplay();
 }
 
 function renderLockedGraphProbe() {
@@ -454,7 +525,11 @@ function lockGraphProbeAtMouse(e: MouseEvent) {
     domainValue: xToDomain(newCanvasX, rect.width, mode),
     yRatio: clamp(newCanvasY / Math.max(rect.height, 1), 0, 1),
   };
-  renderLockedGraphProbe();
+  if (lockedGraphProbe) {
+    renderLockedGraphProbe();
+  } else {
+    renderGraphHoverOverlay();
+  }
 }
 
 function handleMouseMove(e: MouseEvent) {
@@ -477,72 +552,98 @@ function handleMouseMove(e: MouseEvent) {
   renderProbeAt(domainValue, yRatio, rect);
 }
 
-const run = document.getElementById("run");
+const playButton = document.getElementById("play") as HTMLButtonElement | null;
+const pauseButton = document.getElementById("pause") as HTMLButtonElement | null;
 
-run!.addEventListener("click", async () => {
-  const startTime = performance.now(); // Time in milliseconds
-  disable = true;
-  let i = 1;
+let isRunningPlayback = false;
+let playbackStartPerf = 0;
+let playbackElapsed = 0;
+let playbackFrameHandle: number | null = null;
 
-  console.log("run");
+function renderPlaybackAtTime(time: number) {
+  if (pathpoints.length === 0) return;
 
-  while (true) {
-    const now = performance.now();
-    const time = (now - startTime) / 1000; // Convert to seconds
+  const clampedTime = Math.max(0, Math.min(time, pathpoints[pathpoints.length - 1].time));
 
-    if (time >= pathpoints[pathpoints.length - 1].time) break;
+  octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
+  currtime.style.display = "block";
+  currtime.innerText = `${clampedTime.toFixed(2)}s`;
 
-    octx.clearRect(0, 0, octx.canvas.width, octx.canvas.height);
+  bot.x = -1;
+  bot.y = -1;
+  bot.o = -1;
 
-    currtime.style.display = "block";
-    currtime.innerText = `${time.toFixed(2)}s`;
-
-    for (let i  = 0; i < pathpoints.length; i++) {
-      if (time < pathpoints[i].time) {
-        const frac = (time - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
-
-        bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
-        bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
-        bot.o = pathpoints[i - 1].orientation + Normalize(pathpoints[i].orientation - pathpoints[i - 1].orientation) * frac;
-
-        break;
-      }
+  for (let i = 1; i < pathpoints.length; i++) {
+    if (clampedTime <= pathpoints[i].time) {
+      const frac = (clampedTime - pathpoints[i - 1].time) / (pathpoints[i].time - pathpoints[i - 1].time);
+      bot.x = pathpoints[i - 1].x + (pathpoints[i].x - pathpoints[i - 1].x) * frac;
+      bot.y = pathpoints[i - 1].y + (pathpoints[i].y - pathpoints[i - 1].y) * frac;
+      bot.o = pathpoints[i - 1].orientation + Normalize(pathpoints[i].orientation - pathpoints[i - 1].orientation) * frac;
+      break;
     }
-
-    drawLine(
-      octx,
-      { x: (time / pathpoints[pathpoints.length - 1].time) * octx.canvas.width, y: 0 },
-      { x: (time / pathpoints[pathpoints.length - 1].time) * octx.canvas.width, y: octx.canvas.height },
-      "red"
-    );
-
-    redrawCanvas();
-    await new Promise(resolve => setTimeout(resolve, 5)); // Sleep just to yield, not to control time
   }
 
-  await new Promise(resolve => setTimeout(resolve, 200));
+  const totalTime = Math.max(pathpoints[pathpoints.length - 1].time, 1e-9);
+  const x = (clampedTime / totalTime) * octx.canvas.width;
+  drawLine(
+    octx,
+    { x, y: 0 },
+    { x, y: octx.canvas.height },
+    "red"
+  );
+
+  redrawCanvas();
+}
+
+function stopPlayback(clearOverlay = true) {
+  isRunningPlayback = false;
   disable = false;
+
+  if (playbackFrameHandle !== null) {
+    cancelAnimationFrame(playbackFrameHandle);
+    playbackFrameHandle = null;
+  }
+
+  if (clearOverlay) {
+    playbackElapsed = 0;
+    clearGraphProbeDisplay();
+  }
+}
+
+function tickPlayback(now: number) {
+  if (!isRunningPlayback || pathpoints.length === 0) return;
+
+  const totalTime = pathpoints[pathpoints.length - 1].time;
+  playbackElapsed = (now - playbackStartPerf) / 1000;
+
+  if (playbackElapsed >= totalTime) {
+    renderPlaybackAtTime(totalTime);
+    stopPlayback(false);
+    return;
+  }
+
+  renderPlaybackAtTime(playbackElapsed);
+  playbackFrameHandle = requestAnimationFrame(tickPlayback);
+}
+
+playButton?.addEventListener("click", () => {
+  if (pathpoints.length === 0) return;
+
+  if (playbackElapsed >= pathpoints[pathpoints.length - 1].time) {
+    playbackElapsed = 0;
+  }
+
+  if (isRunningPlayback) return;
+
+  disable = true;
+  isRunningPlayback = true;
+  playbackStartPerf = performance.now() - playbackElapsed * 1000;
+  playbackFrameHandle = requestAnimationFrame(tickPlayback);
 });
 
-
-document.getElementById("dist")?.addEventListener("click", () => {
-  GRAPHMODE = "dist";
-  lockedGraphProbe = null;
-  if (getDomainMax("dist") > 0 && (viewWindow.dist.end <= viewWindow.dist.start || viewWindow.dist.end === 1)) {
-    resetViewDomain("dist");
-  }
-  clearGraphProbeDisplay();
-  plot(); 
-});
-
-document.getElementById("time")?.addEventListener("click", () => {
-  GRAPHMODE = "time";
-  lockedGraphProbe = null;
-  if (getDomainMax("time") > 0 && (viewWindow.time.end <= viewWindow.time.start || viewWindow.time.end === 1)) {
-    resetViewDomain("time");
-  }
-  clearGraphProbeDisplay();
-  plot(); 
+pauseButton?.addEventListener("click", () => {
+  if (!isRunningPlayback) return;
+  stopPlayback(false);
 });
 
 function handleGraphWheel(e: WheelEvent) {
@@ -616,6 +717,7 @@ overlay.addEventListener("click", lockGraphProbeAtMouse);
 
 document.addEventListener("keydown", (e: KeyboardEvent) => {
   if (e.key !== "Escape") return;
+  stopPlayback();
   lockedGraphProbe = null;
   clearGraphProbeDisplay();
 });

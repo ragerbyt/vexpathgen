@@ -1,8 +1,9 @@
 import { Point } from "chart.js";
 import {  pathpoints } from "./globals";
 import { canvas, MAX_VELOCITY, ctx, background } from "./globals";
-import { controlpoints, pathPoint, controlPoint } from "./globals";
+import { controlpoints, pathPoint, controlPoint, sections } from "./globals";
 import { fieldToCanvasX, fieldToCanvasY, getFieldView } from "./globals";
+import { hoveredSegmentRange, selectedSegmentRange } from "./handling";
 
 function drawFieldBackground() {
   const view = getFieldView();
@@ -63,11 +64,8 @@ export function redrawCanvas() {
     return;
   }
 
-  for (let i = 0; i < controlpoints.length-1; i++) {
-    if (!drawpoints) break;
-    if (controlpoints[i + 1].isMain != controlpoints[i].isMain) {
-      drawLine(ctx, controlpoints[i + 1], controlpoints[i], "white", 2);
-    }
+  if (drawpoints) {
+    drawControlPolygons(ctx);
   }
 
   for (const point of controlpoints) {
@@ -93,6 +91,18 @@ export function redrawCanvas() {
   drawBot(ctx);
 }
 
+function drawControlPolygons(ctx: CanvasRenderingContext2D) {
+  for (const sec of sections) {
+    const start = Math.max(0, sec.startcontrol);
+    const end = Math.min(controlpoints.length - 1, sec.endcontrol);
+    if (start >= end) continue;
+
+    for (let i = start; i < end; i++) {
+      drawLine(ctx, controlpoints[i], controlpoints[i + 1], "rgba(255, 255, 255, 0.45)", 1);
+    }
+  }
+}
+
 document.getElementById("togglePoints")?.addEventListener("click", () => {
   drawpoints = !drawpoints;
   redrawCanvas();
@@ -112,38 +122,31 @@ function velocityToColor(velocity: number): string {
 
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
-
-
-let sidetrack = false;
-
 function drawPath(ctx: CanvasRenderingContext2D) {
-  if(start_hi != -1){
-    for(let i = start_hi; i < end_hi; i++){
-      drawLine(ctx, pathpoints[i], pathpoints[i+1], "yellow", 4); 
-    }
-  } 
-
   for (let i = 1; i < pathpoints.length; i++) {
     const avgVelocity = (pathpoints[i - 1].velocity + pathpoints[i].velocity) / 2;
     const color = velocityToColor(avgVelocity);
     drawLine(ctx, pathpoints[i - 1], pathpoints[i], color, 2);
   }
 
-
-
-  if (!sidetrack) return;
-
-  for (let i = 1; i < pathpoints.length; i++) {
-    drawLeftRight(ctx, pathpoints[i - 1], pathpoints[i]);
-  }
-
-
+  drawHighlightedRange(selectedSegmentRange, "rgba(255, 136, 0, 0.95)", 5);
+  drawHighlightedRange(hoveredSegmentRange, "rgba(255, 255, 0, 0.95)", 4);
 }
 
-document.getElementById("sidepath")?.addEventListener("click", () => {
-  sidetrack = !sidetrack;
-  redrawCanvas();
-});
+function drawHighlightedRange(
+  range: { startIndex: number; endIndex: number } | null,
+  color: string,
+  thickness: number
+) {
+  if (!range) return;
+  const start = Math.max(0, range.startIndex);
+  const end = Math.min(pathpoints.length - 1, range.endIndex);
+  if (end <= start) return;
+
+  for (let i = start; i < end; i++) {
+    drawLine(ctx, pathpoints[i], pathpoints[i + 1], color, thickness);
+  }
+}
 
 function drawLine(
   ctx: CanvasRenderingContext2D,
@@ -172,52 +175,7 @@ function drawLine(
   ctx.restore(); // Restore the previous canvas state
 }
 
-function drawLeftRight(
-  ctx: CanvasRenderingContext2D,
-  start: pathPoint,
-  end: pathPoint,
-) {
-
-  const thickness = 1;
-
-  let startX = fieldToCanvasX(start.leftx, canvas.width);
-  let startY = fieldToCanvasY(start.lefty, canvas.height);
-  let endX = fieldToCanvasX(end.leftx, canvas.width);
-  let endY = fieldToCanvasY(end.lefty, canvas.height);
-
-  ctx.save(); // Save the current canvas state
-  ctx.globalAlpha = 1; // Fully opaque
-  ctx.globalCompositeOperation = "source-over"; // Default compositing mode
-  ctx.strokeStyle = "red";
-  ctx.lineWidth = thickness;
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.moveTo(startX, startY);
-  ctx.lineTo(endX, endY);
-  ctx.stroke();
-  ctx.restore(); // Restore the previous canvas state
-
-  startX = fieldToCanvasX(start.rightx, canvas.width);
-  startY = fieldToCanvasY(start.righty, canvas.height);
-  endX = fieldToCanvasX(end.rightx, canvas.width);
-  endY = fieldToCanvasY(end.righty, canvas.height);
-
-
-  ctx.save(); // Save the current canvas state
-  ctx.globalAlpha = 1; // Fully opaque
-  ctx.globalCompositeOperation = "source-over"; // Default compositing mode
-  ctx.strokeStyle = "blue";
-  ctx.lineWidth = thickness;
-  ctx.setLineDash([]);
-  ctx.beginPath();
-  ctx.moveTo(startX, startY);
-  ctx.lineTo(endX, endY);
-  ctx.stroke();
-  ctx.restore(); // Restore the previous canvas state
-}
-
 import { bot } from "./globals";
-import { end_hi, start_hi } from "./handling";
 
 function drawBot(ctx: CanvasRenderingContext2D) {
   const { x, y, o, width, length, trackwidth } = bot;

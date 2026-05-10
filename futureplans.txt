@@ -1,0 +1,2 @@
+make sure decel is constant and doesnt decel slower when at high speeds
+finish menu ui or whatever

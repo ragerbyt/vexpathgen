@@ -5,7 +5,7 @@ export const graph = document.getElementById("graph") as HTMLCanvasElement;
 export const overlay = document.getElementById("overlay") as HTMLCanvasElement;
 
 import vexfield from './assets/vexfield.png';
-import { computeBezierWaypoints } from './curve';
+import { computePathProfile } from './curve';
 
 export const background = new Image();
 background.src = vexfield;
@@ -14,7 +14,8 @@ background.src = vexfield;
 export const FIELD_WIDTH_INCHES = 144;
 export const FIELD_HEIGHT_INCHES = 144;
 export let MAX_VELOCITY = 80;         // Maximum velocity in inches per second
-export let MAX_ACCELERATION = 80;      // Maximum acceleration in inches per second squared
+export let MAX_ACCELERATION = 140;      // Maximum acceleration in inches per second squared
+export let MAX_DECELERATION = 150;      // Maximum deceleration in inches per second squared
 
 export let top = 0;
 export let left = 0;
@@ -110,60 +111,114 @@ export const bot = {
     x: 0,
     y: 0,
     o: 0,      
-    width: 16,  
-    length: 16,
+    width: 13.5,  
+    length: 15,
     trackwidth: 10,
 };
     
 export let STATE = "Waypoints"
 
-export let controlpoints: controlPoint[] = [];
-export let sections: section[] = [];
-export let pathpoints: pathPoint[] = [];
-
 
 export const totalInterp = 1000;
 
+type PersistedSettings = {
+    maxVelocity: number;
+    maxAcceleration: number;
+    maxDeceleration: number;
+    botWidth: number;
+    botLength: number;
+    trackWidth: number;
+};
+
+function getSettingsInputs() {
+    return {
+        maxaccelInput: document.getElementById("maxaccel") as HTMLInputElement | null,
+        maxdecelInput: document.getElementById("maxdecel") as HTMLInputElement | null,
+        maxvelInput: document.getElementById("maxvel") as HTMLInputElement | null,
+        lenInput: document.getElementById("botlen") as HTMLInputElement | null,
+        widthInput: document.getElementById("botwidth") as HTMLInputElement | null,
+        trackWidthInput: document.getElementById("trackwidth") as HTMLInputElement | null,
+    };
+}
+
+export function getPersistedSettings(): PersistedSettings {
+    return {
+        maxVelocity: MAX_VELOCITY,
+        maxAcceleration: MAX_ACCELERATION,
+        maxDeceleration: MAX_DECELERATION,
+        botWidth: bot.width,
+        botLength: bot.length,
+        trackWidth: bot.trackwidth,
+    };
+}
+
+export function syncSettingsInputs() {
+    const {
+        maxaccelInput,
+        maxdecelInput,
+        maxvelInput,
+        lenInput,
+        widthInput,
+        trackWidthInput,
+    } = getSettingsInputs();
+
+    if (maxaccelInput) maxaccelInput.value = String(MAX_ACCELERATION);
+    if (maxdecelInput) maxdecelInput.value = String(MAX_DECELERATION);
+    if (maxvelInput) maxvelInput.value = String(MAX_VELOCITY);
+    if (lenInput) lenInput.value = String(bot.length);
+    if (widthInput) widthInput.value = String(bot.width);
+    if (trackWidthInput) trackWidthInput.value = String(bot.trackwidth);
+}
+
+export function applyPersistedSettings(settings: PersistedSettings) {
+    MAX_VELOCITY = settings.maxVelocity;
+    MAX_ACCELERATION = settings.maxAcceleration;
+    MAX_DECELERATION = settings.maxDeceleration;
+    bot.width = settings.botWidth;
+    bot.length = settings.botLength;
+    bot.trackwidth = settings.trackWidth;
+    syncSettingsInputs();
+}
+
 
 document.addEventListener("DOMContentLoaded", () => {
-    const maxaccelInput = document.getElementById("maxaccel") as HTMLInputElement;
-    const maxvelInput = document.getElementById("maxvel") as HTMLInputElement;
-    const len = document.getElementById("botlen") as HTMLInputElement;
-    const width = document.getElementById("botwidth") as HTMLInputElement;
-    const trackw = document.getElementById("trackwidth") as HTMLInputElement;
-    
+    const {
+        maxaccelInput,
+        maxdecelInput,
+        maxvelInput,
+        lenInput,
+        widthInput,
+        trackWidthInput,
+    } = getSettingsInputs();
 
-    maxaccelInput.addEventListener("input", () => {
+    syncSettingsInputs();
+
+    maxaccelInput?.addEventListener("input", () => {
         MAX_ACCELERATION = Number(maxaccelInput.value);
-        computeBezierWaypoints();
+        computePathProfile();
     });
 
-    maxvelInput.addEventListener("input", () => {
+    maxdecelInput?.addEventListener("input", () => {
+        MAX_DECELERATION = Number(maxdecelInput.value);
+        computePathProfile();
+    });
+
+    maxvelInput?.addEventListener("input", () => {
         MAX_VELOCITY = Number(maxvelInput.value);
-        computeBezierWaypoints();
+        computePathProfile();
     });
 
-    len.addEventListener("input", () => {
-        bot.length = Number(len.value);
+    lenInput?.addEventListener("input", () => {
+        bot.length = Number(lenInput.value);
     });
-    width.addEventListener("input", () => {
-        bot.width = Number(width.value);
-        computeBezierWaypoints();
-    });
-
-    trackw.addEventListener("input", () => {
-        bot.trackwidth = Number(trackw.value);
-        computeBezierWaypoints();
+    widthInput?.addEventListener("input", () => {
+        bot.width = Number(widthInput.value);
+        computePathProfile();
     });
 
-    const input = document.getElementById("import") as HTMLInputElement;
-
-    input.addEventListener("change", (event) => {
-        const target = event.target as HTMLInputElement;
-        const file = target.files?.[0];
-        if (file) {
-            console.log("Selected file:", file.name);
-        }
+    trackWidthInput?.addEventListener("input", () => {
+        bot.trackwidth = Number(trackWidthInput.value);
+        computePathProfile();
     });
 });
 
@@ -215,7 +270,7 @@ export interface section{
     startpath?: number;
     endpath?: number
 
-    type: "bezier" | "bezier3" | "line" | "arc";
+    type: "bezier" | "line";
     rev: boolean
     startangle: number,
     endangle: number
@@ -224,9 +279,54 @@ export interface section{
     starty: number
     endx: number
     endy: number
+    name?: string;
 }
 
-pause(100)
-    async function pause(time: number){
-      await new Promise(resolve => setTimeout(resolve, time));
+export interface PathModel {
+    name: string;
+    controlpoints: controlPoint[];
+    sections: section[];
+    pathpoints: pathPoint[];
+}
+
+export function createPathModel(name: string): PathModel {
+    return {
+        name,
+        controlpoints: [],
+        sections: [],
+        pathpoints: [],
+    };
+}
+
+export let paths: PathModel[] = [createPathModel("Path 1")];
+export let activePathIndex = 0;
+
+export let controlpoints: controlPoint[] = paths[0].controlpoints;
+export let sections: section[] = paths[0].sections;
+export let pathpoints: pathPoint[] = paths[0].pathpoints;
+
+export function getActivePath(): PathModel {
+    return paths[activePathIndex];
+}
+
+export function syncActivePathRefs() {
+    const active = getActivePath();
+    controlpoints = active.controlpoints;
+    sections = active.sections;
+    pathpoints = active.pathpoints;
+}
+
+export function setActivePathIndex(index: number) {
+    if (paths.length === 0) {
+        paths = [createPathModel("Path 1")];
     }
+    const nextIndex = Math.max(0, Math.min(index, paths.length - 1));
+    activePathIndex = nextIndex;
+    syncActivePathRefs();
+}
+
+export function replacePaths(nextPaths: PathModel[]) {
+    paths = nextPaths.length > 0 ? nextPaths : [createPathModel("Path 1")];
+    activePathIndex = 0;
+    syncActivePathRefs();
+}
