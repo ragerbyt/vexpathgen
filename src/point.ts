@@ -23,7 +23,7 @@ const state = false;
 const pointdisplay = document.getElementById("point-coordinates") as HTMLDivElement | null;
 
 import { computePathProfile } from "./curve";
-import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView } from "./globals";
+import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView, FIELD_WIDTH_INCHES } from "./globals";
 import { canvasToFieldX, canvasToFieldY, getFieldView, panFieldView, zoomFieldView } from "./globals";
 import { clearSegmentState, clearSelectedSegment, deselectSegment, hoveredSegmentIndex, refreshSegmentRanges, resetsegment, selectSegment, selectedSegmentIndex, setSelectedSegment } from "./handling";
 import { clearGraphInteractionState, renderGraphHoverOverlay } from "./plot";
@@ -42,6 +42,10 @@ document.addEventListener("DOMContentLoaded", () => {
   });
 
   pathNameInput?.addEventListener("input", () => {
+    if (paths.length === 0) {
+      pathNameInput.value = "";
+      return;
+    }
     const active = getActivePath();
     const nextValue = pathNameInput.value.trim();
     if (nextValue.length > 0) {
@@ -72,6 +76,11 @@ function initCanvas() {
 
 
 function handleCanvasClick(e: MouseEvent) {
+  if (paths.length === 0) {
+    const newPath = createPathModel(getDefaultPathName(0));
+    paths.push(newPath);
+    setActivePath(0);
+  }
   // If a drag event just occurred, do not create new points.
   if (isDraggingGlobal) {
     isDraggingGlobal = false;
@@ -82,7 +91,7 @@ function handleCanvasClick(e: MouseEvent) {
   const clickX = e.clientX - rect.left;
   const clickY = e.clientY - rect.top;
 
-  // Convert canvas coordinates to field coordinates (0-144)
+  // Convert canvas coordinates to field coordinates (center-origin)
   const fieldX = canvasToFieldX(clickX, rect.width);
   const fieldY = canvasToFieldY(clickY, rect.height);
 
@@ -261,6 +270,51 @@ function handleFieldWheel(e: WheelEvent) {
 const pathTree = document.getElementById("path-tree");
 const addPathButton = document.getElementById("addPath") as HTMLButtonElement | null;
 const pathNameInput = document.getElementById("pathNameInput") as HTMLInputElement | null;
+const deletePathModal = document.getElementById("path-delete-modal") as HTMLDivElement | null;
+const deletePathMessage = document.getElementById("path-delete-message") as HTMLParagraphElement | null;
+const deletePathConfirm = document.getElementById("path-delete-confirm") as HTMLButtonElement | null;
+const deletePathCancel = document.getElementById("path-delete-cancel") as HTMLButtonElement | null;
+const deletePathScrim = document.getElementById("path-delete-scrim") as HTMLDivElement | null;
+let pendingDeletePathIndex: number | null = null;
+
+function openDeletePathModal(pathIndex: number) {
+  const path = paths[pathIndex];
+  if (!path) return;
+  if (!deletePathModal || !deletePathMessage || !deletePathConfirm || !deletePathCancel) {
+    deletePathAtIndex(pathIndex);
+    return;
+  }
+
+  pendingDeletePathIndex = pathIndex;
+  deletePathMessage.textContent = `Delete "${path.name}"? This will remove the path and its segments.`;
+  deletePathModal.classList.remove("is-hidden");
+  deletePathConfirm.focus();
+}
+
+function closeDeletePathModal() {
+  pendingDeletePathIndex = null;
+  deletePathModal?.classList.add("is-hidden");
+}
+
+deletePathCancel?.addEventListener("click", () => {
+  closeDeletePathModal();
+});
+
+deletePathScrim?.addEventListener("click", () => {
+  closeDeletePathModal();
+});
+
+deletePathConfirm?.addEventListener("click", () => {
+  if (pendingDeletePathIndex === null) return;
+  deletePathAtIndex(pendingDeletePathIndex);
+  closeDeletePathModal();
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  if (!deletePathModal || deletePathModal.classList.contains("is-hidden")) return;
+  closeDeletePathModal();
+});
 
 function getDefaultPathName(index: number): string {
   return `Path ${index + 1}`;
@@ -284,6 +338,12 @@ function ensureSegmentName(segmentIndex: number, sectionList: section[]) {
 
 function updatePathNameInput() {
   if (!pathNameInput) return;
+  if (paths.length === 0) {
+    pathNameInput.value = "";
+    pathNameInput.disabled = true;
+    return;
+  }
+  pathNameInput.disabled = false;
   ensurePathName(activePathIndex);
   const active = getActivePath();
   pathNameInput.value = active.name;
@@ -621,6 +681,7 @@ function updateControlPosition(mainPoint: controlPoint, controlPoint: controlPoi
 }
 
 function dispatchPathGeneration() {
+  if (paths.length === 0) return;
   computePathProfile();
   refreshSegmentRanges();
   document.dispatchEvent(new CustomEvent("drawpath", { detail: { controlpoints } }));
@@ -719,6 +780,7 @@ function handleHistoryShortcut(e: KeyboardEvent) {
 }
 
 function setActivePath(pathIndex: number) {
+  if (paths.length === 0) return;
   setActivePathIndex(pathIndex);
   resetHistoryState();
   clearSegmentState();
@@ -727,6 +789,62 @@ function setActivePath(pathIndex: number) {
   rebuildPathTree();
   dispatchPathGeneration();
   redrawPoints();
+}
+
+function deletePathAtIndex(pathIndex: number) {
+  if (pathIndex < 0 || pathIndex >= paths.length) return;
+
+  const wasActive = pathIndex === activePathIndex;
+  paths.splice(pathIndex, 1);
+
+  resetHistoryState();
+  clearSegmentState();
+  clearGraphInteractionState();
+
+  if (paths.length === 0) {
+    setActivePathIndex(0);
+    updatePathNameInput();
+    rebuildPathTree();
+    renderGraphHoverOverlay();
+    redrawPoints();
+    return;
+  }
+
+  let nextActiveIndex = activePathIndex;
+  if (wasActive) {
+    nextActiveIndex = Math.max(0, pathIndex - 1);
+  } else if (pathIndex < activePathIndex) {
+    nextActiveIndex = activePathIndex - 1;
+  }
+
+  setActivePathIndex(Math.min(nextActiveIndex, paths.length - 1));
+  updatePathNameInput();
+  rebuildPathTree();
+  dispatchPathGeneration();
+  renderGraphHoverOverlay();
+  redrawPoints();
+}
+
+function clearPathAtIndex(pathIndex: number) {
+  const path = paths[pathIndex];
+  if (!path) return;
+
+  if (pathIndex === activePathIndex) {
+    captureHistoryState();
+    controlpoints.length = 0;
+    sections.length = 0;
+    pathpoints.length = 0;
+    clearSegmentState();
+    rebuildPathTree();
+    renderGraphHoverOverlay();
+    redrawPoints();
+    dispatchPathGeneration();
+    return;
+  }
+
+  path.controlpoints.length = 0;
+  path.sections.length = 0;
+  path.pathpoints.length = 0;
 }
 
 export function replaceEditorPaths(nextPaths: PathModel[], activeIndex = 0) {
@@ -740,6 +858,18 @@ export function replaceEditorPaths(nextPaths: PathModel[], activeIndex = 0) {
   suppressNextPathRowClick = false;
 
   replacePaths(nextPaths);
+
+  if (paths.length === 0) {
+    updatePathNameInput();
+    rebuildPathTree();
+    refreshSegmentRanges();
+    if (pointdisplay) {
+      pointdisplay.innerText = "No controlPoint selected";
+    }
+    renderGraphHoverOverlay();
+    redrawPoints();
+    return;
+  }
 
   for (let i = 0; i < paths.length; i++) {
     setActivePathIndex(i);
@@ -768,17 +898,25 @@ function buildSegmentEntry(pathIndex: number, segmentIndex: number, sectionList:
   const segment = document.createElement("div");
   segment.className = "segment";
 
-  const label = document.createElement("span");
-  label.className = "segment-label";
+  const nameWrap = document.createElement("div");
+  nameWrap.className = "segment-name";
+
+  const nameLabel = document.createElement("span");
+  nameLabel.className = "segment-label";
+
+  const typeLabel = document.createElement("span");
+  typeLabel.className = "segment-type";
 
   const reverseButton = document.createElement("button");
   reverseButton.className = "segment-reverse";
-  reverseButton.textContent = "Reverse";
+  reverseButton.textContent = "Reverse Direction";
 
-  segment.append(label, reverseButton);
+  nameWrap.append(nameLabel);
+  segment.append(nameWrap, typeLabel, reverseButton);
 
   ensureSegmentName(segmentIndex, sectionList);
-  label.textContent = sectionList[segmentIndex].name || getDefaultSegmentName(segmentIndex);
+  nameLabel.textContent = sectionList[segmentIndex].name || getDefaultSegmentName(segmentIndex);
+  typeLabel.textContent = sectionList[segmentIndex].type === "bezier" ? "Bezier" : "Line";
 
   if (pathIndex !== activePathIndex) {
     segment.classList.add("is-inactive");
@@ -817,14 +955,14 @@ function buildSegmentEntry(pathIndex: number, segmentIndex: number, sectionList:
     redrawPoints();
   });
 
-  label.addEventListener("dblclick", (event) => {
+  nameLabel.addEventListener("dblclick", (event) => {
     event.stopPropagation();
     suppressNextPathRowClick = true;
     activatePathForSegment(pathIndex);
     if (pathIndex !== activePathIndex) return;
-    startInlineRename(label, label.textContent || "", (nextValue) => {
+    startInlineRename(nameLabel, nameLabel.textContent || "", (nextValue) => {
       sectionList[segmentIndex].name = nextValue;
-      label.textContent = nextValue;
+      nameLabel.textContent = nextValue;
       rebuildPathTree();
     });
   });
@@ -856,10 +994,20 @@ function buildPathEntry(pathIndex: number): HTMLDivElement {
   const label = document.createElement("span");
   label.className = "path-label";
 
+  const clearButton = document.createElement("button");
+  clearButton.textContent = "Clear";
+  clearButton.className = "path-clearButton";
+
+  const delButton = document.createElement("button");
+  delButton.textContent = "Delete";
+  delButton.className = "path-deleteButton";
+
   const segmentList = document.createElement("div");
   segmentList.className = "segment-list";
 
   pathRow.append(label);
+  pathRow.append(clearButton);
+  pathRow.append(delButton);
   pathEntry.append(pathRow);
 
   ensurePathName(pathIndex);
@@ -868,6 +1016,16 @@ function buildPathEntry(pathIndex: number): HTMLDivElement {
   if (pathIndex === activePathIndex) {
     pathEntry.classList.add("is-active");
   }
+
+  clearButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    clearPathAtIndex(pathIndex);
+  });
+
+  delButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openDeletePathModal(pathIndex);
+  });
 
   pathRow.addEventListener("click", () => {
     if (suppressNextPathRowClick) {
@@ -911,13 +1069,6 @@ function rebuildPathTree() {
   }
 }
 
-let showPoints = true; // Flag to track visibility
-
-document.getElementById("togglePoints")?.addEventListener("click", () => {
-  showPoints = !showPoints;
-  redrawPoints();
-});
-
 function redrawPoints() {
   const ctx = canvas.getContext("2d");
   if (!ctx) return;
@@ -931,18 +1082,6 @@ function redrawPoints() {
 }
 // Export controlpoints for other modules
 
-document.getElementById("clear")?.addEventListener("click", () => {
-  captureHistoryState();
-  controlpoints.length = 0;
-  sections.length = 0;
-  pathpoints.length = 0;
-  clearSegmentState();
-  rebuildPathTree();
-  renderGraphHoverOverlay();
-  redrawPoints();
-  dispatchPathGeneration();
-});
-
 
 function insertbezier(fieldX: number, fieldY: number): boolean {
   const startIndex = controlpoints.length - 1;
@@ -953,7 +1092,7 @@ function insertbezier(fieldX: number, fieldY: number): boolean {
   const dirX = segLen > 1e-6 ? segDx / segLen : (startPoint.anglex ?? 1);
   const dirY = segLen > 1e-6 ? segDy / segLen : (startPoint.angley ?? 0);
 
-  const baseOffset = (100 / 3) * 144 / canvas.width;
+  const baseOffset = (100 / 3) * FIELD_WIDTH_INCHES / canvas.width;
   const offset1 = Math.min(baseOffset, segLen * 0.25);
   const offset2 = Math.min(baseOffset * 2, segLen * 0.5);
 

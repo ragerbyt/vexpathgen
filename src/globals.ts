@@ -4,11 +4,27 @@ export const ctx = canvas.getContext("2d") as CanvasRenderingContext2D;
 export const graph = document.getElementById("graph") as HTMLCanvasElement;
 export const overlay = document.getElementById("overlay") as HTMLCanvasElement;
 
-import vexfield from './assets/vexfield.png';
+import fieldH2H from "./assets/V5RC-Override-H2H-TopDownHighlighted-TileColor66_71@0.1.png";
+import fieldSkills from "./assets/V5RC-Override-Skills-TopDownHighlighted-TileColor66_71@0.1.png";
 import { computePathProfile } from './curve';
 
 export const background = new Image();
-background.src = vexfield;
+
+export type FieldBackgroundMode = "H2H" | "Skills";
+
+const FIELD_BACKGROUNDS: Record<FieldBackgroundMode, string> = {
+    H2H: fieldH2H,
+    Skills: fieldSkills,
+};
+
+export let FIELD_BACKGROUND_MODE: FieldBackgroundMode = "H2H";
+
+export function setFieldBackgroundMode(mode: FieldBackgroundMode) {
+    FIELD_BACKGROUND_MODE = mode;
+    background.src = FIELD_BACKGROUNDS[mode];
+}
+
+setFieldBackgroundMode(FIELD_BACKGROUND_MODE);
 
 // Constants (all distances in inches)
 export const FIELD_WIDTH_INCHES = 144;
@@ -17,11 +33,11 @@ export let MAX_VELOCITY = 80;         // Maximum velocity in inches per second
 export let MAX_ACCELERATION = 140;      // Maximum acceleration in inches per second squared
 export let MAX_DECELERATION = 150;      // Maximum deceleration in inches per second squared
 
-export let top = 0;
-export let left = 0;
+export let top = -FIELD_HEIGHT_INCHES / 2;
+export let left = -FIELD_WIDTH_INCHES / 2;
 
-export let bottom = 144;
-export let right = 144;
+export let bottom = FIELD_HEIGHT_INCHES / 2;
+export let right = FIELD_WIDTH_INCHES / 2;
 
 const MIN_FIELD_VIEW_SPAN_RATIO = 0.03;
 
@@ -42,11 +58,13 @@ export function setFieldView(newLeft: number, newRight: number, newTop: number, 
     const desiredSpanX = clamp(newRight - newLeft, minSpanX, fieldWidth);
     const desiredSpanY = clamp(newBottom - newTop, minSpanY, fieldHeight);
 
-    const maxLeft = Math.max(0, fieldWidth - desiredSpanX);
-    const maxTop = Math.max(0, fieldHeight - desiredSpanY);
+    const minLeft = -fieldWidth / 2;
+    const minTop = -fieldHeight / 2;
+    const maxLeft = fieldWidth / 2 - desiredSpanX;
+    const maxTop = fieldHeight / 2 - desiredSpanY;
 
-    const nextLeft = clamp(newLeft, 0, maxLeft);
-    const nextTop = clamp(newTop, 0, maxTop);
+    const nextLeft = clamp(newLeft, minLeft, maxLeft);
+    const nextTop = clamp(newTop, minTop, maxTop);
     const nextRight = nextLeft + desiredSpanX;
     const nextBottom = nextTop + desiredSpanY;
 
@@ -57,10 +75,10 @@ export function setFieldView(newLeft: number, newRight: number, newTop: number, 
 }
 
 export function resetFieldView() {
-    left = 0;
-    right = FIELD_WIDTH_INCHES;
-    top = 0;
-    bottom = FIELD_HEIGHT_INCHES;
+    left = -FIELD_WIDTH_INCHES / 2;
+    right = FIELD_WIDTH_INCHES / 2;
+    top = -FIELD_HEIGHT_INCHES / 2;
+    bottom = FIELD_HEIGHT_INCHES / 2;
 }
 
 export function panFieldView(deltaX: number, deltaY: number) {
@@ -310,6 +328,12 @@ export function getActivePath(): PathModel {
 }
 
 export function syncActivePathRefs() {
+    if (paths.length === 0) {
+        controlpoints = [];
+        sections = [];
+        pathpoints = [];
+        return;
+    }
     const active = getActivePath();
     controlpoints = active.controlpoints;
     sections = active.sections;
@@ -318,7 +342,9 @@ export function syncActivePathRefs() {
 
 export function setActivePathIndex(index: number) {
     if (paths.length === 0) {
-        paths = [createPathModel("Path 1")];
+        activePathIndex = 0;
+        syncActivePathRefs();
+        return;
     }
     const nextIndex = Math.max(0, Math.min(index, paths.length - 1));
     activePathIndex = nextIndex;
@@ -326,7 +352,7 @@ export function setActivePathIndex(index: number) {
 }
 
 export function replacePaths(nextPaths: PathModel[]) {
-    paths = nextPaths.length > 0 ? nextPaths : [createPathModel("Path 1")];
+    paths = nextPaths;
     activePathIndex = 0;
     syncActivePathRefs();
 }

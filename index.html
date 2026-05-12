@@ -17,18 +17,31 @@
         <div id="path-container">
           <div id="left-panel">
             <div id="mouse-coordinates"></div>
-            <div id="left-actions">
-              <button id="togglePoints">Toggle Points</button>
-              <button id="clear">Clear Points</button>
+            <div id="path-settings-panel">
+              <div id="field-panel">
+                <label for="fieldSelect" id="field-label">Field</label>
+                <select id="fieldSelect" aria-label="Field selection">
+                  <option value="H2H" selected>Match</option>
+                  <option value="Skills">Skills</option>
+                </select>
+              </div>
+              <div class="panel-divider" aria-hidden="true"></div>
+              <div id="mode-panel">
+                <label for="modeSelect" id="mode-label">Path Type - E to toggle</label>
+                <select id="modeSelect" aria-label="Drawing mode">
+                  <option value="Bezier" selected>Bezier</option>
+                  <option value="Line">Line</option>
+                </select>
+              </div>
+              <div class="panel-divider" aria-hidden="true"></div>
+              <div id="control-points-panel">
+                <div id="control-points-label">Control Points</div>
+                <div id="control-points-actions">
+                  <button id="showPoints">Show</button>
+                  <button id="hidePoints">Hide</button>
+                </div>
+              </div>
             </div>
-            <div id="mode-panel">
-              <label for="modeSelect" id="mode-label">Mode</label>
-              <select id="modeSelect" aria-label="Drawing mode">
-                <option value="Bezier" selected>Bezier</option>
-                <option value="Line">Line</option>
-              </select>
-            </div>
-
             <div id="menu">
               <div id="botconfig">
                 <div class="field">
@@ -123,6 +136,18 @@
         </div>
         </div>
       </div> 
+    </div>
+
+    <div id="path-delete-modal" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="path-delete-title">
+      <div class="modal-scrim" id="path-delete-scrim"></div>
+      <div class="modal-card">
+        <h2 id="path-delete-title">Delete path?</h2>
+        <p id="path-delete-message">This will remove the path and its segments.</p>
+        <div class="modal-actions">
+          <button id="path-delete-cancel" class="modal-button secondary" type="button">Cancel</button>
+          <button id="path-delete-confirm" class="modal-button danger" type="button">Delete</button>
+        </div>
+      </div>
     </div>
 
     <!-- Entrypoint -->

@@ -1,16 +1,18 @@
 import { Point } from "chart.js";
 import {  pathpoints } from "./globals";
-import { canvas, MAX_VELOCITY, ctx, background } from "./globals";
+import { canvas, MAX_VELOCITY, ctx, background, FIELD_HEIGHT_INCHES, FIELD_WIDTH_INCHES } from "./globals";
 import { controlpoints, pathPoint, controlPoint, sections } from "./globals";
 import { fieldToCanvasX, fieldToCanvasY, getFieldView } from "./globals";
 import { hoveredSegmentRange, selectedSegmentRange } from "./handling";
 
 function drawFieldBackground() {
   const view = getFieldView();
-  const sx = (view.left / 144) * background.naturalWidth;
-  const sy = ((144 - view.bottom) / 144) * background.naturalHeight;
-  const sWidth = ((view.right - view.left) / 144) * background.naturalWidth;
-  const sHeight = ((view.bottom - view.top) / 144) * background.naturalHeight;
+  const halfWidth = FIELD_WIDTH_INCHES / 2;
+  const halfHeight = FIELD_HEIGHT_INCHES / 2;
+  const sx = ((view.left + halfWidth) / FIELD_WIDTH_INCHES) * background.naturalWidth;
+  const sy = ((halfHeight - view.bottom) / FIELD_HEIGHT_INCHES) * background.naturalHeight;
+  const sWidth = ((view.right - view.left) / FIELD_WIDTH_INCHES) * background.naturalWidth;
+  const sHeight = ((view.bottom - view.top) / FIELD_HEIGHT_INCHES) * background.naturalHeight;
 
   ctx.drawImage(
     background,
@@ -27,9 +29,12 @@ function drawFieldBackground() {
 
 function setupCanvas() {
   background.onload = () => {
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-    drawFieldBackground();
+    redrawCanvas();
   };
+
+  if (background.complete && background.naturalWidth > 0) {
+    redrawCanvas();
+  }
 
   document.addEventListener("drawpath", () => {
     canvas.width = canvas.getBoundingClientRect().height;
@@ -44,7 +49,7 @@ function setupCanvas() {
   });
 }
 
-let drawpoints = true;
+let showControlPoints = true;
 
 export function redrawCanvas() {
 
@@ -64,25 +69,24 @@ export function redrawCanvas() {
     return;
   }
 
-  if (drawpoints) {
+  if (showControlPoints) {
     drawControlPolygons(ctx);
-  }
 
-  for (const point of controlpoints) {
-    if (!drawpoints) break;
-    ctx.beginPath();
-    const size = point.size || 5;
+    for (const point of controlpoints) {
+      ctx.beginPath();
+      const size = point.size || 5;
 
-    const canvasX = fieldToCanvasX(point.x, canvas.width);
-    const canvasY = fieldToCanvasY(point.y, canvas.height);
+      const canvasX = fieldToCanvasX(point.x, canvas.width);
+      const canvasY = fieldToCanvasY(point.y, canvas.height);
 
-    ctx.arc(canvasX, canvasY, size, 0, Math.PI * 2);
-    ctx.fillStyle = point.color;
-    ctx.fill();
+      ctx.arc(canvasX, canvasY, size, 0, Math.PI * 2);
+      ctx.fillStyle = point.color;
+      ctx.fill();
 
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = "white";
-    ctx.stroke();
+      ctx.lineWidth = 1;
+      ctx.strokeStyle = "white";
+      ctx.stroke();
+    }
   }
 
   if (bot.x == -1) {
@@ -103,8 +107,13 @@ function drawControlPolygons(ctx: CanvasRenderingContext2D) {
   }
 }
 
-document.getElementById("togglePoints")?.addEventListener("click", () => {
-  drawpoints = !drawpoints;
+document.getElementById("showPoints")?.addEventListener("click", () => {
+  showControlPoints = true;
+  redrawCanvas();
+});
+
+document.getElementById("hidePoints")?.addEventListener("click", () => {
+  showControlPoints = false;
   redrawCanvas();
 });
 
@@ -123,10 +132,11 @@ function velocityToColor(velocity: number): string {
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
 function drawPath(ctx: CanvasRenderingContext2D) {
+  const thickness = showControlPoints ? 2 : 4;
   for (let i = 1; i < pathpoints.length; i++) {
     const avgVelocity = (pathpoints[i - 1].velocity + pathpoints[i].velocity) / 2;
     const color = velocityToColor(avgVelocity);
-    drawLine(ctx, pathpoints[i - 1], pathpoints[i], color, 2);
+    drawLine(ctx, pathpoints[i - 1], pathpoints[i], color, thickness);
   }
 
   drawHighlightedRange(selectedSegmentRange, "rgba(255, 136, 0, 0.95)", 5);

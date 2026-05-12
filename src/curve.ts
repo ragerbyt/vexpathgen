@@ -331,10 +331,7 @@ function applyWheelAccelerationConstraints(velocityLocks: Set<number>) {
       const ds = calcdistance(curr, next);
       if (ds <= EPS) continue;
 
-      const decelLimit = Math.min(
-        MAX_DECELERATION,
-        getAvailableAcceleration(next.velocity, MAX_VELOCITY, MAX_DECELERATION)
-      );
+      const decelLimit = MAX_DECELERATION;
       const { leftBound, rightBound } = getWheelBounds(next, curr, ds, decelLimit);
       curr.velocity = Math.min(
         curr.velocity,
