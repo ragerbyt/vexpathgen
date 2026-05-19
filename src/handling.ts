@@ -6,6 +6,8 @@ export let hoveredSegmentIndex = -1;
 export let selectedSegmentIndex = -1;
 export let hoveredSegmentRange: SegmentRange | null = null;
 export let selectedSegmentRange: SegmentRange | null = null;
+export let hoveredFlagId: string | null = null;
+export let selectedFlagId: string | null = null;
 
 function getRangeForSegment(index: number): SegmentRange | null {
     const currseg = sections[index];
@@ -32,6 +34,19 @@ export function clearSelectedSegment() {
 export function clearSegmentState() {
     resetsegment();
     clearSelectedSegment();
+}
+
+export function clearFlagState() {
+    hoveredFlagId = null;
+    selectedFlagId = null;
+}
+
+export function setHoveredFlag(id: string | null) {
+    hoveredFlagId = id;
+}
+
+export function setSelectedFlag(id: string | null) {
+    selectedFlagId = id;
 }
 
 export function refreshSegmentRanges() {

@@ -1,4 +1,4 @@
-import { controlPoint, section } from "./globals";
+import { controlPoint, section, FlagModel } from "./globals";
 
 let isDraggingGlobal = false;
 let activeDragPoint: controlPoint | null = null;
@@ -8,6 +8,7 @@ let suppressNextPathRowClick = false;
 type HistorySnapshot = {
   controlpoints: controlPoint[];
   sections: typeof sections;
+  flags: FlagModel[];
 };
 
 const historyPast: HistorySnapshot[] = [];
@@ -23,13 +24,18 @@ const state = false;
 const pointdisplay = document.getElementById("point-coordinates") as HTMLDivElement | null;
 
 import { computePathProfile } from "./curve";
-import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView, FIELD_WIDTH_INCHES } from "./globals";
+import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView, FIELD_WIDTH_INCHES, flags, MAX_VELOCITY } from "./globals";
 import { canvasToFieldX, canvasToFieldY, getFieldView, panFieldView, zoomFieldView } from "./globals";
-import { clearSegmentState, clearSelectedSegment, deselectSegment, hoveredSegmentIndex, refreshSegmentRanges, resetsegment, selectSegment, selectedSegmentIndex, setSelectedSegment } from "./handling";
-import { clearGraphInteractionState, renderGraphHoverOverlay } from "./plot";
+import { clampFlagPathDistance, sortFlagsByDerivedTime } from "./flags";
+import { clearFlagState, clearSegmentState, clearSelectedSegment, deselectSegment, hoveredFlagId, hoveredSegmentIndex, refreshSegmentRanges, resetsegment, selectSegment, selectedFlagId, selectedSegmentIndex, setHoveredFlag, setSelectedFlag, setSelectedSegment } from "./handling";
+import { clearGraphInteractionState, getPreferredNewFlagDistance, plot, renderGraphHoverOverlay } from "./plot";
 import { MODE } from "./sidebar";
 import { PI } from "chart.js/helpers";
 document.addEventListener("DOMContentLoaded", initCanvas);
+document.addEventListener("capture-editor-history", () => captureHistoryState());
+document.addEventListener("refresh-path-tree", () => rebuildPathTree());
+document.addEventListener("path-profile-updated", () => rebuildPathTree());
+document.addEventListener("recompute-path-profile", () => dispatchPathGeneration());
 
 document.addEventListener("DOMContentLoaded", () => {
   rebuildPathTree();
@@ -334,6 +340,36 @@ function ensureSegmentName(segmentIndex: number, sectionList: section[]) {
   if (!sectionList[segmentIndex].name || sectionList[segmentIndex].name!.trim().length === 0) {
     sectionList[segmentIndex].name = getDefaultSegmentName(segmentIndex);
   }
+}
+
+function sortFlags(
+  flagList: FlagModel[],
+  sectionList: section[] = sections,
+  pathpointList = pathpoints
+) {
+  sortFlagsByDerivedTime(flagList, sectionList, pathpointList);
+}
+
+function cloneFlags(items: FlagModel[]): FlagModel[] {
+  return items.map((flag) => ({ ...flag }));
+}
+
+function normalizeFlag(flag: FlagModel, pathpointList = pathpoints): FlagModel {
+  return {
+    id: flag.id,
+    pathDistance: clampFlagPathDistance(flag.pathDistance, pathpointList),
+    type: flag.type ?? "string",
+    label: flag.label ?? "",
+    velocityLimit: flag.type === "velocity" ? (flag.velocityLimit ?? MAX_VELOCITY) : null,
+  };
+}
+
+function createFlagId(): string {
+  return `flag-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function getClampedFlagDistance(pathDistance: number): number {
+  return clampFlagPathDistance(pathDistance, pathpoints);
 }
 
 function updatePathNameInput() {
@@ -691,6 +727,7 @@ function captureHistoryState() {
   historyPast.push({
     controlpoints: cloneControlPoints(controlpoints),
     sections: cloneSections(sections),
+    flags: cloneFlags(flags),
   });
 
   if (historyPast.length > HISTORY_LIMIT) {
@@ -724,14 +761,18 @@ function restoreHistoryState(snapshot: HistorySnapshot) {
 
   controlpoints.splice(0, controlpoints.length, ...cloneControlPoints(snapshot.controlpoints));
   sections.splice(0, sections.length, ...cloneSections(snapshot.sections));
+  flags.splice(0, flags.length, ...cloneFlags(snapshot.flags));
   reindexControlPoints();
-  rebuildPathTree();
   clearSegmentState();
+  clearFlagState();
 
   if (pointdisplay) {
     pointdisplay.innerText = controlpoints.length > 0 ? "controlPoint selection restored" : "No controlPoint selected";
   }
   dispatchPathGeneration();
+  flags.splice(0, flags.length, ...flags.map((flag) => normalizeFlag(flag)));
+  sortFlags(flags);
+  rebuildPathTree();
   redrawPoints();
 }
 
@@ -741,6 +782,7 @@ function undoHistory() {
   const currentSnapshot: HistorySnapshot = {
     controlpoints: cloneControlPoints(controlpoints),
     sections: cloneSections(sections),
+    flags: cloneFlags(flags),
   };
   const previousSnapshot = historyPast.pop();
   if (!previousSnapshot) return;
@@ -756,6 +798,7 @@ function redoHistory() {
   historyPast.push({
     controlpoints: cloneControlPoints(controlpoints),
     sections: cloneSections(sections),
+    flags: cloneFlags(flags),
   });
   restoreHistoryState(nextSnapshot);
 }
@@ -784,6 +827,7 @@ function setActivePath(pathIndex: number) {
   setActivePathIndex(pathIndex);
   resetHistoryState();
   clearSegmentState();
+  clearFlagState();
   clearGraphInteractionState();
   updatePathNameInput();
   rebuildPathTree();
@@ -799,6 +843,7 @@ function deletePathAtIndex(pathIndex: number) {
 
   resetHistoryState();
   clearSegmentState();
+  clearFlagState();
   clearGraphInteractionState();
 
   if (paths.length === 0) {
@@ -834,9 +879,12 @@ function clearPathAtIndex(pathIndex: number) {
     controlpoints.length = 0;
     sections.length = 0;
     pathpoints.length = 0;
+    flags.length = 0;
     clearSegmentState();
+    clearFlagState();
     rebuildPathTree();
     renderGraphHoverOverlay();
+    plot();
     redrawPoints();
     dispatchPathGeneration();
     return;
@@ -845,11 +893,18 @@ function clearPathAtIndex(pathIndex: number) {
   path.controlpoints.length = 0;
   path.sections.length = 0;
   path.pathpoints.length = 0;
+  path.flags.length = 0;
 }
 
 export function replaceEditorPaths(nextPaths: PathModel[], activeIndex = 0) {
+  for (const path of nextPaths) {
+    path.flags = path.flags.map((flag) => normalizeFlag(flag, path.pathpoints));
+    sortFlags(path.flags, path.sections, path.pathpoints);
+  }
+
   resetHistoryState();
   clearSegmentState();
+  clearFlagState();
   clearGraphInteractionState();
   resetFieldView();
   isDraggingGlobal = false;
@@ -874,6 +929,8 @@ export function replaceEditorPaths(nextPaths: PathModel[], activeIndex = 0) {
   for (let i = 0; i < paths.length; i++) {
     setActivePathIndex(i);
     computePathProfile();
+    paths[i].flags = paths[i].flags.map((flag) => normalizeFlag(flag, pathpoints));
+    sortFlags(paths[i].flags, paths[i].sections, pathpoints);
   }
 
   const nextActiveIndex = Math.max(0, Math.min(activeIndex, paths.length - 1));
@@ -944,6 +1001,7 @@ function buildSegmentEntry(pathIndex: number, segmentIndex: number, sectionList:
   segment.addEventListener("click", (event) => {
     event.stopPropagation();
     activatePathForSegment(pathIndex);
+    clearFlagState();
     if (pathIndex === activePathIndex && segmentIndex === selectedSegmentIndex) {
       clearSelectedSegment();
     } else {
@@ -969,7 +1027,9 @@ function buildSegmentEntry(pathIndex: number, segmentIndex: number, sectionList:
 
   segment.addEventListener("mouseenter", () => {
     if (pathIndex !== activePathIndex) return;
+    setHoveredFlag(null);
     selectSegment(segmentIndex);
+    plot();
     renderGraphHoverOverlay();
     redrawPoints();
   });
@@ -977,11 +1037,173 @@ function buildSegmentEntry(pathIndex: number, segmentIndex: number, sectionList:
   segment.addEventListener("mouseleave", () => {
     if (pathIndex !== activePathIndex) return;
     deselectSegment(segmentIndex);
+    plot();
     renderGraphHoverOverlay();
     redrawPoints();
   });
 
   return segment;
+}
+
+function buildFlagEntry(pathIndex: number, flag: FlagModel, flagIndex: number): HTMLDivElement {
+  const normalizedFlag = normalizeFlag(flag);
+  Object.assign(flag, normalizedFlag);
+
+  const flagEntry = document.createElement("div");
+  flagEntry.className = "flag";
+  flagEntry.classList.add(flag.type === "velocity" ? "is-velocity" : "is-string");
+
+  if (pathIndex !== activePathIndex) {
+    flagEntry.classList.add("is-inactive");
+  }
+  if (pathIndex === activePathIndex && flag.id === selectedFlagId) {
+    flagEntry.classList.add("is-selected");
+  }
+  if (pathIndex === activePathIndex && flag.id === hoveredFlagId) {
+    flagEntry.classList.add("is-hovered");
+  }
+
+  const badge = document.createElement("span");
+  badge.className = "flag-badge";
+  badge.textContent = String(flagIndex + 1);
+
+  const typeSelect = document.createElement("select");
+  typeSelect.className = "flag-type-select";
+  typeSelect.innerHTML = `
+    <option value="string">String</option>
+    <option value="velocity">Velocity</option>
+  `;
+  typeSelect.value = flag.type;
+
+  const input = document.createElement("input");
+  input.className = "flag-input";
+  input.type = flag.type === "velocity" ? "number" : "text";
+  input.placeholder = flag.type === "velocity" ? "Velocity limit" : "Flag code";
+  input.value = flag.type === "velocity" ? String(flag.velocityLimit ?? MAX_VELOCITY) : flag.label;
+
+  let committedValue = input.value;
+  let inputHistoryCaptured = false;
+
+  input.addEventListener("focus", (event) => {
+    event.stopPropagation();
+    committedValue = input.value;
+    inputHistoryCaptured = false;
+    activatePathForSegment(pathIndex);
+    setSelectedFlag(flag.id);
+    clearSelectedSegment();
+    plot();
+  });
+
+  typeSelect.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  typeSelect.addEventListener("change", (event) => {
+    event.stopPropagation();
+    captureHistoryState();
+    flag.type = typeSelect.value === "velocity" ? "velocity" : "string";
+    if (flag.type === "velocity") {
+      flag.velocityLimit = flag.velocityLimit ?? MAX_VELOCITY;
+      input.type = "number";
+      input.placeholder = "Velocity limit";
+      input.value = String(flag.velocityLimit);
+    } else {
+      flag.velocityLimit = null;
+      input.type = "text";
+      input.placeholder = "Flag code";
+      input.value = flag.label;
+    }
+    committedValue = input.value;
+    inputHistoryCaptured = false;
+    dispatchPathGeneration();
+    rebuildPathTree();
+    plot();
+    renderGraphHoverOverlay();
+  });
+
+  input.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
+
+  input.addEventListener("input", (event) => {
+    event.stopPropagation();
+    if (!inputHistoryCaptured && input.value !== committedValue) {
+      captureHistoryState();
+      inputHistoryCaptured = true;
+    }
+    if (flag.type === "velocity") {
+      const nextValue = Number(input.value);
+      flag.velocityLimit = Number.isFinite(nextValue) ? nextValue : null;
+      dispatchPathGeneration();
+      plot();
+      renderGraphHoverOverlay();
+    } else {
+      flag.label = input.value;
+    }
+  });
+
+  input.addEventListener("change", (event) => {
+    event.stopPropagation();
+    committedValue = input.value;
+    if (flag.type === "velocity") {
+      const nextValue = Number(input.value);
+      flag.velocityLimit = Number.isFinite(nextValue) ? nextValue : MAX_VELOCITY;
+      input.value = String(flag.velocityLimit);
+      dispatchPathGeneration();
+      plot();
+      renderGraphHoverOverlay();
+    } else {
+      flag.label = input.value;
+    }
+  });
+
+  flagEntry.addEventListener("click", (event) => {
+    event.stopPropagation();
+    activatePathForSegment(pathIndex);
+    clearSelectedSegment();
+    setSelectedFlag(flag.id === selectedFlagId ? null : flag.id);
+    resetsegment();
+    rebuildPathTree();
+    plot();
+    renderGraphHoverOverlay();
+    redrawPoints();
+  });
+
+  flagEntry.addEventListener("mouseenter", () => {
+    if (pathIndex !== activePathIndex) return;
+    setHoveredFlag(flag.id);
+    plot();
+    renderGraphHoverOverlay();
+  });
+
+  flagEntry.addEventListener("mouseleave", () => {
+    if (pathIndex !== activePathIndex) return;
+    setHoveredFlag(null);
+    plot();
+    renderGraphHoverOverlay();
+  });
+
+  flagEntry.append(badge, typeSelect, input);
+  return flagEntry;
+}
+
+function buildFlagSection(pathIndex: number, flagList: FlagModel[]): HTMLDivElement {
+  const wrapper = document.createElement("div");
+  wrapper.className = "flag-section";
+
+  const title = document.createElement("div");
+  title.className = "subsection-title";
+  title.textContent = "Flags";
+
+  const list = document.createElement("div");
+  list.className = "flag-list";
+
+  for (let i = 0; i < flagList.length; i++) {
+    list.append(buildFlagEntry(pathIndex, flagList[i], i));
+  }
+
+  wrapper.append(title, list);
+  return wrapper;
 }
 
 function buildPathEntry(pathIndex: number): HTMLDivElement {
@@ -994,6 +1216,10 @@ function buildPathEntry(pathIndex: number): HTMLDivElement {
   const label = document.createElement("span");
   label.className = "path-label";
 
+  const flagButton = document.createElement("button");
+  flagButton.textContent = "Make Flag";
+  flagButton.className = "make-Flag-button";
+
   const clearButton = document.createElement("button");
   clearButton.textContent = "Clear";
   clearButton.className = "path-clearButton";
@@ -1005,7 +1231,16 @@ function buildPathEntry(pathIndex: number): HTMLDivElement {
   const segmentList = document.createElement("div");
   segmentList.className = "segment-list";
 
+  const segmentSection = document.createElement("div");
+  segmentSection.className = "segment-section";
+
+  const segmentTitle = document.createElement("div");
+  segmentTitle.className = "subsection-title";
+  segmentTitle.textContent = "Segments";
+
   pathRow.append(label);
+  pathRow.append(flagButton);
+
   pathRow.append(clearButton);
   pathRow.append(delButton);
   pathEntry.append(pathRow);
@@ -1025,6 +1260,28 @@ function buildPathEntry(pathIndex: number): HTMLDivElement {
   delButton.addEventListener("click", (event) => {
     event.stopPropagation();
     openDeletePathModal(pathIndex);
+  });
+
+  flagButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    activatePathForSegment(pathIndex);
+    if (pathIndex !== activePathIndex) return;
+    captureHistoryState();
+    const nextFlag: FlagModel = {
+      id: createFlagId(),
+      pathDistance: getClampedFlagDistance(getPreferredNewFlagDistance()),
+      type: "string",
+      label: "",
+      velocityLimit: null,
+    };
+    flags.push(nextFlag);
+    sortFlags(flags);
+    clearSelectedSegment();
+    resetsegment();
+    setSelectedFlag(nextFlag.id);
+    rebuildPathTree();
+    plot();
+    renderGraphHoverOverlay();
   });
 
   pathRow.addEventListener("click", () => {
@@ -1050,11 +1307,15 @@ function buildPathEntry(pathIndex: number): HTMLDivElement {
   });
 
   const sectionList = paths[pathIndex].sections;
+  sortFlags(paths[pathIndex].flags);
   if (pathIndex === activePathIndex) {
     for (let i = 0; i < sectionList.length; i++) {
       segmentList.append(buildSegmentEntry(pathIndex, i, sectionList));
     }
-    pathEntry.append(segmentList);
+
+    segmentSection.append(segmentTitle, segmentList);
+    pathEntry.append(segmentSection);
+    pathEntry.append(buildFlagSection(pathIndex, paths[pathIndex].flags));
   }
 
   return pathEntry;

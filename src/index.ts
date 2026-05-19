@@ -11,6 +11,7 @@ import {
   PathModel,
   applyPersistedSettings,
   controlPoint,
+  FlagModel,
   getPersistedSettings,
   pathPoint,
   paths,
@@ -20,7 +21,7 @@ import {
 import { computePathProfile } from "./curve";
 import { replaceEditorPaths } from "./point";
 
-const EXPORT_SCHEMA_VERSION = 1;
+const EXPORT_SCHEMA_VERSION = 4;
 const cursor = document.getElementById("cursorDot");
 
 type PersistedSettings = ReturnType<typeof getPersistedSettings>;
@@ -30,6 +31,7 @@ type ExportedPathFile = {
   pathName: string;
   controlpoints: controlPoint[];
   sections: section[];
+  flags: FlagModel[];
   settings: PersistedSettings;
 };
 
@@ -68,12 +70,17 @@ function cloneSections(items: section[]): section[] {
   return items.map((item) => ({ ...item }));
 }
 
+function cloneFlags(items: FlagModel[]): FlagModel[] {
+  return items.map((item) => ({ ...item }));
+}
+
 function createExportPayload(path: PathModel): ExportedPathFile {
   return {
     version: EXPORT_SCHEMA_VERSION,
     pathName: path.name,
     controlpoints: cloneControlPoints(path.controlpoints),
     sections: cloneSections(path.sections),
+    flags: cloneFlags(path.flags),
     settings: getPersistedSettings(),
   };
 }
@@ -136,6 +143,33 @@ function validateSettings(value: unknown): value is PersistedSettings {
     && validateNumber(settings.trackWidth);
 }
 
+function validateFlag(value: unknown): value is FlagModel {
+  if (!value || typeof value !== "object") return false;
+  const flag = value as Partial<FlagModel>;
+  return typeof flag.id === "string"
+    && flag.id.length > 0
+    && validateNumber(flag.pathDistance)
+    && (flag.type === undefined || flag.type === "string" || flag.type === "velocity")
+    && typeof flag.label === "string"
+    && (flag.velocityLimit === undefined || flag.velocityLimit === null || validateNumber(flag.velocityLimit));
+}
+
+function normalizeFlag(flag: FlagModel): FlagModel {
+  return {
+    id: flag.id,
+    pathDistance: Math.max(0, Number.isFinite(flag.pathDistance) ? flag.pathDistance : 0),
+    type: flag.type ?? "string",
+    label: flag.label ?? "",
+    velocityLimit: flag.type === "velocity"
+      ? (flag.velocityLimit ?? null)
+      : null,
+  };
+}
+
+function normalizeFlags(flags: FlagModel[]): FlagModel[] {
+  return flags.map((flag) => normalizeFlag(flag));
+}
+
 function parseExportPayload(rawText: string, fileName: string): ExportedPathFile {
   const parsed = JSON.parse(rawText) as Partial<ExportedPathFile>;
 
@@ -151,6 +185,9 @@ function parseExportPayload(rawText: string, fileName: string): ExportedPathFile
   if (!Array.isArray(parsed.sections) || !parsed.sections.every(validateSection)) {
     throw new Error(`${fileName}: invalid sections.`);
   }
+  if (!Array.isArray(parsed.flags) || !parsed.flags.every(validateFlag)) {
+    throw new Error(`${fileName}: invalid flags.`);
+  }
   if (!validateSettings(parsed.settings)) {
     throw new Error(`${fileName}: invalid settings.`);
   }
@@ -160,6 +197,7 @@ function parseExportPayload(rawText: string, fileName: string): ExportedPathFile
     pathName: parsed.pathName,
     controlpoints: cloneControlPoints(parsed.controlpoints),
     sections: cloneSections(parsed.sections),
+    flags: normalizeFlags(cloneFlags(parsed.flags)),
     settings: parsed.settings,
   };
 }
@@ -170,6 +208,7 @@ function toPathModel(payload: ExportedPathFile): PathModel {
     controlpoints: cloneControlPoints(payload.controlpoints),
     sections: cloneSections(payload.sections),
     pathpoints: [],
+    flags: normalizeFlags(cloneFlags(payload.flags)),
   };
 }
 

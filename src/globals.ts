@@ -300,11 +300,20 @@ export interface section{
     name?: string;
 }
 
+export interface FlagModel {
+    id: string;
+    pathDistance: number;
+    type: "string" | "velocity";
+    label: string;
+    velocityLimit: number | null;
+}
+
 export interface PathModel {
     name: string;
     controlpoints: controlPoint[];
     sections: section[];
     pathpoints: pathPoint[];
+    flags: FlagModel[];
 }
 
 export function createPathModel(name: string): PathModel {
@@ -313,6 +322,7 @@ export function createPathModel(name: string): PathModel {
         controlpoints: [],
         sections: [],
         pathpoints: [],
+        flags: [],
     };
 }
 
@@ -322,6 +332,7 @@ export let activePathIndex = 0;
 export let controlpoints: controlPoint[] = paths[0].controlpoints;
 export let sections: section[] = paths[0].sections;
 export let pathpoints: pathPoint[] = paths[0].pathpoints;
+export let flags: FlagModel[] = paths[0].flags;
 
 export function getActivePath(): PathModel {
     return paths[activePathIndex];
@@ -332,12 +343,14 @@ export function syncActivePathRefs() {
         controlpoints = [];
         sections = [];
         pathpoints = [];
+        flags = [];
         return;
     }
     const active = getActivePath();
     controlpoints = active.controlpoints;
     sections = active.sections;
     pathpoints = active.pathpoints;
+    flags = active.flags;
 }
 
 export function setActivePathIndex(index: number) {

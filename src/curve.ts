@@ -9,7 +9,9 @@ import {
   pathpoints,
   controlpoints,
   bot,
+  flags,
 } from "./globals";
+import { getNearestPathpointIndexForFlag, sortFlagsByDerivedTime } from "./flags";
 import { plot } from "./plot";
 import { PI } from "chart.js/helpers";
 
@@ -27,6 +29,7 @@ export function computePathProfile() {
   const velocityLocks = generatePathFromControlPoints();
   if (pathpoints.length === 0) {
     plot();
+    document.dispatchEvent(new CustomEvent("path-profile-updated"));
     return;
   }
 
@@ -38,7 +41,20 @@ export function computePathProfile() {
   applyInPlaceTurnAngularProfile(velocityLocks);
   computeWheelVelocities();
   computeTimestampsAndAcceleration();
+
+  const velocityCaps = buildVelocityCapsFromFlags();
+  if (velocityCaps.size > 0) {
+    applyVelocityCaps(velocityCaps);
+    runVelocityPasses(velocityLocks, velocityCaps);
+    applyVelocityLocks(velocityLocks);
+    applyVelocityCaps(velocityCaps);
+    applyInPlaceTurnAngularProfile(velocityLocks);
+    computeWheelVelocities();
+    computeTimestampsAndAcceleration();
+  }
+
   plot();
+  document.dispatchEvent(new CustomEvent("path-profile-updated"));
 }
 function generatePathFromControlPoints(): Set<number> {
   resetPathPoints();
@@ -61,11 +77,11 @@ function initializeVelocityProfile() {
   pathpoints[pathpoints.length - 1].velocity = 0;
 }
 
-function runVelocityPasses(velocityLocks: Set<number>) {
+function runVelocityPasses(velocityLocks: Set<number>, velocityCaps: Map<number, number> = new Map()) {
   for (let i = 0; i < 2; i++) {
-    applyDecelerationConstraints(velocityLocks);
-    applyAccelerationConstraints(velocityLocks);
-    applyWheelAccelerationConstraints(velocityLocks);
+    applyDecelerationConstraints(velocityLocks, velocityCaps);
+    applyAccelerationConstraints(velocityLocks, velocityCaps);
+    applyWheelAccelerationConstraints(velocityLocks, velocityCaps);
   }
 }
 
@@ -77,6 +93,14 @@ function applyVelocityLocks(velocityLocks: Set<number>) {
   }
 }
 
+function applyVelocityCaps(velocityCaps: Map<number, number>) {
+  if (velocityCaps.size === 0) return;
+  for (const [index, limit] of velocityCaps.entries()) {
+    if (index < 0 || index >= pathpoints.length) continue;
+    pathpoints[index].velocity = Math.min(pathpoints[index].velocity, Math.max(0, limit));
+  }
+}
+
 function isVelocityLocked(index: number, velocityLocks: Set<number>): boolean {
   return velocityLocks.has(index);
 }
@@ -85,6 +109,12 @@ function clampLockedVelocity(index: number, velocityLocks: Set<number>): boolean
   if (!isVelocityLocked(index, velocityLocks)) return false;
   pathpoints[index].velocity = 0;
   return true;
+}
+
+function clampVelocityCap(index: number, velocityCaps: Map<number, number>): void {
+  const limit = velocityCaps.get(index);
+  if (limit === undefined) return;
+  pathpoints[index].velocity = Math.min(pathpoints[index].velocity, Math.max(0, limit));
 }
 
 function applyInPlaceTurnAngularProfile(velocityLocks: Set<number>) {
@@ -218,10 +248,11 @@ function computeStableCurvaturePrime() {
   pathpoints[n - 1].curvaturePrime = pathpoints[n - 2].curvaturePrime;
 }
 
-function applyDecelerationConstraints(velocityLocks: Set<number>){
+function applyDecelerationConstraints(velocityLocks: Set<number>, velocityCaps: Map<number, number> = new Map()){
   for (let i = pathpoints.length - 2; i >= 0; i--) {
     const currentPoint = pathpoints[i];
     if (clampLockedVelocity(i, velocityLocks)) continue;
+    clampVelocityCap(i, velocityCaps);
     const futureVelocity = pathpoints[i + 1].velocity;
     const distStep = calcdistance(pathpoints[i], pathpoints[i + 1]);
 
@@ -249,13 +280,15 @@ function applyDecelerationConstraints(velocityLocks: Set<number>){
       currentPoint.velocity,
       computeMaxVelocity(futureVelocity, accel, distStep)
     );
+    clampVelocityCap(i, velocityCaps);
   }
 }
 
-function applyAccelerationConstraints(velocityLocks: Set<number>){
+function applyAccelerationConstraints(velocityLocks: Set<number>, velocityCaps: Map<number, number> = new Map()){
   for (let i = 1; i < pathpoints.length; i++) {
     const currentPoint = pathpoints[i];
     if (clampLockedVelocity(i, velocityLocks)) continue;
+    clampVelocityCap(i, velocityCaps);
     const prevPoint = pathpoints[i - 1];
     const distStep = calcdistance(prevPoint, currentPoint);
 
@@ -288,11 +321,12 @@ function applyAccelerationConstraints(velocityLocks: Set<number>){
       currentPoint.velocity,
       computeMaxVelocity(prevPoint.velocity, accel, distStep)
     );
+    clampVelocityCap(i, velocityCaps);
     currentPoint.angularVelocity = currentPoint.velocity * currentPoint.curvature;
   }
 }
 
-function applyWheelAccelerationConstraints(velocityLocks: Set<number>) {
+function applyWheelAccelerationConstraints(velocityLocks: Set<number>, velocityCaps: Map<number, number> = new Map()) {
   if (pathpoints.length < 2) return;
 
   const MAX_ITERS = 6;
@@ -307,6 +341,7 @@ function applyWheelAccelerationConstraints(velocityLocks: Set<number>) {
       const prev = pathpoints[i - 1];
       const curr = pathpoints[i];
       if (clampLockedVelocity(i, velocityLocks)) continue;
+      clampVelocityCap(i, velocityCaps);
       const ds = calcdistance(prev, curr);
       if (ds <= EPS) continue;
 
@@ -321,12 +356,14 @@ function applyWheelAccelerationConstraints(velocityLocks: Set<number>) {
         leftBound,
         rightBound
       );
+      clampVelocityCap(i, velocityCaps);
     }
 
     // Backward sweep
     for (let i = pathpoints.length - 2; i >= 0; i--) {
       const curr = pathpoints[i];
       if (clampLockedVelocity(i, velocityLocks)) continue;
+      clampVelocityCap(i, velocityCaps);
       const next = pathpoints[i + 1];
       const ds = calcdistance(curr, next);
       if (ds <= EPS) continue;
@@ -339,6 +376,7 @@ function applyWheelAccelerationConstraints(velocityLocks: Set<number>) {
         leftBound,
         rightBound
       );
+      clampVelocityCap(i, velocityCaps);
     }
 
     let maxDelta = 0;
@@ -354,6 +392,29 @@ function applyCurvatureVelocityLimits() {
     const vCurvMax = getCurvatureLimitedVelocity(p.curvature);
     p.velocity = Math.min(p.velocity, vCurvMax);
   }
+}
+
+function buildVelocityCapsFromFlags(): Map<number, number> {
+  const velocityFlags = flags
+    .filter((flag) => flag.type === "velocity" && flag.velocityLimit !== null && Number.isFinite(flag.velocityLimit))
+    .slice();
+
+  sortFlagsByDerivedTime(velocityFlags, sections, pathpoints);
+
+  const caps = new Map<number, number>();
+  if (velocityFlags.length === 0 || pathpoints.length === 0) {
+    return caps;
+  }
+
+  for (const flag of velocityFlags) {
+    const pointIndex = getNearestPathpointIndexForFlag(flag, pathpoints);
+    if (pointIndex < 0) continue;
+    const limit = Math.max(0, flag.velocityLimit ?? 0);
+    const existing = caps.get(pointIndex);
+    caps.set(pointIndex, existing === undefined ? limit : Math.min(existing, limit));
+  }
+
+  return caps;
 }
 
 function insertJoinTransitions(): Set<number> {
