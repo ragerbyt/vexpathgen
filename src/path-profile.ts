@@ -10,9 +10,9 @@ import {
   controlpoints,
   bot,
   flags,
-} from "./globals";
-import { getNearestPathpointIndexForFlag, sortFlagsByDerivedTime } from "./flags";
-import { plot } from "./plot";
+} from "./editor-state";
+import { getNearestPathpointIndexForFlag, sortFlagsByDerivedTime } from "./path-flags";
+import { plot } from "./velocity-graph";
 import { PI } from "chart.js/helpers";
 
 export let numSegments = 0;
@@ -53,6 +53,9 @@ export function computePathProfile() {
     computeTimestampsAndAcceleration();
   }
 
+  applyReverseVelocitySigns();
+  computeWheelVelocities();
+  computeTimestampsAndAcceleration();
   plot();
   document.dispatchEvent(new CustomEvent("path-profile-updated"));
 }
@@ -181,6 +184,12 @@ function computeWheelVelocities() {
     const omega = p.angularVelocity;
     p.leftvel = p.velocity - (omega * w) / 2;
     p.rightvel = p.velocity + (omega * w) / 2;
+  }
+}
+
+function applyReverseVelocitySigns() {
+  for (const point of pathpoints) {
+    point.velocity = point.rev ? -Math.abs(point.velocity) : Math.abs(point.velocity);
   }
 }
 
@@ -538,6 +547,8 @@ function insertJoinTransitions(): Set<number> {
 
     const startPoint = makePointAt(startX, startY, prevAngle, 0);
     const endPoint = makePointAt(endX, endY, nextAngle, 0);
+    startPoint.rev = prev.rev;
+    endPoint.rev = prev.rev;
     const rampCount = Math.min(3, arcPoints.length);
     for (let i = 0; i < rampCount; i++) {
       const blend = (i + 1) / (rampCount + 1);
@@ -545,6 +556,7 @@ function insertJoinTransitions(): Set<number> {
       const tailIndex = arcPoints.length - 1 - i;
       arcPoints[tailIndex].curvature = curvature * blend;
     }
+      for (const point of arcPoints) point.rev = prev.rev;
 
     const removeStart = prevIndex + 1;
     const removeEnd = nextIndex;
@@ -618,6 +630,7 @@ function generateBezierWaypoints(
     wp.x = point.x;
     wp.y = point.y;
     wp.orientation = resolveBezierOrientation(bezierPts, sectpts, t, currsection.rev);
+    wp.rev = currsection.rev;
     accumulateDistance(wp);
     wp.curvature = bezierCurvature(bezierPts, t);
     pathpoints.push(wp);
@@ -643,6 +656,7 @@ function generateLineWaypoints(sectpts: controlPoint[], currsection: section, co
     if(currsection.rev){
       wp.orientation = wp.orientation + PI;
     }
+    wp.rev = currsection.rev;
 
     accumulateDistance(wp);
 

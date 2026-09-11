@@ -6,7 +6,7 @@ export const overlay = document.getElementById("overlay") as HTMLCanvasElement;
 
 import fieldH2H from "./assets/V5RC-Override-H2H-TopDownHighlighted-TileColor66_71@0.1.png";
 import fieldSkills from "./assets/V5RC-Override-Skills-TopDownHighlighted-TileColor66_71@0.1.png";
-import { computePathProfile } from './curve';
+import { computePathProfile } from './path-profile';
 
 export const background = new Image();
 
@@ -29,9 +29,9 @@ setFieldBackgroundMode(FIELD_BACKGROUND_MODE);
 // Constants (all distances in inches)
 export const FIELD_WIDTH_INCHES = 144;
 export const FIELD_HEIGHT_INCHES = 144;
-export let MAX_VELOCITY = 80;         // Maximum velocity in inches per second
-export let MAX_ACCELERATION = 140;      // Maximum acceleration in inches per second squared
-export let MAX_DECELERATION = 150;      // Maximum deceleration in inches per second squared
+export let MAX_VELOCITY = 60;         // Maximum velocity in inches per second
+export let MAX_ACCELERATION = 70;      // Maximum acceleration in inches per second squared
+export let MAX_DECELERATION = 70;      // Maximum deceleration in inches per second squared
 
 export let top = -FIELD_HEIGHT_INCHES / 2;
 export let left = -FIELD_WIDTH_INCHES / 2;
@@ -131,7 +131,7 @@ export const bot = {
     o: 0,      
     width: 13.5,  
     length: 15,
-    trackwidth: 10,
+    trackwidth: 11.25,
 };
     
 export let STATE = "Waypoints"

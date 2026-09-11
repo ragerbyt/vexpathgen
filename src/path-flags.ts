@@ -1,4 +1,4 @@
-import { FlagModel, pathPoint, section } from "./globals";
+import { FlagModel, pathPoint, section } from "./editor-state";
 
 export type DerivedFlagPlacement = {
   clampedPathDistance: number;

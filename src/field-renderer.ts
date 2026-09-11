@@ -1,9 +1,9 @@
 import { Point } from "chart.js";
-import {  pathpoints } from "./globals";
-import { canvas, MAX_VELOCITY, ctx, background, FIELD_HEIGHT_INCHES, FIELD_WIDTH_INCHES } from "./globals";
-import { controlpoints, pathPoint, controlPoint, sections } from "./globals";
-import { fieldToCanvasX, fieldToCanvasY, getFieldView } from "./globals";
-import { hoveredSegmentRange, selectedSegmentRange } from "./handling";
+import {  pathpoints } from "./editor-state";
+import { canvas, MAX_VELOCITY, ctx, background, FIELD_HEIGHT_INCHES, FIELD_WIDTH_INCHES } from "./editor-state";
+import { controlpoints, pathPoint, controlPoint, sections } from "./editor-state";
+import { fieldToCanvasX, fieldToCanvasY, getFieldView } from "./editor-state";
+import { hoveredSegmentRange, selectedSegmentRange } from "./interaction-state";
 
 function drawFieldBackground() {
   const view = getFieldView();
@@ -185,7 +185,7 @@ function drawLine(
   ctx.restore(); // Restore the previous canvas state
 }
 
-import { bot } from "./globals";
+import { bot } from "./editor-state";
 
 function drawBot(ctx: CanvasRenderingContext2D) {
   const { x, y, o, width, length, trackwidth } = bot;

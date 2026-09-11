@@ -1,8 +1,8 @@
 export let GRAPHMODE = "time";
 
-import { redrawCanvas } from "./draw";
-import { bot, flags, graph, MAX_VELOCITY, overlay, pathpoints, sections } from "./globals";
-import { getDerivedFlagPlacement, getPathDistanceForTime, sortFlagsByDerivedTime } from "./flags";
+import { redrawCanvas } from "./field-renderer";
+import { bot, flags, graph, MAX_VELOCITY, overlay, pathpoints, sections } from "./editor-state";
+import { getDerivedFlagPlacement, getPathDistanceForTime, sortFlagsByDerivedTime } from "./path-flags";
 import {
   clearSelectedSegment,
   hoveredFlagId,
@@ -11,7 +11,7 @@ import {
   selectedSegmentRange,
   setHoveredFlag,
   setSelectedFlag,
-} from "./handling";
+} from "./interaction-state";
 import { PI } from "chart.js/helpers";
 
 const MIN_VIEW_SPAN_RATIO = 0.03;

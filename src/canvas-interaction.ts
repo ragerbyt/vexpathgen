@@ -1,4 +1,4 @@
-import { controlPoint, section, FlagModel } from "./globals";
+import { controlPoint, section, FlagModel } from "./editor-state";
 
 let isDraggingGlobal = false;
 let activeDragPoint: controlPoint | null = null;
@@ -23,13 +23,13 @@ const state = false;
 
 const pointdisplay = document.getElementById("point-coordinates") as HTMLDivElement | null;
 
-import { computePathProfile } from "./curve";
-import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView, FIELD_WIDTH_INCHES, flags, MAX_VELOCITY } from "./globals";
-import { canvasToFieldX, canvasToFieldY, getFieldView, panFieldView, zoomFieldView } from "./globals";
-import { clampFlagPathDistance, sortFlagsByDerivedTime } from "./flags";
-import { clearFlagState, clearSegmentState, clearSelectedSegment, deselectSegment, hoveredFlagId, hoveredSegmentIndex, refreshSegmentRanges, resetsegment, selectSegment, selectedFlagId, selectedSegmentIndex, setHoveredFlag, setSelectedFlag, setSelectedSegment } from "./handling";
-import { clearGraphInteractionState, getPreferredNewFlagDistance, plot, renderGraphHoverOverlay } from "./plot";
-import { MODE } from "./sidebar";
+import { computePathProfile } from "./path-profile";
+import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView, FIELD_WIDTH_INCHES, flags, MAX_VELOCITY } from "./editor-state";
+import { canvasToFieldX, canvasToFieldY, getFieldView, panFieldView, zoomFieldView } from "./editor-state";
+import { clampFlagPathDistance, sortFlagsByDerivedTime } from "./path-flags";
+import { clearFlagState, clearSegmentState, clearSelectedSegment, deselectSegment, hoveredFlagId, hoveredSegmentIndex, refreshSegmentRanges, resetsegment, selectSegment, selectedFlagId, selectedSegmentIndex, setHoveredFlag, setSelectedFlag, setSelectedSegment } from "./interaction-state";
+import { clearGraphInteractionState, getPreferredNewFlagDistance, plot, renderGraphHoverOverlay } from "./velocity-graph";
+import { MODE } from "./drawing-mode";
 import { PI } from "chart.js/helpers";
 document.addEventListener("DOMContentLoaded", initCanvas);
 document.addEventListener("capture-editor-history", () => captureHistoryState());

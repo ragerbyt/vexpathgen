@@ -1,6 +1,6 @@
 const coordDisplay = document.getElementById("mouse-coordinates");
 
-import { canvas, canvasToFieldX, canvasToFieldY } from "./globals";
+import { canvas, canvasToFieldX, canvasToFieldY } from "./editor-state";
 
 canvas.addEventListener("mousemove", displayMouseCoordinates);
 

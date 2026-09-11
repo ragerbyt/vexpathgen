@@ -1,5 +1,5 @@
-import { FIELD_BACKGROUND_MODE, FieldBackgroundMode, setFieldBackgroundMode } from "./globals";
-import { redrawCanvas } from "./draw";
+import { FIELD_BACKGROUND_MODE, FieldBackgroundMode, setFieldBackgroundMode } from "./editor-state";
+import { redrawCanvas } from "./field-renderer";
 
 export let MODE = "Bezier";
 

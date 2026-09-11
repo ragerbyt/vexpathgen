@@ -1,4 +1,4 @@
-import { sections } from "./globals";
+import { sections } from "./editor-state";
 
 export type SegmentRange = { startIndex: number; endIndex: number };
 

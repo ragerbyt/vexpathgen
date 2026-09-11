@@ -1,10 +1,10 @@
-import "./point";
-import "./draw";
-import "./curve";
-import "./plot";
+import "./canvas-interaction";
+import "./field-renderer";
+import "./path-profile";
+import "./velocity-graph";
 import "./css/styles.css";
-import "./ui";
-import "./sidebar";
+import "./coordinate-display";
+import "./drawing-mode";
 
 import {
   activePathIndex,
@@ -17,9 +17,9 @@ import {
   paths,
   section,
   setActivePathIndex,
-} from "./globals";
-import { computePathProfile } from "./curve";
-import { replaceEditorPaths } from "./point";
+} from "./editor-state";
+import { computePathProfile } from "./path-profile";
+import { replaceEditorPaths } from "./canvas-interaction";
 
 const EXPORT_SCHEMA_VERSION = 4;
 const cursor = document.getElementById("cursorDot");
@@ -85,15 +85,84 @@ function createExportPayload(path: PathModel): ExportedPathFile {
   };
 }
 
-function buildCppContent(routeName: string, points: pathPoint[]): string {
-  const mode = "BACK";
-  const rows = points.map((wp) => {
-    const orientation = mode === "BACK" ? wp.orientation + Math.PI : wp.orientation;
-    const velocity = mode === "BACK" ? -wp.velocity : wp.velocity;
-    return `    {${Math.round(wp.time * 1000)}, ${Math.round(wp.x * 50)}, ${Math.round(wp.y * 50)}, ${Math.round(orientation * 100)}, ${Math.round(velocity * 100)}, ${Math.round(wp.angularVelocity * 1000)}}`;
+type ExportPoint = Pick<pathPoint, "x" | "y" | "velocity" | "accel" | "angularVelocity" | "time" | "orientation">;
+
+function interpolateExportPoints(points: pathPoint[]): ExportPoint[] {
+  if (points.length === 0) return [];
+
+  const firstPoint = points[0];
+  const lastPoint = points[points.length - 1];
+  const sampleInterval = 0.01;
+  const timeEpsilon = 1e-9;
+  const finalTime = lastPoint.time;
+  const sampleTimes: number[] = [];
+  const regularSampleCount = Math.floor((finalTime - firstPoint.time) / sampleInterval + timeEpsilon);
+
+  for (let sampleIndex = 0; sampleIndex <= regularSampleCount; sampleIndex++) {
+    sampleTimes.push(firstPoint.time + sampleIndex * sampleInterval);
+  }
+  if (finalTime - sampleTimes[sampleTimes.length - 1] > timeEpsilon) {
+    sampleTimes.push(finalTime);
+  }
+
+  const normalizeAngle = (angle: number): number => {
+    while (angle > Math.PI) angle -= 2 * Math.PI;
+    while (angle < -Math.PI) angle += 2 * Math.PI;
+    return angle;
+  };
+
+  const interpolatedPoints = sampleTimes.map((time) => {
+    let upperIndex = 1;
+    while (upperIndex < points.length && points[upperIndex].time < time) {
+      upperIndex++;
+    }
+
+    if (upperIndex >= points.length) return { ...lastPoint, time };
+
+    const lowerPoint = points[upperIndex - 1];
+    const upperPoint = points[upperIndex];
+    const timeSpan = upperPoint.time - lowerPoint.time;
+    if (timeSpan <= 0 || time === lowerPoint.time) return { ...lowerPoint, time };
+
+    const amount = (time - lowerPoint.time) / timeSpan;
+    const orientationDelta = normalizeAngle(upperPoint.orientation - lowerPoint.orientation);
+    return {
+      time,
+      x: lowerPoint.x + (upperPoint.x - lowerPoint.x) * amount,
+      y: lowerPoint.y + (upperPoint.y - lowerPoint.y) * amount,
+      velocity: lowerPoint.velocity + (upperPoint.velocity - lowerPoint.velocity) * amount,
+      accel: 0,
+      angularVelocity: lowerPoint.angularVelocity
+        + (upperPoint.angularVelocity - lowerPoint.angularVelocity) * amount,
+      orientation: lowerPoint.orientation + orientationDelta * amount,
+    };
   });
 
-  return `#include "paths.h"\n\nconst std::vector<Data> ${routeName} = {\n${rows.join(",\n")}\n};`;
+  for (let index = 0; index < interpolatedPoints.length - 1; index++) {
+    const currentPoint = interpolatedPoints[index];
+    const nextPoint = interpolatedPoints[index + 1];
+    const timeStep = nextPoint.time - currentPoint.time;
+    currentPoint.accel = timeStep > 0
+      ? (nextPoint.velocity - currentPoint.velocity) / timeStep
+      : 0;
+  }
+  interpolatedPoints[interpolatedPoints.length - 1].accel = 0;
+
+  return interpolatedPoints;
+}
+
+function buildCppContent(routeName: string, points: ExportPoint[]): string {
+  const radiansToDegrees = 180 / Math.PI;
+  const rows = points.map((wp, index) => {
+    const previousPoint = points[index - 1];
+    const timeStep = previousPoint ? wp.time - previousPoint.time : 0;
+    const angularAcceleration = previousPoint && timeStep > 0
+      ? (wp.angularVelocity - previousPoint.angularVelocity) / timeStep
+      : 0;
+    return `    {${Math.round(wp.time * 1000)}, {${Math.round(wp.x * 50)}, ${Math.round(wp.y * 50)}, ${Math.round(wp.orientation * radiansToDegrees * 10)}}, ${Math.round(wp.velocity * 50)}, ${Math.round(wp.accel * 50)}, ${Math.round(wp.angularVelocity * radiansToDegrees * 20)}, ${Math.round(angularAcceleration * radiansToDegrees * 20)}}`;
+  });
+
+  return `#include "motionprofile.h"\n\nconst size_t ${routeName}Size = ${points.length};\nconst ProfilePoint ${routeName}[] = {\n${rows.join(",\n")}\n};`;
 }
 
 async function writeTextFile(directoryHandle: DirectoryHandleLike, fileName: string, contents: string) {
@@ -246,7 +315,7 @@ async function exportPathFolder(): Promise<void> {
       const path = exportablePaths[i];
       const baseName = baseNames[i];
       const routeName = sanitizeCppIdentifier(baseName);
-      const cppContent = buildCppContent(routeName, path.pathpoints);
+      const cppContent = buildCppContent(routeName, interpolateExportPoints(path.pathpoints));
       const jsonContent = JSON.stringify(createExportPayload(path), null, 2);
 
       await writeTextFile(directoryHandle, `${baseName}.cpp`, cppContent);
