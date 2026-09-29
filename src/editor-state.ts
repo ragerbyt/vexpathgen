@@ -327,6 +327,7 @@ export function createPathModel(name: string): PathModel {
 }
 
 export let paths: PathModel[] = [createPathModel("Path 1")];
+export let routeName = "Paths";
 export let activePathIndex = 0;
 
 export let controlpoints: controlPoint[] = paths[0].controlpoints;
@@ -368,4 +369,8 @@ export function replacePaths(nextPaths: PathModel[]) {
     paths = nextPaths;
     activePathIndex = 0;
     syncActivePathRefs();
+}
+
+export function setRouteName(name: string) {
+    routeName = name;
 }

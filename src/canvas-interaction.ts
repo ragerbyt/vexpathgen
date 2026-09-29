@@ -24,7 +24,7 @@ const state = false;
 const pointdisplay = document.getElementById("point-coordinates") as HTMLDivElement | null;
 
 import { computePathProfile } from "./path-profile";
-import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView, FIELD_WIDTH_INCHES, flags, MAX_VELOCITY } from "./editor-state";
+import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView, FIELD_WIDTH_INCHES, flags, MAX_VELOCITY, routeName, setRouteName } from "./editor-state";
 import { canvasToFieldX, canvasToFieldY, getFieldView, panFieldView, zoomFieldView } from "./editor-state";
 import { clampFlagPathDistance, sortFlagsByDerivedTime } from "./path-flags";
 import { clearFlagState, clearSegmentState, clearSelectedSegment, deselectSegment, hoveredFlagId, hoveredSegmentIndex, refreshSegmentRanges, resetsegment, selectSegment, selectedFlagId, selectedSegmentIndex, setHoveredFlag, setSelectedFlag, setSelectedSegment } from "./interaction-state";
@@ -39,7 +39,7 @@ document.addEventListener("recompute-path-profile", () => dispatchPathGeneration
 
 document.addEventListener("DOMContentLoaded", () => {
   rebuildPathTree();
-  updatePathNameInput();
+  updateRouteNameInput();
 
   addPathButton?.addEventListener("click", () => {
     const newPath = createPathModel(getDefaultPathName(paths.length));
@@ -47,20 +47,6 @@ document.addEventListener("DOMContentLoaded", () => {
     setActivePath(paths.length - 1);
   });
 
-  pathNameInput?.addEventListener("input", () => {
-    if (paths.length === 0) {
-      pathNameInput.value = "";
-      return;
-    }
-    const active = getActivePath();
-    const nextValue = pathNameInput.value.trim();
-    if (nextValue.length > 0) {
-      active.name = nextValue;
-    } else {
-      updatePathNameInput();
-    }
-    rebuildPathTree();
-  });
 });
 
 function initCanvas() {
@@ -275,13 +261,88 @@ function handleFieldWheel(e: WheelEvent) {
 
 const pathTree = document.getElementById("path-tree");
 const addPathButton = document.getElementById("addPath") as HTMLButtonElement | null;
-const pathNameInput = document.getElementById("pathNameInput") as HTMLInputElement | null;
+const routeNameDisplay = document.getElementById("routeNameDisplay") as HTMLSpanElement | null;
+const editRouteNameButton = document.getElementById("editRouteName") as HTMLButtonElement | null;
+const routeNameModal = document.getElementById("route-name-modal") as HTMLDivElement | null;
+const routeNameInput = document.getElementById("route-name-input") as HTMLInputElement | null;
+const routeNameSave = document.getElementById("route-name-save") as HTMLButtonElement | null;
+const routeNameCancel = document.getElementById("route-name-cancel") as HTMLButtonElement | null;
+const routeNameScrim = document.getElementById("route-name-scrim") as HTMLDivElement | null;
+const pathNameModal = document.getElementById("path-name-modal") as HTMLDivElement | null;
+const pathNameInput = document.getElementById("path-name-input") as HTMLInputElement | null;
+const pathNameSave = document.getElementById("path-name-save") as HTMLButtonElement | null;
+const pathNameCancel = document.getElementById("path-name-cancel") as HTMLButtonElement | null;
+const pathNameScrim = document.getElementById("path-name-scrim") as HTMLDivElement | null;
 const deletePathModal = document.getElementById("path-delete-modal") as HTMLDivElement | null;
 const deletePathMessage = document.getElementById("path-delete-message") as HTMLParagraphElement | null;
 const deletePathConfirm = document.getElementById("path-delete-confirm") as HTMLButtonElement | null;
 const deletePathCancel = document.getElementById("path-delete-cancel") as HTMLButtonElement | null;
 const deletePathScrim = document.getElementById("path-delete-scrim") as HTMLDivElement | null;
 let pendingDeletePathIndex: number | null = null;
+let pendingPathRenameIndex: number | null = null;
+
+function closeRouteNameModal() {
+  routeNameModal?.classList.add("is-hidden");
+}
+
+function openRouteNameModal() {
+  if (!routeNameModal || !routeNameInput) return;
+  routeNameInput.value = routeName;
+  routeNameModal.classList.remove("is-hidden");
+  routeNameInput.focus();
+  routeNameInput.select();
+}
+
+function saveRouteName() {
+  const nextValue = routeNameInput?.value.trim() || "";
+  if (nextValue.length === 0) return;
+  setRouteName(nextValue);
+  updateRouteNameInput();
+  closeRouteNameModal();
+}
+
+editRouteNameButton?.addEventListener("click", openRouteNameModal);
+routeNameSave?.addEventListener("click", saveRouteName);
+routeNameCancel?.addEventListener("click", closeRouteNameModal);
+routeNameScrim?.addEventListener("click", closeRouteNameModal);
+
+routeNameInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") saveRouteName();
+  if (event.key === "Escape") closeRouteNameModal();
+});
+
+function closePathNameModal() {
+  pendingPathRenameIndex = null;
+  pathNameModal?.classList.add("is-hidden");
+}
+
+function openPathNameModal(pathIndex: number) {
+  const path = paths[pathIndex];
+  if (!path || !pathNameModal || !pathNameInput) return;
+  pendingPathRenameIndex = pathIndex;
+  pathNameInput.value = path.name;
+  pathNameModal.classList.remove("is-hidden");
+  pathNameInput.focus();
+  pathNameInput.select();
+}
+
+function savePathName() {
+  if (pendingPathRenameIndex === null || !pathNameInput) return;
+  const nextValue = pathNameInput.value.trim();
+  if (nextValue.length === 0) return;
+  const path = paths[pendingPathRenameIndex];
+  if (path) path.name = nextValue;
+  closePathNameModal();
+  rebuildPathTree();
+}
+
+pathNameSave?.addEventListener("click", savePathName);
+pathNameCancel?.addEventListener("click", closePathNameModal);
+pathNameScrim?.addEventListener("click", closePathNameModal);
+pathNameInput?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") savePathName();
+  if (event.key === "Escape") closePathNameModal();
+});
 
 function openDeletePathModal(pathIndex: number) {
   const path = paths[pathIndex];
@@ -318,8 +379,17 @@ deletePathConfirm?.addEventListener("click", () => {
 
 document.addEventListener("keydown", (event) => {
   if (event.key !== "Escape") return;
-  if (!deletePathModal || deletePathModal.classList.contains("is-hidden")) return;
-  closeDeletePathModal();
+  if (deletePathModal && !deletePathModal.classList.contains("is-hidden")) {
+    closeDeletePathModal();
+    return;
+  }
+  if (routeNameModal && !routeNameModal.classList.contains("is-hidden")) {
+    closeRouteNameModal();
+    return;
+  }
+  if (pathNameModal && !pathNameModal.classList.contains("is-hidden")) {
+    closePathNameModal();
+  }
 });
 
 function getDefaultPathName(index: number): string {
@@ -355,9 +425,12 @@ function cloneFlags(items: FlagModel[]): FlagModel[] {
 }
 
 function normalizeFlag(flag: FlagModel, pathpointList = pathpoints): FlagModel {
+  const pathDistance = Number.isFinite(flag.pathDistance) ? Math.max(0, flag.pathDistance) : 0;
   return {
     id: flag.id,
-    pathDistance: clampFlagPathDistance(flag.pathDistance, pathpointList),
+    pathDistance: pathpointList.length > 0
+      ? clampFlagPathDistance(pathDistance, pathpointList)
+      : pathDistance,
     type: flag.type ?? "string",
     label: flag.label ?? "",
     velocityLimit: flag.type === "velocity" ? (flag.velocityLimit ?? MAX_VELOCITY) : null,
@@ -372,17 +445,15 @@ function getClampedFlagDistance(pathDistance: number): number {
   return clampFlagPathDistance(pathDistance, pathpoints);
 }
 
-function updatePathNameInput() {
-  if (!pathNameInput) return;
+function updateRouteNameInput() {
+  if (!routeNameDisplay) return;
   if (paths.length === 0) {
-    pathNameInput.value = "";
-    pathNameInput.disabled = true;
+    routeNameDisplay.textContent = "Paths";
+    if (editRouteNameButton) editRouteNameButton.disabled = true;
     return;
   }
-  pathNameInput.disabled = false;
-  ensurePathName(activePathIndex);
-  const active = getActivePath();
-  pathNameInput.value = active.name;
+  routeNameDisplay.textContent = routeName;
+  if (editRouteNameButton) editRouteNameButton.disabled = false;
 }
 
 function startInlineRename(
@@ -813,6 +884,15 @@ function handleHistoryShortcut(e: KeyboardEvent) {
   const undoShortcut = (e.ctrlKey || e.metaKey) && key === "z" && !e.shiftKey;
   const redoShortcut = (e.ctrlKey || e.metaKey) && (key === "y" || (key === "z" && e.shiftKey));
 
+  if (key === "delete") {
+    if (selectedFlagId) {
+      deleteSelectedFlag();
+    } else if (selectedSegmentIndex >= 0) {
+      deleteSelectedSegment();
+    }
+    return;
+  }
+
   if (undoShortcut) {
     e.preventDefault();
     undoHistory();
@@ -822,6 +902,48 @@ function handleHistoryShortcut(e: KeyboardEvent) {
   }
 }
 
+function deleteSelectedFlag() {
+  const flagIndex = flags.findIndex((flag) => flag.id === selectedFlagId);
+  if (flagIndex < 0) return;
+  captureHistoryState();
+  flags.splice(flagIndex, 1);
+  clearFlagState();
+  rebuildPathTree();
+  plot();
+  renderGraphHoverOverlay();
+  redrawPoints();
+}
+
+function deleteSelectedSegment() {
+  const segmentIndex = selectedSegmentIndex;
+  const segment = sections[segmentIndex];
+  if (!segment) return;
+
+  captureHistoryState();
+  const retainedStart = segment.startcontrol;
+  const removedCount = Math.max(0, segment.endcontrol - retainedStart);
+  controlpoints.splice(retainedStart + 1, removedCount);
+  sections.splice(segmentIndex, 1);
+
+  for (let index = segmentIndex; index < sections.length; index++) {
+    const next = sections[index];
+    if (index === segmentIndex) {
+      next.startcontrol = retainedStart;
+    } else {
+      next.startcontrol -= removedCount;
+    }
+    next.endcontrol -= removedCount;
+  }
+
+  reindexControlPoints();
+  updatesections();
+  clearSegmentState();
+  dispatchPathGeneration();
+  rebuildPathTree();
+  renderGraphHoverOverlay();
+  redrawPoints();
+}
+
 function setActivePath(pathIndex: number) {
   if (paths.length === 0) return;
   setActivePathIndex(pathIndex);
@@ -829,7 +951,7 @@ function setActivePath(pathIndex: number) {
   clearSegmentState();
   clearFlagState();
   clearGraphInteractionState();
-  updatePathNameInput();
+  updateRouteNameInput();
   rebuildPathTree();
   dispatchPathGeneration();
   redrawPoints();
@@ -848,7 +970,7 @@ function deletePathAtIndex(pathIndex: number) {
 
   if (paths.length === 0) {
     setActivePathIndex(0);
-    updatePathNameInput();
+    updateRouteNameInput();
     rebuildPathTree();
     renderGraphHoverOverlay();
     redrawPoints();
@@ -863,7 +985,7 @@ function deletePathAtIndex(pathIndex: number) {
   }
 
   setActivePathIndex(Math.min(nextActiveIndex, paths.length - 1));
-  updatePathNameInput();
+  updateRouteNameInput();
   rebuildPathTree();
   dispatchPathGeneration();
   renderGraphHoverOverlay();
@@ -915,7 +1037,7 @@ export function replaceEditorPaths(nextPaths: PathModel[], activeIndex = 0) {
   replacePaths(nextPaths);
 
   if (paths.length === 0) {
-    updatePathNameInput();
+    updateRouteNameInput();
     rebuildPathTree();
     refreshSegmentRanges();
     if (pointdisplay) {
@@ -935,7 +1057,7 @@ export function replaceEditorPaths(nextPaths: PathModel[], activeIndex = 0) {
 
   const nextActiveIndex = Math.max(0, Math.min(activeIndex, paths.length - 1));
   setActivePathIndex(nextActiveIndex);
-  updatePathNameInput();
+  updateRouteNameInput();
   rebuildPathTree();
   refreshSegmentRanges();
   if (pointdisplay) {
@@ -1216,6 +1338,10 @@ function buildPathEntry(pathIndex: number): HTMLDivElement {
   const label = document.createElement("span");
   label.className = "path-label";
 
+  const editButton = document.createElement("button");
+  editButton.textContent = "Edit";
+  editButton.className = "path-editButton";
+
   const flagButton = document.createElement("button");
   flagButton.textContent = "Make Flag";
   flagButton.className = "make-Flag-button";
@@ -1238,7 +1364,7 @@ function buildPathEntry(pathIndex: number): HTMLDivElement {
   segmentTitle.className = "subsection-title";
   segmentTitle.textContent = "Segments";
 
-  pathRow.append(label);
+  pathRow.append(label, editButton);
   pathRow.append(flagButton);
 
   pathRow.append(clearButton);
@@ -1260,6 +1386,11 @@ function buildPathEntry(pathIndex: number): HTMLDivElement {
   delButton.addEventListener("click", (event) => {
     event.stopPropagation();
     openDeletePathModal(pathIndex);
+  });
+
+  editButton.addEventListener("click", (event) => {
+    event.stopPropagation();
+    openPathNameModal(pathIndex);
   });
 
   flagButton.addEventListener("click", (event) => {
@@ -1291,19 +1422,6 @@ function buildPathEntry(pathIndex: number): HTMLDivElement {
     }
     if (pathIndex === activePathIndex) return;
     setActivePath(pathIndex);
-  });
-
-  label.addEventListener("dblclick", (event) => {
-    event.stopPropagation();
-    suppressNextPathRowClick = true;
-    startInlineRename(label, label.textContent || "", (nextValue) => {
-      paths[pathIndex].name = nextValue;
-      label.textContent = nextValue;
-      if (pathIndex === activePathIndex) {
-        updatePathNameInput();
-      }
-      rebuildPathTree();
-    });
   });
 
   const sectionList = paths[pathIndex].sections;

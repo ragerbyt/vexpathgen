@@ -130,7 +130,8 @@
           </div>
         <div id="segment-panel">
           <div class="path-tree-header">
-            <div class="path-tree-title">Paths</div>
+            <span class="path-tree-title" id="routeNameDisplay">Paths</span>
+            <button id="editRouteName" type="button">Edit</button>
             <button id="addPath">Add Path</button>
           </div>
           <div id="segment-config">
@@ -149,6 +150,30 @@
         <div class="modal-actions">
           <button id="path-delete-cancel" class="modal-button secondary" type="button">Cancel</button>
           <button id="path-delete-confirm" class="modal-button danger" type="button">Delete</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="route-name-modal" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="route-name-title">
+      <div class="modal-scrim" id="route-name-scrim"></div>
+      <div class="modal-card">
+        <h2 id="route-name-title">Edit route name</h2>
+        <input id="route-name-input" class="modal-input" type="text" aria-label="Route name" />
+        <div class="modal-actions">
+          <button id="route-name-cancel" class="modal-button secondary" type="button">Cancel</button>
+          <button id="route-name-save" class="modal-button" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="path-name-modal" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="path-name-title">
+      <div class="modal-scrim" id="path-name-scrim"></div>
+      <div class="modal-card">
+        <h2 id="path-name-title">Edit path name</h2>
+        <input id="path-name-input" class="modal-input" type="text" aria-label="Path name" />
+        <div class="modal-actions">
+          <button id="path-name-cancel" class="modal-button secondary" type="button">Cancel</button>
+          <button id="path-name-save" class="modal-button" type="button">Save</button>
         </div>
       </div>
     </div>

@@ -15,8 +15,10 @@ import {
   getPersistedSettings,
   pathPoint,
   paths,
+  routeName,
   section,
   setActivePathIndex,
+  setRouteName,
 } from "./editor-state";
 import { computePathProfile } from "./path-profile";
 import { replaceEditorPaths } from "./canvas-interaction";
@@ -29,6 +31,7 @@ type PersistedSettings = ReturnType<typeof getPersistedSettings>;
 type ExportedPathFile = {
   version: number;
   pathName: string;
+  routeName?: string;
   controlpoints: controlPoint[];
   sections: section[];
   flags: FlagModel[];
@@ -37,6 +40,7 @@ type ExportedPathFile = {
 
 type DirectoryHandleLike = {
   getFileHandle(name: string, options?: { create?: boolean }): Promise<FileSystemFileHandle>;
+  removeEntry(name: string): Promise<void>;
   values(): AsyncIterable<{ kind: string; name: string; getFile?: () => Promise<File> }>;
 };
 
@@ -62,6 +66,17 @@ function buildUniqueBaseNames(items: PathModel[]): string[] {
   });
 }
 
+function buildUniqueCppNames(baseNames: string[]): string[] {
+  const counts = new Map<string, number>();
+
+  return baseNames.map((baseName) => {
+    const identifier = sanitizeCppIdentifier(baseName);
+    const seen = counts.get(identifier) ?? 0;
+    counts.set(identifier, seen + 1);
+    return seen === 0 ? identifier : `${identifier}_${seen + 1}`;
+  });
+}
+
 function cloneControlPoints(points: controlPoint[]): controlPoint[] {
   return points.map((point, index) => ({ ...point, index }));
 }
@@ -74,13 +89,21 @@ function cloneFlags(items: FlagModel[]): FlagModel[] {
   return items.map((item) => ({ ...item }));
 }
 
+function cloneExportFlags(items: FlagModel[]): FlagModel[] {
+  return cloneFlags(items).map((flag) => ({
+    ...flag,
+    pathDistance: Number.isFinite(flag.pathDistance) ? Math.max(0, flag.pathDistance) : 0,
+  }));
+}
+
 function createExportPayload(path: PathModel): ExportedPathFile {
   return {
     version: EXPORT_SCHEMA_VERSION,
     pathName: path.name,
+    routeName,
     controlpoints: cloneControlPoints(path.controlpoints),
     sections: cloneSections(path.sections),
-    flags: cloneFlags(path.flags),
+    flags: cloneExportFlags(path.flags),
     settings: getPersistedSettings(),
   };
 }
@@ -151,7 +174,7 @@ function interpolateExportPoints(points: pathPoint[]): ExportPoint[] {
   return interpolatedPoints;
 }
 
-function buildCppContent(routeName: string, points: ExportPoint[]): string {
+function buildCppContent(namespaceName: string, pathName: string, routeHeaderName: string, points: ExportPoint[]): string {
   const radiansToDegrees = 180 / Math.PI;
   const rows = points.map((wp, index) => {
     const previousPoint = points[index - 1];
@@ -162,7 +185,7 @@ function buildCppContent(routeName: string, points: ExportPoint[]): string {
     return `    {${Math.round(wp.time * 1000)}, {${Math.round(wp.x * 50)}, ${Math.round(wp.y * 50)}, ${Math.round(wp.orientation * radiansToDegrees * 10)}}, ${Math.round(wp.velocity * 50)}, ${Math.round(wp.accel * 50)}, ${Math.round(wp.angularVelocity * radiansToDegrees * 20)}, ${Math.round(angularAcceleration * radiansToDegrees * 20)}}`;
   });
 
-  return `#include "motionprofile.h"\n\nconst size_t ${routeName}Size = ${points.length};\nconst ProfilePoint ${routeName}[] = {\n${rows.join(",\n")}\n};`;
+  return `#include "routes/${routeHeaderName}-trajectories.h"\n\nnamespace ${namespaceName} {\n\nconst size_t ${pathName}Size = ${points.length};\nconst ProfilePoint ${pathName}Path[] = {\n${rows.join(",\n")}\n};\n\n}`;
 }
 
 async function writeTextFile(directoryHandle: DirectoryHandleLike, fileName: string, contents: string) {
@@ -170,6 +193,22 @@ async function writeTextFile(directoryHandle: DirectoryHandleLike, fileName: str
   const writable = await fileHandle.createWritable();
   await writable.write(contents);
   await writable.close();
+}
+
+async function removePreviousExportFiles(directoryHandle: DirectoryHandleLike): Promise<void> {
+  const filesToRemove: string[] = [];
+
+  for await (const entry of directoryHandle.values()) {
+    if (entry.kind !== "file") continue;
+    const lowerName = entry.name.toLowerCase();
+    if (lowerName.endsWith(".cpp") || lowerName.endsWith(".json")) {
+      filesToRemove.push(entry.name);
+    }
+  }
+
+  for (const fileName of filesToRemove) {
+    await directoryHandle.removeEntry(fileName);
+  }
 }
 
 function validateNumber(value: unknown): value is number {
@@ -264,6 +303,7 @@ function parseExportPayload(rawText: string, fileName: string): ExportedPathFile
   return {
     version: parsed.version,
     pathName: parsed.pathName,
+    routeName: parsed.routeName,
     controlpoints: cloneControlPoints(parsed.controlpoints),
     sections: cloneSections(parsed.sections),
     flags: normalizeFlags(cloneFlags(parsed.flags)),
@@ -307,15 +347,19 @@ async function exportPathFolder(): Promise<void> {
     }
 
     await recomputeAllPaths();
+    await removePreviousExportFiles(directoryHandle);
 
     const exportablePaths = paths.filter((path) => path.controlpoints.length > 0);
     const baseNames = buildUniqueBaseNames(exportablePaths);
+    const pathNames = buildUniqueCppNames(baseNames);
+    const namespaceName = sanitizeCppIdentifier(routeName);
+    const routeHeaderName = sanitizeBaseName(routeName);
 
     for (let i = 0; i < exportablePaths.length; i++) {
       const path = exportablePaths[i];
       const baseName = baseNames[i];
-      const routeName = sanitizeCppIdentifier(baseName);
-      const cppContent = buildCppContent(routeName, interpolateExportPoints(path.pathpoints));
+      const pathName = pathNames[i];
+      const cppContent = buildCppContent(namespaceName, pathName, routeHeaderName, interpolateExportPoints(path.pathpoints));
       const jsonContent = JSON.stringify(createExportPayload(path), null, 2);
 
       await writeTextFile(directoryHandle, `${baseName}.cpp`, cppContent);
@@ -360,6 +404,7 @@ async function importPathFolder(): Promise<void> {
 
     const importedPaths: PathModel[] = [];
     let importedSettings: PersistedSettings | null = null;
+    let importedRouteName: string | null = null;
     const skippedFiles: string[] = [];
 
     for (const file of files) {
@@ -367,6 +412,9 @@ async function importPathFolder(): Promise<void> {
         const payload = parseExportPayload(await file.text(), file.name);
         if (!importedSettings) {
           importedSettings = payload.settings;
+        }
+        if (!importedRouteName && payload.routeName?.trim()) {
+          importedRouteName = payload.routeName.trim();
         }
         importedPaths.push(toPathModel(payload));
       } catch (error) {
@@ -381,6 +429,7 @@ async function importPathFolder(): Promise<void> {
     }
 
     applyPersistedSettings(importedSettings);
+    if (importedRouteName) setRouteName(importedRouteName);
     replaceEditorPaths(importedPaths, 0);
 
     if (skippedFiles.length > 0) {
