@@ -9,7 +9,6 @@ import "./drawing-mode";
 import {
   activePathIndex,
   PathModel,
-  applyPersistedSettings,
   controlPoint,
   FlagModel,
   getPersistedSettings,
@@ -23,10 +22,19 @@ import {
 import { computePathProfile } from "./path-profile";
 import { replaceEditorPaths } from "./canvas-interaction";
 
-const EXPORT_SCHEMA_VERSION = 4;
+const EXPORT_SCHEMA_VERSION = 6;
 const cursor = document.getElementById("cursorDot");
 
 type PersistedSettings = ReturnType<typeof getPersistedSettings>;
+
+type LegacyPersistedSettings = {
+  maxVelocity: number;
+  maxAcceleration: number;
+  maxDeceleration: number;
+  botWidth: number;
+  botLength: number;
+  trackWidth: number;
+};
 
 type ExportedPathFile = {
   version: number;
@@ -104,7 +112,7 @@ function createExportPayload(path: PathModel): ExportedPathFile {
     controlpoints: cloneControlPoints(path.controlpoints),
     sections: cloneSections(path.sections),
     flags: cloneExportFlags(path.flags),
-    settings: getPersistedSettings(),
+    settings: { ...path.settings },
   };
 }
 
@@ -182,7 +190,7 @@ function buildCppContent(namespaceName: string, pathName: string, routeHeaderNam
     const angularAcceleration = previousPoint && timeStep > 0
       ? (wp.angularVelocity - previousPoint.angularVelocity) / timeStep
       : 0;
-    return `    {${Math.round(wp.time * 1000)}, {${Math.round(wp.x * 50)}, ${Math.round(wp.y * 50)}, ${Math.round(wp.orientation * radiansToDegrees * 10)}}, ${Math.round(wp.velocity * 50)}, ${Math.round(wp.accel * 50)}, ${Math.round(wp.angularVelocity * radiansToDegrees * 20)}, ${Math.round(angularAcceleration * radiansToDegrees * 20)}}`;
+    return `    {${Math.round(wp.time * 1000)}, {${Math.round(wp.x * 50)}, ${Math.round(wp.y * 50)}, ${Math.round(wp.orientation * radiansToDegrees * 10)}}, ${Math.round(wp.velocity * 50)}, ${Math.round(wp.accel * 50)}, ${Math.round(wp.angularVelocity * radiansToDegrees * 20)}, ${Math.round(angularAcceleration * radiansToDegrees * 10)}}`;
   });
 
   return `#include "routes/${routeHeaderName}-trajectories.h"\n\nnamespace ${namespaceName} {\n\nconst size_t ${pathName}Size = ${points.length};\nconst ProfilePoint ${pathName}Path[] = {\n${rows.join(",\n")}\n};\n\n}`;
@@ -243,12 +251,52 @@ function validateSection(value: unknown): value is section {
 function validateSettings(value: unknown): value is PersistedSettings {
   if (!value || typeof value !== "object") return false;
   const settings = value as Partial<PersistedSettings>;
-  return validateNumber(settings.maxVelocity)
-    && validateNumber(settings.maxAcceleration)
+  return validateNumber(settings.maxLinearVelocity)
+    && settings.maxLinearVelocity > 0
+    && validateNumber(settings.maxTurnVelocity)
+    && settings.maxTurnVelocity > 0
+    && validateNumber(settings.linearTau)
+    && settings.linearTau > 0
+    && validateNumber(settings.turnTau)
+    && settings.turnTau > 0
+    && validateNumber(settings.saturation)
+    && settings.saturation >= 0
+    && settings.saturation <= 100
+    && (settings.maxAcceleration === undefined
+      || (validateNumber(settings.maxAcceleration) && settings.maxAcceleration > 0))
     && validateNumber(settings.maxDeceleration)
     && validateNumber(settings.botWidth)
     && validateNumber(settings.botLength)
     && validateNumber(settings.trackWidth);
+}
+
+function validateLegacySettings(value: unknown): value is LegacyPersistedSettings {
+  if (!value || typeof value !== "object") return false;
+  const settings = value as Partial<LegacyPersistedSettings>;
+  return validateNumber(settings.maxVelocity)
+    && settings.maxVelocity > 0
+    && validateNumber(settings.maxAcceleration)
+    && settings.maxAcceleration > 0
+    && validateNumber(settings.maxDeceleration)
+    && validateNumber(settings.botWidth)
+    && validateNumber(settings.botLength)
+    && validateNumber(settings.trackWidth);
+}
+
+function migrateLegacySettings(settings: LegacyPersistedSettings): PersistedSettings {
+  const tau = settings.maxVelocity / settings.maxAcceleration;
+  return {
+    maxLinearVelocity: settings.maxVelocity,
+    maxTurnVelocity: settings.maxVelocity,
+    linearTau: tau,
+    turnTau: tau,
+    saturation: 100,
+    maxAcceleration: settings.maxAcceleration,
+    maxDeceleration: settings.maxDeceleration,
+    botWidth: settings.botWidth,
+    botLength: settings.botLength,
+    trackWidth: settings.trackWidth,
+  };
 }
 
 function validateFlag(value: unknown): value is FlagModel {
@@ -281,7 +329,7 @@ function normalizeFlags(flags: FlagModel[]): FlagModel[] {
 function parseExportPayload(rawText: string, fileName: string): ExportedPathFile {
   const parsed = JSON.parse(rawText) as Partial<ExportedPathFile>;
 
-  if (parsed.version !== EXPORT_SCHEMA_VERSION) {
+  if (parsed.version !== 4 && parsed.version !== 5 && parsed.version !== EXPORT_SCHEMA_VERSION) {
     throw new Error(`${fileName}: unsupported schema version.`);
   }
   if (typeof parsed.pathName !== "string" || parsed.pathName.trim().length === 0) {
@@ -296,9 +344,12 @@ function parseExportPayload(rawText: string, fileName: string): ExportedPathFile
   if (!Array.isArray(parsed.flags) || !parsed.flags.every(validateFlag)) {
     throw new Error(`${fileName}: invalid flags.`);
   }
-  if (!validateSettings(parsed.settings)) {
-    throw new Error(`${fileName}: invalid settings.`);
-  }
+  const settings = parsed.version === 4
+    ? validateLegacySettings(parsed.settings) ? migrateLegacySettings(parsed.settings) : null
+    : validateSettings(parsed.settings)
+      ? { ...parsed.settings, maxAcceleration: parsed.settings.maxAcceleration ?? 75 }
+      : null;
+  if (!settings) throw new Error(`${fileName}: invalid settings.`);
 
   return {
     version: parsed.version,
@@ -307,7 +358,7 @@ function parseExportPayload(rawText: string, fileName: string): ExportedPathFile
     controlpoints: cloneControlPoints(parsed.controlpoints),
     sections: cloneSections(parsed.sections),
     flags: normalizeFlags(cloneFlags(parsed.flags)),
-    settings: parsed.settings,
+    settings,
   };
 }
 
@@ -318,6 +369,7 @@ function toPathModel(payload: ExportedPathFile): PathModel {
     sections: cloneSections(payload.sections),
     pathpoints: [],
     flags: normalizeFlags(cloneFlags(payload.flags)),
+    settings: { ...payload.settings },
   };
 }
 
@@ -428,7 +480,6 @@ async function importPathFolder(): Promise<void> {
       return;
     }
 
-    applyPersistedSettings(importedSettings);
     if (importedRouteName) setRouteName(importedRouteName);
     replaceEditorPaths(importedPaths, 0);
 

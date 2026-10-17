@@ -43,34 +43,15 @@
               </div>
             </div>
             <div id="menu">
-              <div id="botconfig">
-                <div class="field">
-                  <label for="botlen">Bot width:</label>
-                  <input type="number" id="botwidth" value="13.5" />
-                </div>
-                <div class="field">
-                  <label for="botwidth">Bot length:</label>
-                  <input type="number" id="botlen" value="15" />
-                </div>
-                <div class="field">
-                  <label for="trackwidth">Track width:</label>
-                  <input type="number" id="trackwidth" value="10.5" />
-                </div>
-              </div>
-              <div id="botconfig">
-                <div class="field">
-                  <label for="maxaccel">Max Acceleration:</label>
-                  <input type="number" id="maxaccel" value="100" />
-                </div>
-                <div class="field">
-                  <label for="maxdecel">Max Deceleration:</label>
-                  <input type="number" id="maxdecel" value="120" />
-                </div>
-                <div class="field">
-                  <label for="maxvel">Max Velocity:</label>
-                  <input type="number" id="maxvel" value="80" />
-                </div>
-              </div>
+              <dl class="robot-config-stats" aria-label="Current robot configuration">
+                <div><dt>Max robot speed</dt><dd id="robot-max-speed">—</dd></div>
+                <div><dt>Max turn speed</dt><dd id="robot-turn-speed">—</dd></div>
+                <div><dt>Saturation</dt><dd id="robot-saturation">—</dd></div>
+                <div><dt>Track width</dt><dd id="robot-track-width">—</dd></div>
+                <div><dt>Max acceleration</dt><dd id="robot-max-acceleration">—</dd></div>
+                <div><dt>Max deceleration</dt><dd id="robot-max-deceleration">—</dd></div>
+              </dl>
+              <button id="edit-robot-config" type="button">Edit Config</button>
             </div>
             <div id="file-actions">
               <button id="saveCpp">Export Paths</button>
@@ -104,7 +85,7 @@
                 <div id="end-time-label" class="graph-label">0.00</div>
 
                 <!-- Velocity Markings -->
-                <div id="velocity-max-label" class="graph-label">60</div>
+                <div id="velocity-max-label" class="graph-label">70</div>
                 <div id="velocity-zero-label" class="graph-label">0</div>
                 <!-- For max velocity -->
               </div>
@@ -174,6 +155,37 @@
         <div class="modal-actions">
           <button id="path-name-cancel" class="modal-button secondary" type="button">Cancel</button>
           <button id="path-name-save" class="modal-button" type="button">Save</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="robot-config-modal" class="modal is-hidden" role="dialog" aria-modal="true" aria-labelledby="robot-config-title">
+      <div class="modal-scrim" id="robot-config-scrim"></div>
+      <div class="modal-card robot-config-card">
+        <h2 id="robot-config-title">Edit robot config</h2>
+        <p id="robot-config-error" class="modal-error" role="alert" aria-live="polite"></p>
+        <div class="robot-config-fields">
+          <section aria-labelledby="robot-dimensions-title">
+            <h3 id="robot-dimensions-title">Robot dimensions</h3>
+            <div class="field"><label for="botwidth">Bot width (in)</label><input type="number" id="botwidth" min="0.01" step="0.01" required /></div>
+            <div class="field"><label for="botlen">Bot length (in)</label><input type="number" id="botlen" min="0.01" step="0.01" required /></div>
+            <div class="field"><label for="trackwidth">Track width (in)</label><input type="number" id="trackwidth" min="0.01" step="0.01" required /></div>
+          </section>
+          <section aria-labelledby="motion-limits-title">
+            <h3 id="motion-limits-title">Motion limits</h3>
+            <div class="field"><label for="maxlinearvel">Max linear velocity (in/s)</label><input type="number" id="maxlinearvel" min="0.01" step="0.01" required /></div>
+            <div class="field"><label for="maxaccel">Max acceleration (in/s²)</label><input type="number" id="maxaccel" min="0.01" step="0.01" required /></div>
+            <div class="field"><label for="maxdecel">Max deceleration (in/s²)</label><input type="number" id="maxdecel" min="0.01" step="0.01" required /></div>
+            <div class="field"><label for="maxturnvel">Max turn wheel velocity (in/s)</label><input type="number" id="maxturnvel" min="0.01" step="0.01" required /></div>
+            <div class="field"><label for="lineartau">Linear tau (s)</label><input type="number" id="lineartau" min="0.01" step="0.01" required /></div>
+            <div class="field"><label for="turntau">Turn tau (s)</label><input type="number" id="turntau" min="0.01" step="0.01" required /></div>
+            <div class="field"><label for="saturation">Saturation (%)</label><input type="number" id="saturation" min="0" max="100" step="1" required /></div>
+          </section>
+        </div>
+        <div class="modal-actions">
+          <button id="robot-config-cancel" class="modal-button secondary" type="button">Cancel</button>
+          <button id="robot-config-apply-all" class="modal-button" type="button">Apply to all paths</button>
+          <button id="robot-config-save" class="modal-button" type="button">Save</button>
         </div>
       </div>
     </div>

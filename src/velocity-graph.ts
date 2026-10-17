@@ -1,7 +1,7 @@
-export let GRAPHMODE = "time";
+export let GRAPHMODE: "time" | "distance" = "time";
 
 import { redrawCanvas } from "./field-renderer";
-import { bot, flags, graph, MAX_VELOCITY, overlay, pathpoints, sections } from "./editor-state";
+import { bot, flags, getSaturatedLinearVelocityCap, graph, overlay, pathpoints, sections } from "./editor-state";
 import { getDerivedFlagPlacement, getPathDistanceForTime, sortFlagsByDerivedTime } from "./path-flags";
 import {
   clearSelectedSegment,
@@ -83,11 +83,37 @@ function syncGraphCanvasSize() {
 
 function getDomainMax(): number {
   if (pathpoints.length === 0) return 0;
-  return pathpoints[pathpoints.length - 1].time;
+  return GRAPHMODE === "distance"
+    ? pathpoints[pathpoints.length - 1].dist
+    : pathpoints[pathpoints.length - 1].time;
 }
 
 function getXValueAtPoint(index: number): number {
-  return pathpoints[index].time;
+  return GRAPHMODE === "distance" ? pathpoints[index].dist : pathpoints[index].time;
+}
+
+function getDomainValueForTime(time: number): number {
+  return GRAPHMODE === "distance" ? getPathDistanceForTime(time, pathpoints) : time;
+}
+
+function getTimeForDomainValue(domainValue: number): number {
+  if (GRAPHMODE === "time") return domainValue;
+
+  const maxDistance = getDomainMax();
+  const distance = clamp(domainValue, 0, maxDistance);
+  for (let index = 1; index < pathpoints.length; index++) {
+    const previous = pathpoints[index - 1];
+    const current = pathpoints[index];
+    if (distance > current.dist) continue;
+
+    const distanceSpan = current.dist - previous.dist;
+    if (distanceSpan <= 1e-9) return current.time;
+
+    const ratio = (distance - previous.dist) / distanceSpan;
+    return previous.time + (current.time - previous.time) * clamp(ratio, 0, 1);
+  }
+
+  return pathpoints.length > 0 ? pathpoints[pathpoints.length - 1].time : 0;
 }
 
 function getViewDomain(): ViewWindow {
@@ -181,7 +207,7 @@ function getSortedFlags() {
   return sorted;
 }
 
-function getGraphLayout(height: number, width: number, flagCount: number): GraphLayout {
+function getGraphLayout(height: number, width: number): GraphLayout {
   const flagsHeight = Math.max(MIN_FLAG_AREA_HEIGHT, FLAG_LANE_HEIGHT + 12);
   const mainHeight = Math.max(120, height - MAIN_GRAPH_TOP - flagsHeight - MAIN_GRAPH_BOTTOM_GAP);
 
@@ -367,7 +393,9 @@ function drawFlags(ctx: CanvasRenderingContext2D, layout: GraphLayout) {
 
   const draggedFlag = draggedFlagId ? sortedFlags.find((flag) => flag.id === draggedFlagId) : null;
   if (draggedFlag) {
-    const dragX = domainToX(getDerivedFlagPlacement(draggedFlag, sections, pathpoints).time, layout.width);
+    const placement = getDerivedFlagPlacement(draggedFlag, sections, pathpoints);
+    const dragDomainValue = GRAPHMODE === "distance" ? placement.clampedPathDistance : placement.time;
+    const dragX = domainToX(dragDomainValue, layout.width);
     drawLine(
       ctx,
       { x: dragX, y: layout.mainTop },
@@ -379,7 +407,9 @@ function drawFlags(ctx: CanvasRenderingContext2D, layout: GraphLayout) {
 
   for (const flag of drawOrder) {
     const flagIndex = sortedFlags.findIndex((candidate) => candidate.id === flag.id);
-    const x = domainToX(getDerivedFlagPlacement(flag, sections, pathpoints).time, layout.width);
+    const placement = getDerivedFlagPlacement(flag, sections, pathpoints);
+    const flagDomainValue = GRAPHMODE === "distance" ? placement.clampedPathDistance : placement.time;
+    const x = domainToX(flagDomainValue, layout.width);
     const isSelected = flag.id === selectedFlagId;
     const isHovered = flag.id === hoveredFlagId;
     const centerY = getFlagCenterY(layout, isSelected);
@@ -404,12 +434,12 @@ export function plot() {
   const ctx = graph.getContext("2d")!;
   const width = graph.width;
   const height = graph.height;
-  const layout = getGraphLayout(height, width, flags.length);
+  const layout = getGraphLayout(height, width);
 
   redrawGrid(ctx, layout);
 
   const view = getViewDomain();
-  const maxVelocity = Math.round(MAX_VELOCITY);
+  const maxVelocity = Math.round(getSaturatedLinearVelocityCap());
   const maxAngVel = 5;
   const minAngVel = -5;
 
@@ -437,7 +467,7 @@ export function plot() {
 
   startTimeLabel.textContent = view.start.toFixed(2);
   endTimeLabel.textContent = view.end.toFixed(2);
-  unitlabel.textContent = "TIME (S)";
+  unitlabel.textContent = GRAPHMODE === "distance" ? "DISTANCE (IN)" : "TIME (S)";
 
   const velocityMaxLabel = document.getElementById("velocity-max-label") as HTMLDivElement;
   velocityMaxLabel.textContent = `${maxVelocity.toFixed(0)}`;
@@ -544,7 +574,7 @@ function renderProbeAtWithOptions(
 ) {
   if (pathpoints.length === 0) return;
 
-  const layout = getGraphLayout(rect.height, rect.width, flags.length);
+  const layout = getGraphLayout(rect.height, rect.width);
   const xPx = domainToX(domainValue, rect.width);
   const yPx = clamp(yRatio, 0, 1) * rect.height;
 
@@ -559,7 +589,7 @@ function renderProbeAtWithOptions(
     drawLine(overlayCtx, { x: 0, y: yPx }, { x: overlay.width, y: yPx }, "red");
   }
 
-  const time = clamp(domainValue, 0, getDomainMax());
+  const time = getTimeForDomainValue(domainValue);
   const displayedVel = getInterpolatedPathState(time);
   updateGraphReadout(time, displayedVel);
   redrawCanvas();
@@ -607,12 +637,14 @@ function getFlagHitTarget(clientX: number, clientY: number): { id: string } | nu
   const rect = graph.getBoundingClientRect();
   const x = clientX - rect.left;
   const y = clientY - rect.top;
-  const layout = getGraphLayout(rect.height, rect.width, flags.length);
+  const layout = getGraphLayout(rect.height, rect.width);
   const sortedFlags = getSortedFlags();
 
   const hitCandidates = sortedFlags.filter((flag) => {
     const isSelected = flag.id === selectedFlagId;
-    const markerX = domainToX(getDerivedFlagPlacement(flag, sections, pathpoints).time, rect.width);
+    const placement = getDerivedFlagPlacement(flag, sections, pathpoints);
+    const markerDomainValue = GRAPHMODE === "distance" ? placement.clampedPathDistance : placement.time;
+    const markerX = domainToX(markerDomainValue, rect.width);
     const markerY = getFlagCenterY(layout, isSelected);
     return Math.abs(x - markerX) <= FLAG_MARKER_WIDTH / 2 + 4 && Math.abs(y - markerY) <= FLAG_MARKER_HEIGHT / 2 + 4;
   });
@@ -675,7 +707,8 @@ function handleMouseMove(e: MouseEvent) {
   if (draggedFlagId) {
     const rect = graph.getBoundingClientRect();
     const max = getDomainMax();
-    const nextTime = clamp(xToDomain(e.clientX - rect.left, rect.width), 0, max);
+    const nextDomainValue = clamp(xToDomain(e.clientX - rect.left, rect.width), 0, max);
+    const nextTime = getTimeForDomainValue(nextDomainValue);
 
     if (!flagDragHistoryCaptured) {
       document.dispatchEvent(new CustomEvent("capture-editor-history"));
@@ -735,8 +768,7 @@ function renderPlaybackAtTime(time: number) {
   overlayCtx.clearRect(0, 0, overlay.width, overlay.height);
   const displayedVel = getInterpolatedPathState(clampedTime);
   updateGraphReadout(clampedTime, displayedVel);
-  const playbackTotalTime = Math.max(pathpoints[pathpoints.length - 1].time, 1e-9);
-  const playbackX = (clampedTime / playbackTotalTime) * overlay.width;
+  const playbackX = domainToX(getDomainValueForTime(clampedTime), overlay.width);
   drawLine(overlayCtx, { x: playbackX, y: 0 }, { x: playbackX, y: overlay.height }, "red");
   redrawCanvas();
   return;
@@ -961,7 +993,9 @@ document.addEventListener("mousemove", (e: MouseEvent) => {
 
 export function getPreferredNewFlagDistance() {
   if (lockedGraphProbe) {
-    return getPathDistanceForTime(lockedGraphProbe.domainValue, pathpoints);
+    return GRAPHMODE === "distance"
+      ? lockedGraphProbe.domainValue
+      : getPathDistanceForTime(lockedGraphProbe.domainValue, pathpoints);
   }
   if (pathpoints.length === 0) return 0;
   return pathpoints[pathpoints.length - 1].dist;

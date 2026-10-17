@@ -29,9 +29,17 @@ setFieldBackgroundMode(FIELD_BACKGROUND_MODE);
 // Constants (all distances in inches)
 export const FIELD_WIDTH_INCHES = 144;
 export const FIELD_HEIGHT_INCHES = 144;
-export let MAX_VELOCITY = 60;         // Maximum velocity in inches per second
-export let MAX_ACCELERATION = 70;      // Maximum acceleration in inches per second squared
-export let MAX_DECELERATION = 70;      // Maximum deceleration in inches per second squared
+export let MAX_LINEAR_VELOCITY = 75;   // Straight-line wheel velocity in inches per second
+export let MAX_TURN_VELOCITY = 55;     // Turning wheel velocity in inches per second
+export let LINEAR_TAU = 0.25;          // Seconds
+export let TURN_TAU = 0.2;             // Seconds
+export let SATURATION = 80;            // Percent
+export let MAX_ACCELERATION = 75;      // Maximum acceleration in inches per second squared
+export let MAX_DECELERATION = 75;      // Maximum deceleration in inches per second squared
+
+export function getSaturatedLinearVelocityCap(): number {
+    return MAX_LINEAR_VELOCITY * clamp(SATURATION / 100, 0, 1);
+}
 
 export let top = -FIELD_HEIGHT_INCHES / 2;
 export let left = -FIELD_WIDTH_INCHES / 2;
@@ -139,8 +147,12 @@ export let STATE = "Waypoints"
 
 export const totalInterp = 1000;
 
-type PersistedSettings = {
-    maxVelocity: number;
+export type PersistedSettings = {
+    maxLinearVelocity: number;
+    maxTurnVelocity: number;
+    linearTau: number;
+    turnTau: number;
+    saturation: number;
     maxAcceleration: number;
     maxDeceleration: number;
     botWidth: number;
@@ -150,9 +162,13 @@ type PersistedSettings = {
 
 function getSettingsInputs() {
     return {
-        maxaccelInput: document.getElementById("maxaccel") as HTMLInputElement | null,
         maxdecelInput: document.getElementById("maxdecel") as HTMLInputElement | null,
-        maxvelInput: document.getElementById("maxvel") as HTMLInputElement | null,
+        maxAccelInput: document.getElementById("maxaccel") as HTMLInputElement | null,
+        maxLinearVelocityInput: document.getElementById("maxlinearvel") as HTMLInputElement | null,
+        maxTurnVelocityInput: document.getElementById("maxturnvel") as HTMLInputElement | null,
+        linearTauInput: document.getElementById("lineartau") as HTMLInputElement | null,
+        turnTauInput: document.getElementById("turntau") as HTMLInputElement | null,
+        saturationInput: document.getElementById("saturation") as HTMLInputElement | null,
         lenInput: document.getElementById("botlen") as HTMLInputElement | null,
         widthInput: document.getElementById("botwidth") as HTMLInputElement | null,
         trackWidthInput: document.getElementById("trackwidth") as HTMLInputElement | null,
@@ -161,7 +177,11 @@ function getSettingsInputs() {
 
 export function getPersistedSettings(): PersistedSettings {
     return {
-        maxVelocity: MAX_VELOCITY,
+        maxLinearVelocity: MAX_LINEAR_VELOCITY,
+        maxTurnVelocity: MAX_TURN_VELOCITY,
+        linearTau: LINEAR_TAU,
+        turnTau: TURN_TAU,
+        saturation: SATURATION,
         maxAcceleration: MAX_ACCELERATION,
         maxDeceleration: MAX_DECELERATION,
         botWidth: bot.width,
@@ -172,24 +192,54 @@ export function getPersistedSettings(): PersistedSettings {
 
 export function syncSettingsInputs() {
     const {
-        maxaccelInput,
         maxdecelInput,
-        maxvelInput,
+        maxAccelInput,
+        maxLinearVelocityInput,
+        maxTurnVelocityInput,
+        linearTauInput,
+        turnTauInput,
+        saturationInput,
         lenInput,
         widthInput,
         trackWidthInput,
     } = getSettingsInputs();
 
-    if (maxaccelInput) maxaccelInput.value = String(MAX_ACCELERATION);
     if (maxdecelInput) maxdecelInput.value = String(MAX_DECELERATION);
-    if (maxvelInput) maxvelInput.value = String(MAX_VELOCITY);
+    if (maxAccelInput) maxAccelInput.value = String(MAX_ACCELERATION);
+    if (maxLinearVelocityInput) maxLinearVelocityInput.value = String(MAX_LINEAR_VELOCITY);
+    if (maxTurnVelocityInput) maxTurnVelocityInput.value = String(MAX_TURN_VELOCITY);
+    if (linearTauInput) linearTauInput.value = String(LINEAR_TAU);
+    if (turnTauInput) turnTauInput.value = String(TURN_TAU);
+    if (saturationInput) saturationInput.value = String(SATURATION);
     if (lenInput) lenInput.value = String(bot.length);
     if (widthInput) widthInput.value = String(bot.width);
     if (trackWidthInput) trackWidthInput.value = String(bot.trackwidth);
+    syncSettingsSummary();
+}
+
+function syncSettingsSummary() {
+    const formatNumber = (value: number) => Number(value.toFixed(2)).toString();
+    const maxSpeed = document.getElementById("robot-max-speed");
+    const turnSpeed = document.getElementById("robot-turn-speed");
+    const saturation = document.getElementById("robot-saturation");
+    const maxAcceleration = document.getElementById("robot-max-acceleration");
+    const maxDeceleration = document.getElementById("robot-max-deceleration");
+    const trackWidth = document.getElementById("robot-track-width");
+
+    if (maxSpeed) maxSpeed.textContent = `${formatNumber(MAX_LINEAR_VELOCITY)} in/s`;
+    if (turnSpeed) turnSpeed.textContent = `${formatNumber(MAX_TURN_VELOCITY)} in/s`;
+    if (saturation) saturation.textContent = `${formatNumber(SATURATION)}%`;
+    if (maxAcceleration) maxAcceleration.textContent = `${formatNumber(MAX_ACCELERATION)} in/s²`;
+    if (maxDeceleration) maxDeceleration.textContent = `${formatNumber(MAX_DECELERATION)} in/s²`;
+    if (trackWidth) trackWidth.textContent = `${formatNumber(bot.trackwidth)} in`;
 }
 
 export function applyPersistedSettings(settings: PersistedSettings) {
-    MAX_VELOCITY = settings.maxVelocity;
+    MAX_LINEAR_VELOCITY = settings.maxLinearVelocity;
+    MAX_TURN_VELOCITY = settings.maxTurnVelocity;
+    LINEAR_TAU = settings.linearTau;
+    TURN_TAU = settings.turnTau;
+    SATURATION = settings.saturation;
     MAX_ACCELERATION = settings.maxAcceleration;
     MAX_DECELERATION = settings.maxDeceleration;
     bot.width = settings.botWidth;
@@ -198,45 +248,93 @@ export function applyPersistedSettings(settings: PersistedSettings) {
     syncSettingsInputs();
 }
 
+export function updateActivePathSettings(settings: PersistedSettings) {
+    const active = getActivePath();
+    active.settings = { ...settings };
+    applyPersistedSettings(active.settings);
+}
+
+export function updateAllPathSettings(settings: PersistedSettings) {
+    for (const path of paths) {
+        path.settings = { ...settings };
+    }
+    applyPersistedSettings(settings);
+}
+
+function readSettingsInputs(): PersistedSettings | null {
+    const inputs = getSettingsInputs();
+    const allInputs = Object.values(inputs);
+    if (allInputs.some((input) => !input || !input.checkValidity())) return null;
+
+    const values = allInputs.map((input) => Number(input!.value));
+    if (values.some((value) => !Number.isFinite(value))) return null;
+
+    const [maxDeceleration, maxAcceleration, maxLinearVelocity, maxTurnVelocity, linearTau, turnTau, saturation, botLength, botWidth, trackWidth] = values;
+    return { maxLinearVelocity, maxTurnVelocity, linearTau, turnTau, saturation, maxAcceleration, maxDeceleration, botWidth, botLength, trackWidth };
+}
+
 
 document.addEventListener("DOMContentLoaded", () => {
-    const {
-        maxaccelInput,
-        maxdecelInput,
-        maxvelInput,
-        lenInput,
-        widthInput,
-        trackWidthInput,
-    } = getSettingsInputs();
+    const editButton = document.getElementById("edit-robot-config") as HTMLButtonElement | null;
+    const modal = document.getElementById("robot-config-modal") as HTMLDivElement | null;
+    const scrim = document.getElementById("robot-config-scrim") as HTMLDivElement | null;
+    const saveButton = document.getElementById("robot-config-save") as HTMLButtonElement | null;
+    const applyAllButton = document.getElementById("robot-config-apply-all") as HTMLButtonElement | null;
+    const cancelButton = document.getElementById("robot-config-cancel") as HTMLButtonElement | null;
+    const error = document.getElementById("robot-config-error") as HTMLParagraphElement | null;
 
     syncSettingsInputs();
 
-    maxaccelInput?.addEventListener("input", () => {
-        MAX_ACCELERATION = Number(maxaccelInput.value);
-        computePathProfile();
-    });
+    const closeModal = () => {
+        modal?.classList.add("is-hidden");
+        if (error) error.textContent = "";
+        editButton?.focus();
+    };
 
-    maxdecelInput?.addEventListener("input", () => {
-        MAX_DECELERATION = Number(maxdecelInput.value);
-        computePathProfile();
-    });
+    const openModal = () => {
+        syncSettingsInputs();
+        if (error) error.textContent = "";
+        modal?.classList.remove("is-hidden");
+        (document.getElementById("botwidth") as HTMLInputElement | null)?.focus();
+    };
 
-    maxvelInput?.addEventListener("input", () => {
-        MAX_VELOCITY = Number(maxvelInput.value);
+    const saveSettings = () => {
+        const settings = readSettingsInputs();
+        if (!settings) {
+            if (error) error.textContent = "Enter a valid value for every setting.";
+            return;
+        }
+        updateActivePathSettings(settings);
         computePathProfile();
-    });
+        document.dispatchEvent(new CustomEvent("drawpath", { detail: { controlpoints } }));
+        closeModal();
+    };
 
-    lenInput?.addEventListener("input", () => {
-        bot.length = Number(lenInput.value);
-    });
-    widthInput?.addEventListener("input", () => {
-        bot.width = Number(widthInput.value);
-        computePathProfile();
-    });
+    const applyAllSettings = () => {
+        const settings = readSettingsInputs();
+        if (!settings) {
+            if (error) error.textContent = "Enter a valid value for every setting.";
+            return;
+        }
+        const currentPathIndex = activePathIndex;
+        updateAllPathSettings(settings);
+        for (let index = 0; index < paths.length; index++) {
+            setActivePathIndex(index);
+            computePathProfile();
+        }
+        setActivePathIndex(currentPathIndex);
+        document.dispatchEvent(new CustomEvent("drawpath", { detail: { controlpoints } }));
+        closeModal();
+    };
 
-    trackWidthInput?.addEventListener("input", () => {
-        bot.trackwidth = Number(trackWidthInput.value);
-        computePathProfile();
+    editButton?.addEventListener("click", openModal);
+    saveButton?.addEventListener("click", saveSettings);
+    applyAllButton?.addEventListener("click", applyAllSettings);
+    cancelButton?.addEventListener("click", closeModal);
+    scrim?.addEventListener("click", closeModal);
+    modal?.addEventListener("keydown", (event) => {
+        if (event.key === "Escape") closeModal();
+        if (event.key === "Enter" && event.target instanceof HTMLInputElement) saveSettings();
     });
 });
 
@@ -253,8 +351,6 @@ export interface pathPoint {
     rev: boolean;
 
     curvature: number;
-    curvaturePrime: number; //derivative of curvature
-
 
     leftdist: number; //from prev to curr point distance
     leftx: number;
@@ -314,6 +410,7 @@ export interface PathModel {
     sections: section[];
     pathpoints: pathPoint[];
     flags: FlagModel[];
+    settings: PersistedSettings;
 }
 
 export function createPathModel(name: string): PathModel {
@@ -323,6 +420,7 @@ export function createPathModel(name: string): PathModel {
         sections: [],
         pathpoints: [],
         flags: [],
+        settings: getPersistedSettings(),
     };
 }
 
@@ -363,6 +461,8 @@ export function setActivePathIndex(index: number) {
     const nextIndex = Math.max(0, Math.min(index, paths.length - 1));
     activePathIndex = nextIndex;
     syncActivePathRefs();
+    const active = getActivePath();
+    if (active.settings) applyPersistedSettings(active.settings);
 }
 
 export function replacePaths(nextPaths: PathModel[]) {

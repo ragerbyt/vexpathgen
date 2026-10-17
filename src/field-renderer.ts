@@ -1,6 +1,6 @@
 import { Point } from "chart.js";
 import {  pathpoints } from "./editor-state";
-import { canvas, MAX_VELOCITY, ctx, background, FIELD_HEIGHT_INCHES, FIELD_WIDTH_INCHES } from "./editor-state";
+import { canvas, getSaturatedLinearVelocityCap, ctx, background, FIELD_HEIGHT_INCHES, FIELD_WIDTH_INCHES } from "./editor-state";
 import { controlpoints, pathPoint, controlPoint, sections } from "./editor-state";
 import { fieldToCanvasX, fieldToCanvasY, getFieldView } from "./editor-state";
 import { hoveredSegmentRange, selectedSegmentRange } from "./interaction-state";
@@ -120,7 +120,7 @@ document.getElementById("hidePoints")?.addEventListener("click", () => {
 function velocityToColor(velocity: number): string {
   velocity = Math.abs(velocity)
   const minVel = 0;
-  const maxVel = MAX_VELOCITY;
+  const maxVel = getSaturatedLinearVelocityCap();
   let norm = (velocity - minVel) / (maxVel - minVel);
   norm = Math.max(0, Math.min(1, norm));
   const r = Math.round(255 * (1 - norm));

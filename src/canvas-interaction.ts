@@ -24,7 +24,7 @@ const state = false;
 const pointdisplay = document.getElementById("point-coordinates") as HTMLDivElement | null;
 
 import { computePathProfile } from "./path-profile";
-import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView, FIELD_WIDTH_INCHES, flags, MAX_VELOCITY, routeName, setRouteName } from "./editor-state";
+import { canvas, controlpoints, sections, pathpoints, paths, activePathIndex, createPathModel, getActivePath, replacePaths, setActivePathIndex, PathModel, resetFieldView, FIELD_WIDTH_INCHES, flags, MAX_LINEAR_VELOCITY, routeName, setRouteName } from "./editor-state";
 import { canvasToFieldX, canvasToFieldY, getFieldView, panFieldView, zoomFieldView } from "./editor-state";
 import { clampFlagPathDistance, sortFlagsByDerivedTime } from "./path-flags";
 import { clearFlagState, clearSegmentState, clearSelectedSegment, deselectSegment, hoveredFlagId, hoveredSegmentIndex, refreshSegmentRanges, resetsegment, selectSegment, selectedFlagId, selectedSegmentIndex, setHoveredFlag, setSelectedFlag, setSelectedSegment } from "./interaction-state";
@@ -433,7 +433,7 @@ function normalizeFlag(flag: FlagModel, pathpointList = pathpoints): FlagModel {
       : pathDistance,
     type: flag.type ?? "string",
     label: flag.label ?? "",
-    velocityLimit: flag.type === "velocity" ? (flag.velocityLimit ?? MAX_VELOCITY) : null,
+    velocityLimit: flag.type === "velocity" ? (flag.velocityLimit ?? MAX_LINEAR_VELOCITY) : null,
   };
 }
 
@@ -1201,7 +1201,7 @@ function buildFlagEntry(pathIndex: number, flag: FlagModel, flagIndex: number): 
   input.className = "flag-input";
   input.type = flag.type === "velocity" ? "number" : "text";
   input.placeholder = flag.type === "velocity" ? "Velocity limit" : "Flag code";
-  input.value = flag.type === "velocity" ? String(flag.velocityLimit ?? MAX_VELOCITY) : flag.label;
+  input.value = flag.type === "velocity" ? String(flag.velocityLimit ?? MAX_LINEAR_VELOCITY) : flag.label;
 
   let committedValue = input.value;
   let inputHistoryCaptured = false;
@@ -1225,7 +1225,7 @@ function buildFlagEntry(pathIndex: number, flag: FlagModel, flagIndex: number): 
     captureHistoryState();
     flag.type = typeSelect.value === "velocity" ? "velocity" : "string";
     if (flag.type === "velocity") {
-      flag.velocityLimit = flag.velocityLimit ?? MAX_VELOCITY;
+      flag.velocityLimit = flag.velocityLimit ?? MAX_LINEAR_VELOCITY;
       input.type = "number";
       input.placeholder = "Velocity limit";
       input.value = String(flag.velocityLimit);
@@ -1269,7 +1269,7 @@ function buildFlagEntry(pathIndex: number, flag: FlagModel, flagIndex: number): 
     committedValue = input.value;
     if (flag.type === "velocity") {
       const nextValue = Number(input.value);
-      flag.velocityLimit = Number.isFinite(nextValue) ? nextValue : MAX_VELOCITY;
+      flag.velocityLimit = Number.isFinite(nextValue) ? nextValue : MAX_LINEAR_VELOCITY;
       input.value = String(flag.velocityLimit);
       dispatchPathGeneration();
       plot();

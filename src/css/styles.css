@@ -134,12 +134,37 @@ body {
   font-size: 0.9rem;
 }
 
-/* Bot Config Row */
-#botconfig {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  align-items: stretch;
+#edit-robot-config {
+  width: 100%;
+}
+
+.robot-config-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem 0.5rem;
+  margin: 0;
+}
+
+.robot-config-stats div {
+  min-width: 0;
+}
+
+.robot-config-stats .robot-size-stat {
+  grid-column: 1 / -1;
+}
+
+.robot-config-stats dt {
+  font-size: 0.76rem;
+  color: rgba(255, 255, 255, 0.6);
+}
+
+.robot-config-stats dd {
+  margin: 0.15rem 0 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .field {
@@ -762,6 +787,39 @@ input:checked + .slider:before {
   margin: 0;
   color: rgba(255, 255, 255, 0.78);
   line-height: 1.4;
+}
+
+.robot-config-card {
+  max-width: 520px;
+  width: min(92vw, 520px);
+  max-height: min(88vh, 720px);
+}
+
+.robot-config-fields {
+  overflow-y: auto;
+  display: grid;
+  gap: 18px;
+  padding-right: 4px;
+}
+
+.robot-config-fields section {
+  display: grid;
+  gap: 10px;
+}
+
+.robot-config-fields h3 {
+  margin: 0;
+  font-size: 0.9rem;
+  color: rgba(255, 255, 255, 0.75);
+}
+
+.robot-config-fields .field {
+  gap: 0.35rem;
+}
+
+.modal-error {
+  min-height: 1.25rem;
+  color: #ff9e9e !important;
 }
 
 .modal-actions {
